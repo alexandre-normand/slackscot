@@ -32,13 +32,8 @@ func (a Action) String() string {
 
 type ActionFunc func(*slack.Message) string
 
-type Slackscot interface {
-	// Initialize the slackscot's behavior. Returns commands and listeners that define what
-	// this slackscot is about
-	Init(config.Configuration) (commands []Action, listeners []Action, err error)
-
-	// Close is invoked on shutdown to release resources
-	Close()
+type Slackscot struct {
+	bundles []ExtentionBundle
 }
 
 type ExtentionBundle interface {
@@ -55,6 +50,10 @@ var hearActions actionList
 var commands actionList
 
 type actionList []Action
+
+func NewSlackscot(bundles []ExtentionBundle) (bot *Slackscot) {
+	return &Slackscot{bundles: bundles}
+}
 
 func (a actionList) handle(message *slack.Message, command bool) bool {
 	handled := false
@@ -172,10 +171,22 @@ func Run(slackscot Slackscot, config config.Configuration) (err error) {
 	}
 
 	// Register all commands and listeners
-	commands, listeners, err := slackscot.Init(config)
-	if err != nil {
-		return err
+
+	var commands []Action
+	var listeners []Action
+
+	for _, b := range slackscot.bundles {
+		c, l, err := b.Init(config)
+		if err != nil {
+			return err
+		}
+
+		commands = append(commands, c...)
+		listeners = append(listeners, l...)
 	}
+
+	// Register the close of resources when the process terminates
+	defer Close(slackscot)
 
 	for _, c := range commands {
 		registerCommand(c)
@@ -188,4 +199,10 @@ func Run(slackscot Slackscot, config config.Configuration) (err error) {
 	slack.EventProcessor(conn, onAskedMessage, onHeardMessage)
 
 	return nil
+}
+
+func Close(slackscot Slackscot) {
+	for _, b := range slackscot.bundles {
+		b.Close()
+	}
 }
