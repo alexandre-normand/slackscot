@@ -1,6 +1,8 @@
 Slackscot
 =========
 
+[![GoDoc](https://godoc.org/github.com/alexandre-normand/slackscot?status.svg)](https://godoc.org/github.com/alexandre-normand/slackscot) 
+
 Slackscot is a simple [slack](https://slack.com) bot written in Go. It uses [Slack RTM API Integration](https://github.com/james-bowman/slack) written by [James Bowman](https://github.com/james-bowman). The core functionality of the bot is also heavily inspired by [talbot](https://github.com/james-bowman/talbot), also written by [James Bowman](https://github.com/james-bowman). 
 
 The Name
