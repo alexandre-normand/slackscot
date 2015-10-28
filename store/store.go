@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/mitchellh/go-homedir"
 	"github.com/syndtr/goleveldb/leveldb"
 	"path/filepath"
 )
@@ -11,7 +12,13 @@ type Store struct {
 }
 
 func NewStore(name string, storagePath string) (store *Store, err error) {
-	db, err := leveldb.OpenFile(filepath.Join(storagePath, name), nil)
+	// Expand '~' as the full home directory path if appropriate
+	path, err := homedir.Expand(storagePath)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := leveldb.OpenFile(filepath.Join(path, name), nil)
 
 	if err != nil {
 		return nil, err
