@@ -3,9 +3,9 @@ package brain
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/alexandre-normand/slack"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
-	"github.com/james-bowman/slack"
 	"io/ioutil"
 	"log"
 	"math/rand"

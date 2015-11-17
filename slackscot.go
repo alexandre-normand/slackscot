@@ -2,8 +2,8 @@ package slackscot
 
 import (
 	"fmt"
+	"github.com/alexandre-normand/slack"
 	"github.com/alexandre-normand/slackscot/config"
-	"github.com/james-bowman/slack"
 	"log"
 	"regexp"
 )
