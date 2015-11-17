@@ -8,8 +8,9 @@ import (
 )
 
 type Configuration struct {
-	Token       string `json:"token"`
-	StoragePath string `json:"storagePath"`
+	Token       string                       `json:"token"`
+	StoragePath string                       `json:"storagePath"`
+	Extentions  map[string]map[string]string `json:"extensions"`
 }
 
 func LoadConfiguration(configurationPath string) (configuration *Configuration, err error) {
