@@ -226,32 +226,37 @@ func imageSearch(expr string, animated bool, faces bool, count int) string {
 		return "Sorry I had a problem finding that image from Google"
 	}
 
-	imageList, ok := results["responseData"].(map[string]interface{})["results"]
+	if responseData, someResult := results["responseData"]; someResult && responseData != nil {
+		imageList, ok := responseData.(map[string]interface{})["results"]
 
-	var selectedImages []string
-	var images []interface{}
-	if ok {
-		images = imageList.([]interface{})
+		var selectedImages []string
+		var images []interface{}
+		if ok {
+			images = imageList.([]interface{})
 
-		for i, image := range images {
-			if i >= count {
-				break
+			for i, image := range images {
+				if i >= count {
+					break
+				}
+
+				element := image.(map[string]interface{})
+				imageUrl := element["unescapedUrl"].(string)
+				log.Printf("Result image : %v", imageUrl)
+
+				if !RE_URL.MatchString(imageUrl) {
+					imageUrl = imageUrl + ".png"
+				}
+
+				selectedImages = append(selectedImages, imageUrl)
 			}
-
-			element := image.(map[string]interface{})
-			imageUrl := element["unescapedUrl"].(string)
-			log.Printf("Result image : %v", imageUrl)
-
-			if !RE_URL.MatchString(imageUrl) {
-				imageUrl = imageUrl + ".png"
-			}
-
-			selectedImages = append(selectedImages, imageUrl)
 		}
-	}
-	log.Printf("Images selected : %v", selectedImages)
+		log.Printf("Images selected : %v", selectedImages)
 
-	return strings.Join(selectedImages, "\n")
+		return strings.Join(selectedImages, "\n")
+	}
+
+	return "https://media.giphy.com/media/9J7tdYltWyXIY/giphy.gif"
+
 }
 
 func searchGiphy(q string, key string) string {
