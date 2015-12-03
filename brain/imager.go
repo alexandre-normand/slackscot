@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var RE_URL = regexp.MustCompile(`(?i).(png|jpe?g|gif)$`)
@@ -255,7 +256,7 @@ func imageSearch(expr string, animated bool, faces bool, count int) string {
 		return strings.Join(selectedImages, "\n")
 	}
 
-	return "https://media.giphy.com/media/9J7tdYltWyXIY/giphy.gif"
+	return fmt.Sprintf("https://media.giphy.com/media/9J7tdYltWyXIY/giphy.gif?index=%d", time.Now().Unix())
 
 }
 
