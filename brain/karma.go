@@ -33,7 +33,7 @@ func (karma Karma) Init(config config.Configuration) (commands []slackscot.Actio
 		return nil, nil, err
 	}
 
-	karmaRegex := regexp.MustCompile("\\s*(\\S+)(\\+\\+|\\-\\-).*")
+	karmaRegex := regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
 
 	listeners = append(listeners, slackscot.Action{
 		Hidden:      false,
