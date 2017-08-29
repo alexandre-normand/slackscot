@@ -9,8 +9,9 @@ import (
 
 type Configuration struct {
 	Token       string                       `json:"token"`
+	Debug       bool                         `json:"debug"`
 	StoragePath string                       `json:"storagePath"`
-	Extentions  map[string]map[string]string `json:"extensions"`
+	Plugins     map[string]map[string]string `json:"plugins"`
 }
 
 func LoadConfiguration(configurationPath string) (configuration *Configuration, err error) {
@@ -22,7 +23,7 @@ func LoadConfiguration(configurationPath string) (configuration *Configuration, 
 	configuration = new(Configuration)
 	err = json.Unmarshal(content, configuration)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to decode configuration file [%s]: %v", configurationPath, err))
+		return nil, errors.New(fmt.Sprintf("Failed to parse configuration file [%s]: %v", configurationPath, err))
 	}
 
 	return configuration, nil

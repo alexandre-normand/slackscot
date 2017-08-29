@@ -1,9 +1,8 @@
-package brain
+package plugins
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alexandre-normand/slack"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"io/ioutil"
@@ -78,7 +77,7 @@ func (imager Imager) String() string {
 	return "imager"
 }
 
-func (imager Imager) Init(config config.Configuration) (commands []slackscot.Action, listeners []slackscot.Action, err error) {
+func (imager Imager) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
 	imageRegex := regexp.MustCompile("(?i)(image|img) (.*)")
 	animateRegex := regexp.MustCompile("(?i)(animate) (.*)")
 	moosificateRegex := regexp.MustCompile("(?i)(moosificate) (.*)")
@@ -86,20 +85,20 @@ func (imager Imager) Init(config config.Configuration) (commands []slackscot.Act
 	urlRegex := regexp.MustCompile("(?i).*https?://.*")
 	bombRegex := regexp.MustCompile("(?i)(bomb) (\\d+) (.+)")
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Regex:       imageRegex,
 		Usage:       "image <search expression>",
 		Description: "Queries Google Images for _search expression_ and returns random result",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			return processQueryAndSearch(message.Text, imageRegex, false)
 		},
 	})
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Regex:       animateRegex,
 		Usage:       "animate <search expression>",
 		Description: "The sames as `image` except requests an animated gif matching _search expression_",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			searchExpression := animateRegex.FindAllStringSubmatch(message.Text, -1)[0]
 			log.Printf("Matches %v", searchExpression)
 
@@ -107,11 +106,11 @@ func (imager Imager) Init(config config.Configuration) (commands []slackscot.Act
 		},
 	})
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Regex:       moosificateRegex,
 		Usage:       "moosificate <search expression or image url>",
 		Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			match := moosificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
 			log.Printf("Here are the matches: [%v]", match)
 
@@ -128,11 +127,11 @@ func (imager Imager) Init(config config.Configuration) (commands []slackscot.Act
 		},
 	})
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Regex:       antlerificateRegex,
 		Usage:       "antlerlificate <search expression or image url>",
 		Description: "Antlerlificates an image from either an image search for the _search expression_ or a direct image URL",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			match := antlerificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
 			log.Printf("Here are the matches: [%v]", match)
 
@@ -149,11 +148,11 @@ func (imager Imager) Init(config config.Configuration) (commands []slackscot.Act
 		},
 	})
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Regex:       bombRegex,
 		Usage:       "bomb <howMany> <search expression>",
 		Description: "The `image me` except repeated multiple times",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			match := bombRegex.FindAllStringSubmatch(message.Text, -1)[0]
 			log.Printf("Here are the matches: [%v], [%s] [%s]", match, match[2], match[3])
 			count, _ := strconv.Atoi(match[2])

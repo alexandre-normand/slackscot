@@ -1,12 +1,12 @@
-package brain
+package plugins
 
 import (
 	"errors"
 	"fmt"
-	"github.com/alexandre-normand/slack"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/getwe/figlet4go"
+	"github.com/mitchellh/go-homedir"
 	"log"
 	"regexp"
 	"strings"
@@ -29,24 +29,29 @@ func (emojiBannerMaker EmojiBannerMaker) String() string {
 	return "emojiBanner"
 }
 
-func (emojiBannerMaker EmojiBannerMaker) Init(config config.Configuration) (commands []slackscot.Action, listeners []slackscot.Action, err error) {
+func (emojiBannerMaker EmojiBannerMaker) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
 	options := figlet4go.NewRenderOptions()
 	renderer := figlet4go.NewAsciiRender()
 
-	if extensionConfig, ok := config.Extentions[emojiBannerMaker.String()]; !ok {
+	if pluginConfig, ok := config.Plugins[emojiBannerMaker.String()]; !ok {
 		return nil, nil, errors.New(fmt.Sprintf("Missing extention config for %s", emojiBannerMaker.String()))
 	} else {
-		if fontPath, ok := extensionConfig[FONT_PATH]; !ok {
+		if fontPath, ok := pluginConfig[FONT_PATH]; !ok {
 			return nil, nil, errors.New(fmt.Sprintf("Missing %s config key: %s", emojiBannerMaker.String(), FONT_PATH))
 		} else {
+			fontPath, err = homedir.Expand(fontPath)
+			if err != nil {
+				return nil, nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", emojiBannerMaker.String(), fontPath, err))
+			}
+
 			err := renderer.LoadFont(fontPath)
 			if err != nil {
-				return nil, nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]", emojiBannerMaker.String(), fontPath))
+				return nil, nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", emojiBannerMaker.String(), fontPath, err))
 			}
 			log.Printf("Loaded fonts from [%s]", fontPath)
 		}
 
-		if fontName, ok := extensionConfig[FONT_NAME]; !ok {
+		if fontName, ok := pluginConfig[FONT_NAME]; !ok {
 			return nil, nil, errors.New(fmt.Sprintf("Missing %s config key: %s", emojiBannerMaker.String(), FONT_NAME))
 		} else {
 			options.FontName = fontName
@@ -56,11 +61,11 @@ func (emojiBannerMaker EmojiBannerMaker) Init(config config.Configuration) (comm
 
 	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Regex:       emojiBannerRegex,
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			return validateAndRenderEmoji(message.Text, emojiBannerRegex, renderer, options)
 		},
 	})
