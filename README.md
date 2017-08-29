@@ -51,3 +51,22 @@ func main() {
 	slackscot.Run(*youppi, *config)
 }
 ```
+
+You'll also need to define your `json` configuration for the core, built-in extensions and any configuration required by your own custom extensions (not shown here):
+
+```
+{
+   "token": "your-slack-bot-token",
+   "storagePath": "/your-path-to-bot-home",
+   "extensions": {
+      "fingerQuoter": {
+         "frequency": "100",
+         "channelIds": ""
+      },
+      "emojiBanner": {
+         "fontPath": "/your-path-to-bot-home/fonts",
+         "fontName": "banner"
+      }
+   }
+}
+```
