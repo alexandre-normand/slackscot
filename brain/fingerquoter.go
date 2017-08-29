@@ -86,6 +86,11 @@ func (fingerQuoter FingerQuoter) Init(config config.Configuration) (commands []s
 }
 
 func isChannelWhiteListed(channelId string, whitelist []string) bool {
+	// Default to all channels whitelisted if none specified
+	if len(whitelist) == 0 {
+		return true
+	}
+
 	for _, c := range whitelist {
 		if c == channelId {
 			return true
