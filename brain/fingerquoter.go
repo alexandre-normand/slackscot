@@ -39,9 +39,7 @@ func (fingerQuoter FingerQuoter) Init(config config.Configuration) (commands []s
 	if extensionConfig, ok := config.Extentions[fingerQuoter.String()]; !ok {
 		return nil, nil, errors.New(fmt.Sprintf("Missing extention config for %s", fingerQuoter.String()))
 	} else {
-		if channelValue, ok := extensionConfig[CHANNELS]; !ok {
-			return nil, nil, errors.New(fmt.Sprintf("Missing %s config key: %s", fingerQuoter.String(), CHANNELS))
-		} else {
+		if channelValue, ok := extensionConfig[CHANNELS]; ok {
 			channels = strings.Split(channelValue, ",")
 		}
 
