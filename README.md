@@ -18,6 +18,19 @@ Features
 * Basic config interface with slack token and storage path. 
 * Plugin interface that is a logical grouping of one or many commands and "hear actions" (listeners). 
 
+Fancy features
+--------------
+
+* Support for reactions to message updates. `slackscot` does the following:
+	- Keeps track of plugin action responses and the message that triggered them
+	- On message updates:
+		1. Update responses for each triggered action
+		2. Delete responses that aren't triggering anymore (or result in errors during the message update)
+	- On deletion of triggering messages, responses are also deleted
+	- *Limitation*: Sending a `message` automatically splits it into multiple slack messages when it's too long. When updating messages,
+	  this spitting doesn't happen and results in an `message too long` error. Effectively, the last message in the initial response might get
+	  `deleted` as a result. Handling of this could be better but that is the current limitation.
+
 Concepts
 --------
 
@@ -31,15 +44,15 @@ How to use
 Slackscot provides the pieces to make your mascot but you'll have to assemble them for him/her to come alive. 
 
 
-Here's an example of how [Youppi](https://github.com/alexandre-normand/youppi) does it:
+Here's an example of how [Youppi](https://github.com/alexandre-normand/youppi) does it (apologies for the verbose and repetitive error handling when creating instances of plugins):
 ```
 package main
 
 import (
 	"github.com/alecthomas/kingpin"
 	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/brain"
 	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/plugins"
 	"log"
 )
 
@@ -55,13 +68,41 @@ func main() {
 		log.Fatal(err)
 	}
 
-	youppi := slackscot.NewSlackscot("youppi", []slackscot.Plugin{plugins.NewKarma(), plugins.NewImager(), plugins.NewFingerQuoter(), plugins.NewEmojiBannerMaker()})
+	c := *config
 
-	err = youppi.Run(*config)
+	youppi, err := slackscot.NewSlackscot("youppi", c)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	karma, err := plugins.NewKarma(c)
+	if err != nil {
+		log.Fatalf("Error initializing karma plugin: %v", err)
+	}
+	defer karma.Close()
+	youppi.RegisterPlugin(&karma.Plugin)
+
+	fingerQuoter, err := plugins.NewFingerQuoter(c)
+	if err != nil {
+		log.Fatalf("Error initializing finger quoter plugin: %v", err)
+	}
+	youppi.RegisterPlugin(&fingerQuoter.Plugin)
+
+	imager := plugins.NewImager()
+	youppi.RegisterPlugin(&imager.Plugin)
+
+	emojiBanner, err := plugins.NewEmojiBannerMaker(c)
+	if err != nil {
+		log.Fatalf("Error initializing emoji banner plugin: %v", err)
+	}
+	youppi.RegisterPlugin(&emojiBanner.Plugin)
+
+	err = youppi.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
 }
+
 ```
 
 You'll also need to define your `json` configuration for the core, built-in extensions and any configuration required by your own custom extensions (not shown here):
@@ -70,6 +111,7 @@ You'll also need to define your `json` configuration for the core, built-in exte
 {
    "token": "your-slack-bot-token",
    "debug": false,
+   "responseCacheSize": 5000,
    "storagePath": "/your-path-to-bot-home",
    "plugins": {
       "fingerQuoter": {

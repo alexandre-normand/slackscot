@@ -8,10 +8,11 @@ import (
 )
 
 type Configuration struct {
-	Token       string                       `json:"token"`
-	Debug       bool                         `json:"debug"`
-	StoragePath string                       `json:"storagePath"`
-	Plugins     map[string]map[string]string `json:"plugins"`
+	Token             string                       `json:"token"`
+	Debug             bool                         `json:"debug"`
+	ResponseCacheSize int                          `json:"responseCacheSize"`
+	StoragePath       string                       `json:"storagePath"`
+	Plugins           map[string]map[string]string `json:"plugins"`
 }
 
 func LoadConfiguration(configurationPath string) (configuration *Configuration, err error) {
