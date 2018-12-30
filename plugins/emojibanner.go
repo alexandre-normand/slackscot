@@ -7,6 +7,7 @@ import (
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/getwe/figlet4go"
 	"github.com/mitchellh/go-homedir"
+	"github.com/nlopes/slack"
 	"log"
 	"regexp"
 	"strings"
@@ -14,66 +15,55 @@ import (
 )
 
 const (
-	FONT_PATH = "fontPath"
-	FONT_NAME = "fontName"
+	FONT_PATH         = "fontPath"
+	FONT_NAME         = "fontName"
+	EMOJI_BANNER_NAME = "emojiBanner"
 )
 
 type EmojiBannerMaker struct {
+	slackscot.Plugin
 }
 
-func NewEmojiBannerMaker() *EmojiBannerMaker {
-	return &EmojiBannerMaker{}
-}
+func NewEmojiBannerMaker(config config.Configuration) (emojiBannerPlugin *EmojiBannerMaker, err error) {
+	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
 
-func (emojiBannerMaker EmojiBannerMaker) String() string {
-	return "emojiBanner"
-}
-
-func (emojiBannerMaker EmojiBannerMaker) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
 	options := figlet4go.NewRenderOptions()
 	renderer := figlet4go.NewAsciiRender()
 
-	if pluginConfig, ok := config.Plugins[emojiBannerMaker.String()]; !ok {
-		return nil, nil, errors.New(fmt.Sprintf("Missing extention config for %s", emojiBannerMaker.String()))
+	if pluginConfig, ok := config.Plugins[EMOJI_BANNER_NAME]; !ok {
+		return nil, errors.New(fmt.Sprintf("Missing plugin config for %s", EMOJI_BANNER_NAME))
 	} else {
 		if fontPath, ok := pluginConfig[FONT_PATH]; !ok {
-			return nil, nil, errors.New(fmt.Sprintf("Missing %s config key: %s", emojiBannerMaker.String(), FONT_PATH))
+			return nil, errors.New(fmt.Sprintf("Missing %s config key: %s", EMOJI_BANNER_NAME, FONT_PATH))
 		} else {
 			fontPath, err = homedir.Expand(fontPath)
 			if err != nil {
-				return nil, nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", emojiBannerMaker.String(), fontPath, err))
+				return nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", EMOJI_BANNER_NAME, fontPath, err))
 			}
 
 			err := renderer.LoadFont(fontPath)
 			if err != nil {
-				return nil, nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", emojiBannerMaker.String(), fontPath, err))
+				return nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", EMOJI_BANNER_NAME, fontPath, err))
 			}
 			log.Printf("Loaded fonts from [%s]", fontPath)
 		}
 
 		if fontName, ok := pluginConfig[FONT_NAME]; !ok {
-			return nil, nil, errors.New(fmt.Sprintf("Missing %s config key: %s", emojiBannerMaker.String(), FONT_NAME))
+			return nil, errors.New(fmt.Sprintf("Missing %s config key: %s", EMOJI_BANNER_NAME, FONT_NAME))
 		} else {
 			options.FontName = fontName
 			log.Printf("Using font name [%s] if it exists", fontName)
 		}
 	}
 
-	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
-
-	commands = append(commands, slackscot.ActionDefinition{
+	return &EmojiBannerMaker{slackscot.Plugin{Name: EMOJI_BANNER_NAME, Commands: []slackscot.ActionDefinition{slackscot.ActionDefinition{
 		Regex:       emojiBannerRegex,
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
-		Answerer: func(message *slackscot.IncomingMessageEvent) string {
+		Answerer: func(message *slack.Msg) string {
 			return validateAndRenderEmoji(message.Text, emojiBannerRegex, renderer, options)
 		},
-	})
-
-	return commands, listeners, nil
-}
-
-func (emojiBannerMaker EmojiBannerMaker) Close() {
+	}}, HearActions: nil}}, nil
 }
 
 func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {
@@ -86,13 +76,13 @@ func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figl
 			return "Wrong usage: emoji banner <word> <emoji>"
 		}
 
-		return RenderBanner(parameters[0], parameters[1], renderer, options)
+		return renderBanner(parameters[0], parameters[1], renderer, options)
 	}
 
 	return "Wrong usage: emoji banner <word> <emoji>"
 }
 
-func RenderBanner(word, emoji string, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {
+func renderBanner(word, emoji string, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {
 	rendered, err := renderer.RenderOpts(word, options)
 	if err != nil {
 		return fmt.Sprintf("Error generating: %v", err)

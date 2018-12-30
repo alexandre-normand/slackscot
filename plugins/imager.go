@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/config"
+	"github.com/nlopes/slack"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -16,9 +16,9 @@ import (
 	"time"
 )
 
-var RE_URL = regexp.MustCompile(`(?i).(png|jpe?g|gif)$`)
+var reUrl = regexp.MustCompile(`(?i).(png|jpe?g|gif)$`)
 
-type GiphyImageData struct {
+type giphyImageData struct {
 	URL      string `json:"url,omitempty"`
 	Width    string `json:"width,omitempty"`
 	Height   string `json:"height,omitempty"`
@@ -30,24 +30,24 @@ type GiphyImageData struct {
 	WebpSize string `json:"webp_size,omitempty"`
 }
 
-type GiphyResponse struct {
-	Data       []GiphyGif      `json:"data"`
-	Status     GiphyStatus     `json:"meta"`
-	Pagination GiphyPagination `json:"pagination"`
+type giphyResponse struct {
+	Data       []giphyGif      `json:"data"`
+	Status     giphyStatus     `json:"meta"`
+	Pagination giphyPagination `json:"pagination"`
 }
 
-type GiphyPagination struct {
+type giphyPagination struct {
 	Total  int `json:"total_count"`
 	Count  int `json:"count"`
 	Offset int `json:"offset"`
 }
 
-type GiphyStatus struct {
+type giphyStatus struct {
 	Status int    `json:"status"`
 	Msg    string `json:"msg"`
 }
 
-type GiphyGif struct {
+type giphyGif struct {
 	Type               string
 	Id                 string
 	URL                string
@@ -56,28 +56,25 @@ type GiphyGif struct {
 	BitlyFullscreenURL string `json:"bitly_fullscreen_url"`
 	BitlyTiledURL      string `json:"bitly_tiled_url"`
 	Images             struct {
-		Original               GiphyImageData
-		FixedHeight            GiphyImageData `json:"fixed_height"`
-		FixedHeightStill       GiphyImageData `json:"fixed_height_still"`
-		FixedHeightDownsampled GiphyImageData `json:"fixed_height_downsampled"`
-		FixedWidth             GiphyImageData `json:"fixed_width"`
-		FixedwidthStill        GiphyImageData `json:"fixed_width_still"`
-		FixedwidthDownsampled  GiphyImageData `json:"fixed_width_downsampled"`
+		Original               giphyImageData
+		FixedHeight            giphyImageData `json:"fixed_height"`
+		FixedHeightStill       giphyImageData `json:"fixed_height_still"`
+		FixedHeightDownsampled giphyImageData `json:"fixed_height_downsampled"`
+		FixedWidth             giphyImageData `json:"fixed_width"`
+		FixedwidthStill        giphyImageData `json:"fixed_width_still"`
+		FixedwidthDownsampled  giphyImageData `json:"fixed_width_downsampled"`
 	}
 }
 
 type Imager struct {
+	slackscot.Plugin
 }
 
-func NewImager() *Imager {
-	return &Imager{}
-}
+const (
+	imagerPluginName = "imager"
+)
 
-func (imager Imager) String() string {
-	return "imager"
-}
-
-func (imager Imager) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
+func NewImager() (imager *Imager) {
 	imageRegex := regexp.MustCompile("(?i)(image|img) (.*)")
 	animateRegex := regexp.MustCompile("(?i)(animate) (.*)")
 	moosificateRegex := regexp.MustCompile("(?i)(moosificate) (.*)")
@@ -85,88 +82,82 @@ func (imager Imager) Init(config config.Configuration) (commands []slackscot.Act
 	urlRegex := regexp.MustCompile("(?i).*https?://.*")
 	bombRegex := regexp.MustCompile("(?i)(bomb) (\\d+) (.+)")
 
-	commands = append(commands, slackscot.ActionDefinition{
-		Regex:       imageRegex,
-		Usage:       "image <search expression>",
-		Description: "Queries Google Images for _search expression_ and returns random result",
-		Answerer: func(message *slackscot.IncomingMessageEvent) string {
-			return processQueryAndSearch(message.Text, imageRegex, false)
+	commands := []slackscot.ActionDefinition{
+		slackscot.ActionDefinition{
+			Regex:       imageRegex,
+			Usage:       "image <search expression>",
+			Description: "Queries Google Images for _search expression_ and returns random result",
+			Answerer: func(message *slack.Msg) string {
+				return processQueryAndSearch(message.Text, imageRegex, false)
+			},
+		}, slackscot.ActionDefinition{
+			Regex:       animateRegex,
+			Usage:       "animate <search expression>",
+			Description: "The sames as `image` except requests an animated gif matching _search expression_",
+			Answerer: func(message *slack.Msg) string {
+				searchExpression := animateRegex.FindAllStringSubmatch(message.Text, -1)[0]
+				log.Printf("Matches %v", searchExpression)
+
+				return searchGiphy(searchExpression[2], "dc6zaTOxFJmzC")
+			},
+		}, slackscot.ActionDefinition{
+			Regex:       moosificateRegex,
+			Usage:       "moosificate <search expression or image url>",
+			Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
+			Answerer: func(message *slack.Msg) string {
+				match := moosificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
+				log.Printf("Here are the matches: [%v]", match)
+
+				toMoosificate := match[2]
+				log.Printf("Thing to moosificate: %s", toMoosificate)
+				if !urlRegex.MatchString(toMoosificate) {
+					toMoosificate = imageSearch(toMoosificate, false, false, 1)
+				} else {
+					toMoosificate = toMoosificate[1 : len(toMoosificate)-1]
+				}
+
+				log.Printf("Calling moosificator for url [%s]", toMoosificate)
+				return fmt.Sprintf("http://www.moosificator.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
+			},
+		}, slackscot.ActionDefinition{
+			Regex:       antlerificateRegex,
+			Usage:       "antlerlificate <search expression or image url>",
+			Description: "Antlerlificates an image from either an image search for the _search expression_ or a direct image URL",
+			Answerer: func(message *slack.Msg) string {
+				match := antlerificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
+				log.Printf("Here are the matches: [%v]", match)
+
+				toAntlerlificate := match[2]
+				log.Printf("Thing to antlerlificate: %s", toAntlerlificate)
+				if !urlRegex.MatchString(toAntlerlificate) {
+					toAntlerlificate = imageSearch(toAntlerlificate, false, false, 1)
+				} else {
+					toAntlerlificate = toAntlerlificate[1 : len(toAntlerlificate)-1]
+				}
+
+				log.Printf("Calling moosificator for url [%s]", toAntlerlificate)
+				return fmt.Sprintf("http://www.moosificator.com/api/antler?image=%s", url.QueryEscape(toAntlerlificate))
+			},
+		}, slackscot.ActionDefinition{
+			Regex:       bombRegex,
+			Usage:       "bomb <howMany> <search expression>",
+			Description: "The `image me` except repeated multiple times",
+			Answerer: func(message *slack.Msg) string {
+				match := bombRegex.FindAllStringSubmatch(message.Text, -1)[0]
+				log.Printf("Here are the matches: [%v], [%s] [%s]", match, match[2], match[3])
+				count, _ := strconv.Atoi(match[2])
+				searchExpression := match[3]
+
+				log.Printf("Search: %s, count %d", searchExpression, count)
+				if len(searchExpression) > 0 {
+					return imageSearch(searchExpression, false, false, count)
+				}
+				return ""
+			},
 		},
-	})
+	}
 
-	commands = append(commands, slackscot.ActionDefinition{
-		Regex:       animateRegex,
-		Usage:       "animate <search expression>",
-		Description: "The sames as `image` except requests an animated gif matching _search expression_",
-		Answerer: func(message *slackscot.IncomingMessageEvent) string {
-			searchExpression := animateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-			log.Printf("Matches %v", searchExpression)
-
-			return searchGiphy(searchExpression[2], "dc6zaTOxFJmzC")
-		},
-	})
-
-	commands = append(commands, slackscot.ActionDefinition{
-		Regex:       moosificateRegex,
-		Usage:       "moosificate <search expression or image url>",
-		Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
-		Answerer: func(message *slackscot.IncomingMessageEvent) string {
-			match := moosificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-			log.Printf("Here are the matches: [%v]", match)
-
-			toMoosificate := match[2]
-			log.Printf("Thing to moosificate: %s", toMoosificate)
-			if !urlRegex.MatchString(toMoosificate) {
-				toMoosificate = imageSearch(toMoosificate, false, false, 1)
-			} else {
-				toMoosificate = toMoosificate[1 : len(toMoosificate)-1]
-			}
-
-			log.Printf("Calling moosificator for url [%s]", toMoosificate)
-			return fmt.Sprintf("http://www.moosificator.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
-		},
-	})
-
-	commands = append(commands, slackscot.ActionDefinition{
-		Regex:       antlerificateRegex,
-		Usage:       "antlerlificate <search expression or image url>",
-		Description: "Antlerlificates an image from either an image search for the _search expression_ or a direct image URL",
-		Answerer: func(message *slackscot.IncomingMessageEvent) string {
-			match := antlerificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-			log.Printf("Here are the matches: [%v]", match)
-
-			toAntlerlificate := match[2]
-			log.Printf("Thing to antlerlificate: %s", toAntlerlificate)
-			if !urlRegex.MatchString(toAntlerlificate) {
-				toAntlerlificate = imageSearch(toAntlerlificate, false, false, 1)
-			} else {
-				toAntlerlificate = toAntlerlificate[1 : len(toAntlerlificate)-1]
-			}
-
-			log.Printf("Calling moosificator for url [%s]", toAntlerlificate)
-			return fmt.Sprintf("http://www.moosificator.com/api/antler?image=%s", url.QueryEscape(toAntlerlificate))
-		},
-	})
-
-	commands = append(commands, slackscot.ActionDefinition{
-		Regex:       bombRegex,
-		Usage:       "bomb <howMany> <search expression>",
-		Description: "The `image me` except repeated multiple times",
-		Answerer: func(message *slackscot.IncomingMessageEvent) string {
-			match := bombRegex.FindAllStringSubmatch(message.Text, -1)[0]
-			log.Printf("Here are the matches: [%v], [%s] [%s]", match, match[2], match[3])
-			count, _ := strconv.Atoi(match[2])
-			searchExpression := match[3]
-
-			log.Printf("Search: %s, count %d", searchExpression, count)
-			if len(searchExpression) > 0 {
-				return imageSearch(searchExpression, false, false, count)
-			}
-			return ""
-		},
-	})
-
-	return commands, listeners, nil
+	return &Imager{slackscot.Plugin{Name: imagerPluginName, Commands: commands, HearActions: nil}}
 }
 
 func processQueryAndSearch(message string, regex *regexp.Regexp, animated bool) string {
@@ -243,7 +234,7 @@ func imageSearch(expr string, animated bool, faces bool, count int) string {
 				imageUrl := element["unescapedUrl"].(string)
 				log.Printf("Result image : %v", imageUrl)
 
-				if !RE_URL.MatchString(imageUrl) {
+				if !reUrl.MatchString(imageUrl) {
 					imageUrl = imageUrl + ".png"
 				}
 
@@ -274,7 +265,7 @@ func searchGiphy(q string, key string) string {
 		return "Arggggg..."
 	}
 
-	var giphyResp GiphyResponse
+	var giphyResp giphyResponse
 	parseErr := json.Unmarshal(content, &giphyResp)
 	if parseErr != nil {
 		log.Print(parseErr)
@@ -287,8 +278,4 @@ func searchGiphy(q string, key string) string {
 	}
 
 	return msg
-}
-
-func (imager Imager) Close() {
-
 }

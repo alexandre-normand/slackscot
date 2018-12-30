@@ -1,8 +1,11 @@
 package store
 
 import (
+	"fmt"
 	"github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
+	leveldberrors "github.com/syndtr/goleveldb/leveldb/errors"
 	"path/filepath"
 )
 
@@ -18,10 +21,13 @@ func NewStore(name string, storagePath string) (store *Store, err error) {
 		return nil, err
 	}
 
-	db, err := leveldb.OpenFile(filepath.Join(path, name), nil)
+	fullPath := filepath.Join(path, name)
+	db, err := leveldb.OpenFile(fullPath, nil)
 
-	if err != nil {
-		return nil, err
+	if _, ok := err.(*leveldberrors.ErrCorrupted); ok {
+		return nil, errors.Wrap(err, fmt.Sprintf("leveldb corrupted. Consider deleting [%s] and restarting if you don't mind losing data", fullPath))
+	} else if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to open file with path [%s]", fullPath))
 	}
 
 	return &Store{name, db}, nil

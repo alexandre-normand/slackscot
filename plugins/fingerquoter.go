@@ -1,11 +1,10 @@
 package plugins
 
 import (
-	"errors"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
-	"log"
+	"github.com/nlopes/slack"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -15,75 +14,67 @@ import (
 )
 
 const (
-	CHANNELS  = "channelIds"
-	FREQUENCY = "frequency"
+	channelIdsKey          = "channelIds"
+	frequencyKey           = "frequency"
+	fingerQuoterPluginName = "fingerQuoter"
 )
 
 type FingerQuoter struct {
+	slackscot.Plugin
 }
 
-func NewFingerQuoter() *FingerQuoter {
-	return &FingerQuoter{}
-}
-
-func (fingerQuoter FingerQuoter) String() string {
-	return "fingerQuoter"
-}
-
-func (fingerQuoter FingerQuoter) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
+func NewFingerQuoter(config config.Configuration) (p *FingerQuoter, err error) {
 	fingerQuoterRegex := regexp.MustCompile("(?i)([a-zA-Z\\-]{5,16})+")
 
 	var channels []string
 	frequency := 0
 
-	if pluginConfig, ok := config.Plugins[fingerQuoter.String()]; !ok {
-		return nil, nil, errors.New(fmt.Sprintf("Missing extention config for %s", fingerQuoter.String()))
+	if pluginConfig, ok := config.Plugins[fingerQuoterPluginName]; !ok {
+		return nil, fmt.Errorf("Missing plugin config for %s", fingerQuoterPluginName)
 	} else {
-		if channelValue, ok := pluginConfig[CHANNELS]; ok {
+		if channelValue, ok := pluginConfig[channelIdsKey]; ok {
 			channels = strings.Split(channelValue, ",")
 		}
 
-		if frequencyValue, ok := pluginConfig[FREQUENCY]; !ok {
-			return nil, nil, errors.New(fmt.Sprintf("Missing %s config key: %s", fingerQuoter.String(), FREQUENCY))
+		if frequencyValue, ok := pluginConfig[frequencyKey]; !ok {
+			return nil, fmt.Errorf("Missing %s config key: %s", fingerQuoterPluginName, frequencyKey)
 		} else {
 			frequency, err = strconv.Atoi(frequencyValue)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 	}
 
-	randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
-	log.Printf("%s loaded with frequency [%d] and whitelist [%s]", fingerQuoter, frequency, channels)
-
-	listeners = append(listeners, slackscot.ActionDefinition{
+	return &FingerQuoter{slackscot.Plugin{Name: "fingerQuoter", Commands: nil, HearActions: []slackscot.ActionDefinition{slackscot.ActionDefinition{
 		Hidden:      true,
 		Regex:       fingerQuoterRegex,
 		Usage:       "just speak",
 		Description: "finger quoter listens to what people say and (sometimes) finger quotes a word",
-		Answerer: func(me *slackscot.IncomingMessageEvent) string {
-			if isChannelWhiteListed(me.Channel, channels) {
-				words := strings.FieldsFunc(me.Text, func(c rune) bool {
+		Answerer: func(m *slack.Msg) string {
+			if isChannelWhiteListed(m.Channel, channels) {
+				words := strings.FieldsFunc(m.Text, func(c rune) bool {
 					return !unicode.IsLetter(c) && c != '-'
 				})
 
-				candidates := filterWordsLongerThan(words, 5)
+				candidates := filterWordsLongerThan(words, 4)
 
-				// Determine if we're going to react this time or not
-				if randomGen.Int31n(int32(frequency)) == 0 {
-					// That's it, let's pick a word and finger-quote it
-					i := randomGen.Int31n(int32(len(candidates)))
-					return fmt.Sprintf("\"%s\"", candidates[i])
+				if len(candidates) > 0 {
+					randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
+					// Determine if we're going to react this time or not
+					if randomGen.Int31n(int32(frequency)) == 0 {
+						// That's it, let's pick a word and finger-quote it
+						i := randomGen.Int31n(int32(len(candidates)))
+						return fmt.Sprintf("\"%s\"", candidates[i])
+					}
 				}
-			} else if config.Debug {
-				log.Printf("Channel [%s] is not whitelisted.", me.Channel)
+			} else {
+				slackscot.Debugf(config, "Channel [%s] is not whitelisted.", m.Channel)
 			}
 			// Not this time, skip
 			return ""
 		},
-	})
-
-	return commands, listeners, nil
+	}}}}, nil
 }
 
 func filterWordsLongerThan(words []string, minLen int) []string {
@@ -110,8 +101,4 @@ func isChannelWhiteListed(channelId string, whitelist []string) bool {
 	}
 
 	return false
-}
-
-func (fingerQuoter FingerQuoter) Close() {
-
 }
