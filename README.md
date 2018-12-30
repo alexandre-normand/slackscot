@@ -5,6 +5,8 @@ Slackscot
 [![GoDoc](https://godoc.org/github.com/alexandre-normand/slackscot?status.svg)](https://godoc.org/github.com/alexandre-normand/slackscot)
 [![Build Status](https://travis-ci.org/alexandre-normand/slackscot.svg)](https://travis-ci.org/alexandre-normand/slackscot)
 
+![logo.svg](logo.svg)
+
 Slackscot is a simple [slack](https://slack.com) bot written in Go. It uses [Norberto Lopes](https://github.com/nlopes)'s [Slack API Integration](https://github.com/nlopes/slack) found at [https://github.com/nlopes/slack](https://github.com/nlopes/slack). The core functionality of the bot is previously used [James Bowman](https://github.com/james-bowman)'s [Slack RTM API integration](https://github.com/james-bowman/slack) and was heavily inspired by [talbot](https://github.com/james-bowman/talbot), also written by [James Bowman](https://github.com/james-bowman). 
 
 The Name
