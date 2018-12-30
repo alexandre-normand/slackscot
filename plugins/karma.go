@@ -1,10 +1,9 @@
-package brain
+package plugins
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/alexandre-normand/slack"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/store"
@@ -27,7 +26,7 @@ func (karma Karma) String() string {
 	return "karma"
 }
 
-func (karma Karma) Init(config config.Configuration) (commands []slackscot.Action, listeners []slackscot.Action, err error) {
+func (karma Karma) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
 	karma.karmaStore, err = store.NewStore("karma", config.StoragePath)
 	if err != nil {
 		return nil, nil, err
@@ -35,12 +34,12 @@ func (karma Karma) Init(config config.Configuration) (commands []slackscot.Actio
 
 	karmaRegex := regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
 
-	listeners = append(listeners, slackscot.Action{
+	listeners = append(listeners, slackscot.ActionDefinition{
 		Hidden:      false,
 		Regex:       karmaRegex,
 		Usage:       "thing++ or thing--",
 		Description: "Keep track of karma",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 			log.Printf("Here are the matches: [%v]", match)
 			var format string
@@ -74,12 +73,12 @@ func (karma Karma) Init(config config.Configuration) (commands []slackscot.Actio
 
 	topKarmaRegexp := regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
 
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Hidden:      false,
 		Regex:       topKarmaRegexp,
 		Usage:       "karma top <howMany>",
 		Description: "Return the X top things ever",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			match := topKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
 			log.Printf("Here are the matches: [%v]", match)
 
@@ -101,14 +100,13 @@ func (karma Karma) Init(config config.Configuration) (commands []slackscot.Actio
 	})
 
 	worstKarmaRegexp := regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
-	commands = append(commands, slackscot.Action{
+	commands = append(commands, slackscot.ActionDefinition{
 		Hidden:      false,
 		Regex:       worstKarmaRegexp,
 		Usage:       "karma worst <howMany>",
 		Description: "Return the X worst things ever",
-		Answerer: func(message *slack.Message) string {
+		Answerer: func(message *slackscot.IncomingMessageEvent) string {
 			match := worstKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
-			log.Printf("Here are the matches: [%v]", match)
 
 			rawCount := match[2]
 			count, _ := strconv.Atoi(rawCount)
