@@ -26,7 +26,7 @@ type Slackscot struct {
 	selfName string
 }
 
-// PluginDefinition holds action definitions
+// Plugin represents a plugin (its name and action definitions)
 type Plugin struct {
 	Name        string
 	Commands    []ActionDefinition
@@ -77,7 +77,7 @@ type SlackMessageId struct {
 	timestamp string
 }
 
-// OutgoingPluginMessage holds a plugin generated outgoing message along with the plugin identifier
+// OutgoingMessage holds a plugin generated slack outgoing message along with the plugin identifier
 type OutgoingMessage struct {
 	*slack.OutgoingMessage
 
@@ -93,10 +93,12 @@ func NewSlackscot(name string, config config.Configuration) (bot *Slackscot, err
 	}
 
 	return &Slackscot{name: name, config: config, defaultAction: func(m *slack.Msg) string {
-		return fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", HELP_PLUGIN_NAME)
+		return fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)
 	}, plugins: []*Plugin{}, triggeringMsgToResponse: triggeringMsgToResponseCache}, nil
 }
 
+// RegisterPlugin registers a plugin with the Slackscot engine. This should be invoked
+// prior to calling Run
 func (s *Slackscot) RegisterPlugin(p *Plugin) {
 	s.plugins = append(s.plugins, p)
 }
@@ -339,9 +341,9 @@ func combineIncomingMessageToHandle(messageEvent *slack.MessageEvent) (combinedM
 		combined.Text = messageEvent.SubMessage.Text
 		combined.User = messageEvent.SubMessage.User
 		return &combined
-	} else {
-		return &messageEvent.Msg
 	}
+
+	return &messageEvent.Msg
 }
 
 // routeMessage handles routing the message to commands or hear actions according to the context
@@ -444,6 +446,7 @@ func send(rtm *slack.RTM, rm *slack.Msg, response string) *slack.OutgoingMessage
 	return om
 }
 
+// Debugf logs a debug line after checking if the configuration is in debug mode
 func Debugf(config config.Configuration, format string, v ...interface{}) {
 	if config.Debug {
 		log.Printf(format, v...)

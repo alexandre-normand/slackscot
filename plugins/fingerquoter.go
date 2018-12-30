@@ -19,10 +19,12 @@ const (
 	fingerQuoterPluginName = "fingerQuoter"
 )
 
+// FingerQuoter holds the plugin data for the finger quoter plugin
 type FingerQuoter struct {
 	slackscot.Plugin
 }
 
+// NewFingerQuoter creates a new instance of the plugin
 func NewFingerQuoter(config config.Configuration) (p *FingerQuoter, err error) {
 	fingerQuoterRegex := regexp.MustCompile("(?i)([a-zA-Z\\-]{5,16})+")
 
@@ -46,7 +48,7 @@ func NewFingerQuoter(config config.Configuration) (p *FingerQuoter, err error) {
 		}
 	}
 
-	return &FingerQuoter{slackscot.Plugin{Name: "fingerQuoter", Commands: nil, HearActions: []slackscot.ActionDefinition{slackscot.ActionDefinition{
+	return &FingerQuoter{slackscot.Plugin{Name: "fingerQuoter", Commands: nil, HearActions: []slackscot.ActionDefinition{{
 		Hidden:      true,
 		Regex:       fingerQuoterRegex,
 		Usage:       "just speak",

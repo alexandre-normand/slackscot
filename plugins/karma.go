@@ -16,6 +16,7 @@ import (
 	"text/tabwriter"
 )
 
+// Karma holds the plugin data for the karma plugin
 type Karma struct {
 	slackscot.Plugin
 	karmaStore *store.Store
@@ -25,6 +26,7 @@ const (
 	karmaPluginName = "karma"
 )
 
+// NewKarma creates a new instance of the Karma plugin
 func NewKarma(c config.Configuration) (karma *Karma, err error) {
 	storage, err := store.NewStore(karmaPluginName, c.StoragePath)
 	if err != nil {
@@ -36,7 +38,7 @@ func NewKarma(c config.Configuration) (karma *Karma, err error) {
 	karmaRegex := regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
 
 	hearActions := []slackscot.ActionDefinition{
-		slackscot.ActionDefinition{
+		{
 			Hidden:      false,
 			Regex:       karmaRegex,
 			Usage:       "thing++ or thing--",
@@ -77,7 +79,7 @@ func NewKarma(c config.Configuration) (karma *Karma, err error) {
 	worstKarmaRegexp := regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
 
 	commands := []slackscot.ActionDefinition{
-		slackscot.ActionDefinition{
+		{
 			Hidden:      false,
 			Regex:       topKarmaRegexp,
 			Usage:       "karma top <howMany>",
@@ -105,7 +107,7 @@ func NewKarma(c config.Configuration) (karma *Karma, err error) {
 				return buffer.String()
 			},
 		},
-		slackscot.ActionDefinition{
+		{
 			Hidden:      false,
 			Regex:       worstKarmaRegexp,
 			Usage:       "karma worst <howMany>",
@@ -138,12 +140,7 @@ func NewKarma(c config.Configuration) (karma *Karma, err error) {
 	return &karmaPlugin, nil
 }
 
-func (karma Karma) Init(config config.Configuration) (commands []slackscot.ActionDefinition, listeners []slackscot.ActionDefinition, err error) {
-
-	return commands, listeners, nil
-}
-
-func formatList(pl PairList) string {
+func formatList(pl pairList) string {
 	var b bytes.Buffer
 	b.WriteString("```")
 	w := new(tabwriter.Writer)
@@ -159,36 +156,36 @@ func formatList(pl PairList) string {
 	return b.String()
 }
 
-type Pair struct {
+type pair struct {
 	Key   string
 	Value int
 }
 
-// PairList adapted from Andrew Gerrand for a similar problem: https://groups.google.com/forum/#!topic/golang-nuts/FT7cjmcL7gw
-type PairList []Pair
+// pairList adapted from Andrew Gerrand for a similar problem: https://groups.google.com/forum/#!topic/golang-nuts/FT7cjmcL7gw
+type pairList []pair
 
-func (p PairList) Len() int           { return len(p) }
-func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
-func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p pairList) Len() int           { return len(p) }
+func (p pairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+func (p pairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func convertToPairs(wordFrequencies map[string]int) PairList {
-	pl := make(PairList, len(wordFrequencies))
+func convertTopairs(wordFrequencies map[string]int) pairList {
+	pl := make(pairList, len(wordFrequencies))
 	i := 0
 	for k, v := range wordFrequencies {
-		pl[i] = Pair{k, v}
+		pl[i] = pair{k, v}
 		i++
 	}
 
 	return pl
 }
 
-func getTopThings(rawData map[string]string, count int) (results PairList, err error) {
+func getTopThings(rawData map[string]string, count int) (results pairList, err error) {
 	wordWithFrequencies, err := convertMapValues(rawData)
 	if err != nil {
 		return results, err
 	}
 
-	pl := convertToPairs(wordWithFrequencies)
+	pl := convertTopairs(wordWithFrequencies)
 
 	sort.Sort(sort.Reverse(pl))
 	limit := count
@@ -199,13 +196,13 @@ func getTopThings(rawData map[string]string, count int) (results PairList, err e
 	return pl[:limit], nil
 }
 
-func getWorstThings(rawData map[string]string, count int) (results PairList, err error) {
+func getWorstThings(rawData map[string]string, count int) (results pairList, err error) {
 	wordWithFrequencies, err := convertMapValues(rawData)
 	if err != nil {
 		return results, err
 	}
 
-	pl := convertToPairs(wordWithFrequencies)
+	pl := convertTopairs(wordWithFrequencies)
 
 	sort.Sort(pl)
 
@@ -230,6 +227,7 @@ func convertMapValues(rawData map[string]string) (result map[string]int, err err
 	return result, nil
 }
 
+// Close closes the plugin and its underlying database
 func (karma Karma) Close() {
 	if karma.karmaStore != nil {
 		karma.karmaStore.Close()

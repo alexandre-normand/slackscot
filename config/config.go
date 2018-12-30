@@ -2,11 +2,11 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 )
 
+// Configuration holds a slackscot instance configuration
 type Configuration struct {
 	Token             string                       `json:"token"`
 	Debug             bool                         `json:"debug"`
@@ -15,6 +15,7 @@ type Configuration struct {
 	Plugins           map[string]map[string]string `json:"plugins"`
 }
 
+// LoadConfiguration loads a slackscot configuration from a given file path
 func LoadConfiguration(configurationPath string) (configuration *Configuration, err error) {
 	content, err := ioutil.ReadFile(configurationPath)
 	if err != nil {
@@ -24,7 +25,7 @@ func LoadConfiguration(configurationPath string) (configuration *Configuration, 
 	configuration = new(Configuration)
 	err = json.Unmarshal(content, configuration)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to parse configuration file [%s]: %v", configurationPath, err))
+		return nil, fmt.Errorf("Failed to parse configuration file [%s]: %v", configurationPath, err)
 	}
 
 	return configuration, nil

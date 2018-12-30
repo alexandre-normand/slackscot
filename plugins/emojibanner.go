@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"errors"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
@@ -15,48 +14,51 @@ import (
 )
 
 const (
-	FONT_PATH         = "fontPath"
-	FONT_NAME         = "fontName"
-	EMOJI_BANNER_NAME = "emojiBanner"
+	fontPathKey           = "fontPath"
+	fontNameKey           = "fontName"
+	emojiBannerPluginName = "emojiBanner"
 )
 
+// EmojiBannerMaker holds the plugin data for the emoji banner maker plugin
 type EmojiBannerMaker struct {
 	slackscot.Plugin
 }
 
+// NewEmojiBannerMaker creates a new instance of the plugin
 func NewEmojiBannerMaker(config config.Configuration) (emojiBannerPlugin *EmojiBannerMaker, err error) {
 	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
 
 	options := figlet4go.NewRenderOptions()
 	renderer := figlet4go.NewAsciiRender()
 
-	if pluginConfig, ok := config.Plugins[EMOJI_BANNER_NAME]; !ok {
-		return nil, errors.New(fmt.Sprintf("Missing plugin config for %s", EMOJI_BANNER_NAME))
+	if pluginConfig, ok := config.Plugins[emojiBannerPluginName]; !ok {
+		return nil, fmt.Errorf("Missing plugin config for %s", emojiBannerPluginName)
 	} else {
-		if fontPath, ok := pluginConfig[FONT_PATH]; !ok {
-			return nil, errors.New(fmt.Sprintf("Missing %s config key: %s", EMOJI_BANNER_NAME, FONT_PATH))
+
+		if fontPath, ok := pluginConfig[fontPathKey]; !ok {
+			return nil, fmt.Errorf("Missing %s config key: %s", emojiBannerPluginName, fontPathKey)
 		} else {
 			fontPath, err = homedir.Expand(fontPath)
 			if err != nil {
-				return nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", EMOJI_BANNER_NAME, fontPath, err))
+				return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", emojiBannerPluginName, fontPath, err)
 			}
 
 			err := renderer.LoadFont(fontPath)
 			if err != nil {
-				return nil, errors.New(fmt.Sprintf("[%s] Can't load fonts from [%s]: %v", EMOJI_BANNER_NAME, fontPath, err))
+				return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", emojiBannerPluginName, fontPath, err)
 			}
 			log.Printf("Loaded fonts from [%s]", fontPath)
-		}
 
-		if fontName, ok := pluginConfig[FONT_NAME]; !ok {
-			return nil, errors.New(fmt.Sprintf("Missing %s config key: %s", EMOJI_BANNER_NAME, FONT_NAME))
-		} else {
-			options.FontName = fontName
-			log.Printf("Using font name [%s] if it exists", fontName)
+			if fontName, ok := pluginConfig[fontNameKey]; !ok {
+				return nil, fmt.Errorf("Missing %s config key: %s", emojiBannerPluginName, fontNameKey)
+			} else {
+				options.FontName = fontName
+				log.Printf("Using font name [%s] if it exists", fontName)
+			}
 		}
 	}
 
-	return &EmojiBannerMaker{slackscot.Plugin{Name: EMOJI_BANNER_NAME, Commands: []slackscot.ActionDefinition{slackscot.ActionDefinition{
+	return &EmojiBannerMaker{slackscot.Plugin{Name: emojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
 		Regex:       emojiBannerRegex,
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",

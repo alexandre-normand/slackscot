@@ -11,13 +11,13 @@ type helpPlugin struct {
 }
 
 const (
-	HELP_PLUGIN_NAME = "help"
+	helpPluginName = "help"
 )
 
 func newHelpPlugin(name string, version string, plugins []*Plugin) *helpPlugin {
 	commands, hearActions := findAllActions(plugins)
 
-	return &helpPlugin{Plugin{Name: HELP_PLUGIN_NAME, Commands: []ActionDefinition{generateHelpCommand(name, version, commands, hearActions)}, HearActions: nil}}
+	return &helpPlugin{Plugin{Name: helpPluginName, Commands: []ActionDefinition{generateHelpCommand(name, version, commands, hearActions)}, HearActions: nil}}
 }
 
 // generateHelpCommand generates a command providing a list of all of the slackscot commands and hear actions.

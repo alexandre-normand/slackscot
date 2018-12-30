@@ -66,6 +66,7 @@ type giphyGif struct {
 	}
 }
 
+// Imager holds the plugin data for the imager plugin
 type Imager struct {
 	slackscot.Plugin
 }
@@ -74,6 +75,7 @@ const (
 	imagerPluginName = "imager"
 )
 
+// NewImager creates a new instance of the plugin
 func NewImager() (imager *Imager) {
 	imageRegex := regexp.MustCompile("(?i)(image|img) (.*)")
 	animateRegex := regexp.MustCompile("(?i)(animate) (.*)")
@@ -83,14 +85,14 @@ func NewImager() (imager *Imager) {
 	bombRegex := regexp.MustCompile("(?i)(bomb) (\\d+) (.+)")
 
 	commands := []slackscot.ActionDefinition{
-		slackscot.ActionDefinition{
+		{
 			Regex:       imageRegex,
 			Usage:       "image <search expression>",
 			Description: "Queries Google Images for _search expression_ and returns random result",
 			Answerer: func(message *slack.Msg) string {
 				return processQueryAndSearch(message.Text, imageRegex, false)
 			},
-		}, slackscot.ActionDefinition{
+		}, {
 			Regex:       animateRegex,
 			Usage:       "animate <search expression>",
 			Description: "The sames as `image` except requests an animated gif matching _search expression_",
@@ -100,7 +102,7 @@ func NewImager() (imager *Imager) {
 
 				return searchGiphy(searchExpression[2], "dc6zaTOxFJmzC")
 			},
-		}, slackscot.ActionDefinition{
+		}, {
 			Regex:       moosificateRegex,
 			Usage:       "moosificate <search expression or image url>",
 			Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
@@ -119,7 +121,7 @@ func NewImager() (imager *Imager) {
 				log.Printf("Calling moosificator for url [%s]", toMoosificate)
 				return fmt.Sprintf("http://www.moosificator.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
 			},
-		}, slackscot.ActionDefinition{
+		}, {
 			Regex:       antlerificateRegex,
 			Usage:       "antlerlificate <search expression or image url>",
 			Description: "Antlerlificates an image from either an image search for the _search expression_ or a direct image URL",
@@ -138,7 +140,7 @@ func NewImager() (imager *Imager) {
 				log.Printf("Calling moosificator for url [%s]", toAntlerlificate)
 				return fmt.Sprintf("http://www.moosificator.com/api/antler?image=%s", url.QueryEscape(toAntlerlificate))
 			},
-		}, slackscot.ActionDefinition{
+		}, {
 			Regex:       bombRegex,
 			Usage:       "bomb <howMany> <search expression>",
 			Description: "The `image me` except repeated multiple times",
