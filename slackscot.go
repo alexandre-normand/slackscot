@@ -201,7 +201,7 @@ func (s *Slackscot) processMessageEvent(api *slack.Client, c *slack.RTM, msgEven
 	// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
 	isReply := msgEvent.ReplyTo > 0
 
-	Debugf(s.config, "Processing event : %s\n", msgEvent)
+	Debugf(s.config, "Processing event : %v\n", msgEvent)
 
 	if !isReply && msgEvent.Type == "message" {
 		slackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.Timestamp}
