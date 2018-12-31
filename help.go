@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nlopes/slack"
 	"regexp"
+	"strings"
 )
 
 type helpPlugin struct {
@@ -25,25 +26,34 @@ func newHelpPlugin(name string, version string, plugins []*Plugin) *helpPlugin {
 func generateHelpCommand(slackscotName string, version string, commands []ActionDefinition, hearActions []ActionDefinition) ActionDefinition {
 	return ActionDefinition{
 		Regex:       regexp.MustCompile("(?i)help"),
-		Usage:       "help",
+		Usage:       helpPluginName,
 		Description: "Reply with usage instructions",
 		Answerer: func(m *slack.Msg) string {
-			response := fmt.Sprintf("I'm `%s` (engine version `%s`) that listens to the team's chat and provides automated functions."+
-				"  I currently support the following commands:\n", slackscotName, version)
+			var b strings.Builder
 
-			for _, value := range commands {
-				if value.Usage != "" && !value.Hidden {
-					response = fmt.Sprintf("%s\n\t%s", response, value)
+			fmt.Fprintf(&b, "I'm `%s` (engine version `%s`) that listens to the team's chat and provides automated functions.\n", slackscotName, version)
+
+			if len(commands) > 0 {
+				fmt.Fprintf(&b, "\nI currently support the following commands:\n")
+
+				for _, value := range commands {
+					if value.Usage != "" && !value.Hidden {
+						fmt.Fprintf(&b, "\t• `%s` - %s\n", value.Usage, value.Description)
+					}
 				}
 			}
 
-			for _, value := range hearActions {
-				if value.Usage != "" && !value.Hidden {
-					response = fmt.Sprintf("%s\n\t%s", response, value)
+			if len(hearActions) > 0 {
+				fmt.Fprintf(&b, "\nAnd listen for the following:\n")
+
+				for _, value := range hearActions {
+					if value.Usage != "" && !value.Hidden {
+						fmt.Fprintf(&b, "\t• `%s` - %s\n", value.Usage, value.Description)
+					}
 				}
 			}
 
-			return response
+			return b.String()
 		},
 	}
 }
