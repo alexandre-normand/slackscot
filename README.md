@@ -1,17 +1,18 @@
-Slackscot
-=========
-
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexandre-normand/slackscot)](https://goreportcard.com/report/github.com/alexandre-normand/slackscot)
 [![GoDoc](https://godoc.org/github.com/alexandre-normand/slackscot?status.svg)](https://godoc.org/github.com/alexandre-normand/slackscot)
 [![Build Status](https://travis-ci.org/alexandre-normand/slackscot.svg)](https://travis-ci.org/alexandre-normand/slackscot)
 
 ![logo.svg](logo.svg)
 
-Slackscot is a simple [slack](https://slack.com) bot written in Go. It uses [Norberto Lopes](https://github.com/nlopes)'s [Slack API Integration](https://github.com/nlopes/slack) found at [https://github.com/nlopes/slack](https://github.com/nlopes/slack). The core functionality of the bot is previously used [James Bowman](https://github.com/james-bowman)'s [Slack RTM API integration](https://github.com/james-bowman/slack) and was heavily inspired by [talbot](https://github.com/james-bowman/talbot), also written by [James Bowman](https://github.com/james-bowman). 
+![name.svg](name.svg)
+
+`Slackscot` is a [slack](https://slack.com) bot written in Go. It uses [Norberto Lopes](https://github.com/nlopes)'s [Slack API Integration](https://github.com/nlopes/slack) found at [https://github.com/nlopes/slack](https://github.com/nlopes/slack). The core functionality of the bot is previously used [James Bowman](https://github.com/james-bowman)'s [Slack RTM API integration](https://github.com/james-bowman/slack) and was heavily inspired by [talbot](https://github.com/james-bowman/talbot), also written by [James Bowman](https://github.com/james-bowman). 
 
 The Name
 --------
-The first concrete bot implementation using this code was [youppi](https://github.com/alexandre-normand/youppi), named after the [great mascot](https://en.wikipedia.org/wiki/Youppi!) of the Montreal Expos and, when the Expos left Montreal, the Montreal Canadiens. `Slackscot` is a variation on the expected theme of `slackbot` with the implication that this is the core to _more_ than just a regular `bot`. You know, a friendly company mascot that hangs out on your `slack`. 
+The first concrete bot implementation using this code was [youppi](https://github.com/alexandre-normand/youppi), named after the [great mascot](https://en.wikipedia.org/wiki/Youppi!) of the Montreal Expos and, when the Expos left Montreal, the Montreal Canadiens. 
+
+`Slackscot` is a variation on the expected theme of _slackbot_ with the implication that this is the core to _more_ than just a regular `bot`. You know, a friendly company _mascot_ that hangs out on your `slack`. 
 
 Features
 --------
