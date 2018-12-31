@@ -193,13 +193,7 @@ func (s *Slackscot) cacheSelfIdentity(rtm *slack.RTM) {
 }
 
 // processMessageEvent handles high-level processing of all slack message events.
-//
-// TODO (coming soon):
-// In the case of updated messages or deleted messages,
-// slackscot will look for an existing reply to that message. In the case of a deleted message that triggered a response from the bot,
-// that message will be deleted from slack. For a changed message, slackscot will either delete the message if not handled anymore or
-// will update the original response if it is still handled
-func (s *Slackscot) processMessageEvent(api *slack.Client, c *slack.RTM, msgEvent *slack.MessageEvent) {
+func (s *Slackscot) processMessageEvent(api *slack.Client, rtm *slack.RTM, msgEvent *slack.MessageEvent) {
 	// reply_to is an field set to 1 sent by slack when a sent message has been acknowledged and should be considered
 	// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
 	isReply := msgEvent.ReplyTo > 0
@@ -210,125 +204,149 @@ func (s *Slackscot) processMessageEvent(api *slack.Client, c *slack.RTM, msgEven
 		slackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.Timestamp}
 
 		if msgEvent.SubType == "message_deleted" {
-			deletedMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.DeletedTimestamp}
-
-			s.Debugf(s.config, "Message deleted: [%s] and cache contains: [%s]", deletedMessageId, s.triggeringMsgToResponse.Keys())
-
-			if existingResponses, exists := s.triggeringMsgToResponse.Get(deletedMessageId); exists {
-				byAction := existingResponses.(map[string]SlackMessageId)
-
-				for _, v := range byAction {
-					// Delete existing response since the triggering message was deleted
-					_, _, err := c.DeleteMessage(v.channelId, v.timestamp)
-					if err != nil {
-						s.Logger.Printf("Error deleting existing response to triggering message [%s]: %s: %v", deletedMessageId, v, err)
-					}
-				}
-
-				s.triggeringMsgToResponse.Remove(deletedMessageId)
-			}
+			s.processDeletedMessage(rtm, msgEvent)
 		} else {
-			// We need to keep the new responses by plugin action identifier as we update/send them
-			newResponseByActionId := make(map[string]SlackMessageId)
-
 			if msgEvent.SubType == "message_changed" {
-				editedSlackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
-
-				outMsgs := s.routeMessage(c, combineIncomingMessageToHandle(msgEvent))
-
-				s.Debugf(s.config, "Updated message: [%s] and cache contains: [%s]", editedSlackMessageId, s.triggeringMsgToResponse.Keys())
-
-				if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageId); exists {
-					responsesByAction := cachedResponses.(map[string]SlackMessageId)
-
-					s.Debugf(s.config, "Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageId)
-
-					for _, om := range outMsgs {
-						// We had a previous response for that same plugin action so edit it instead of posting a new message
-						if r, ok := responsesByAction[om.pluginIdentifier]; ok {
-							s.Debugf(s.config, "Trying to update response at [%s].[%s] with message [%s]\n", r.channelId, r.timestamp, om.OutgoingMessage.Text)
-
-							channelId, newOutgoingMsgTimestamp, _, err := api.UpdateMessage(r.channelId, r.timestamp, slack.MsgOptionText(om.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
-							rId := SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
-							if err != nil {
-								s.Logger.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageId, err)
-							} else {
-								// Add the new updated message to the new responses
-								newResponseByActionId[om.pluginIdentifier] = rId
-
-								// Remove entries for plugin actions as we process them so that we can detect afterwards if a plugin isn't triggering
-								// anymore (to delete those responses).
-								delete(responsesByAction, om.pluginIdentifier)
-							}
-						} else {
-							s.Debugf(s.config, "New response triggered to updated message [%s] [%s].[%s]: [%s]\n", om.OutgoingMessage.Text, r.channelId, r.timestamp, om.OutgoingMessage.Text)
-
-							// It's a new message for that action so post it as a new message
-							channelId, newOutgoingMsgTimestamp, _, err := api.SendMessage(om.OutgoingMessage.Channel, slack.MsgOptionText(om.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
-							rId := SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
-							if err != nil {
-								s.Logger.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
-							} else {
-								// Add the new updated message to the new responses
-								newResponseByActionId[om.pluginIdentifier] = rId
-							}
-						}
-					}
-
-					// Delete any previous triggered responses that aren't triggering anymore
-					for _, r := range responsesByAction {
-						c.DeleteMessage(r.channelId, r.timestamp)
-					}
-
-					// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
-					if len(newResponseByActionId) > 0 {
-						s.Debugf(s.config, "Updating responses to edited message [%s]\n", editedSlackMessageId)
-
-						s.triggeringMsgToResponse.Add(editedSlackMessageId, newResponseByActionId)
-					} else {
-						s.Debugf(s.config, "Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageId)
-
-						s.triggeringMsgToResponse.Remove(editedSlackMessageId)
-					}
-				} else {
-					for _, o := range outMsgs {
-						s.Debugf(s.config, "slackscot: New response triggered to updated message [%s].[%s]: [%s]\n", slackMessageId.channelId, slackMessageId.timestamp, o.OutgoingMessage.Text)
-
-						// It's a new message for that action so post it as a new message
-						channelId, newOutgoingMsgTimestamp, _, err := api.SendMessage(o.OutgoingMessage.Channel, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
-						rId := SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
-						if err != nil {
-							s.Logger.Printf("Unable to send new message trigged from updated message [%s]: %v\n", slackMessageId, err)
-						} else {
-							// Add the new updated message to the new responses
-							newResponseByActionId[o.pluginIdentifier] = rId
-						}
-					}
-				}
+				s.processUpdatedMessage(api, rtm, msgEvent, slackMessageId)
 			} else {
-				outMsgs := s.routeMessage(c, &msgEvent.Msg)
-
-				for _, o := range outMsgs {
-					// Send the message and keep track of our response in cache to be able to update it as needed later
-					channelId, newOutgoingMsgTimestamp, _, err := api.SendMessage(o.OutgoingMessage.Channel, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
-					rId := SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
-					if err != nil {
-						s.Logger.Printf("Unable to send new message to updated message [%s]: %v\n", slackMessageId, err)
-					} else {
-						// Add the new updated message to the new responses
-						newResponseByActionId[o.pluginIdentifier] = rId
-					}
-				}
-
-				if len(newResponseByActionId) > 0 {
-					s.Debugf(s.config, "Adding responses to triggering message [%s]: %s", slackMessageId, newResponseByActionId)
-
-					// Add current responses for that triggering message
-					s.triggeringMsgToResponse.Add(slackMessageId, newResponseByActionId)
-				}
+				s.processNewMessage(api, rtm, msgEvent, slackMessageId)
 			}
 		}
 	}
+}
+
+// processUpdatedMessage processes changed messages. This is a more complicated scenario but slackscot handles it by doing the following:
+// 1. If the message isn't present in the triggering message cache, we process it as we would any other regular new message (check if it triggers an action and sends responses accordingly)
+// 2. If the message is present in cache, we had pre-existing responses so we handle this by updating responses on a plugin action basis. A plugin action that isn't triggering anymore gets its previous
+//    response deleted while a still triggering response will result in a message update. Newly triggered actions will be sent out as new messages.
+// 3. The new state of responses replaces the previous one for the triggering message in the cache
+func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
+	editedSlackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
+
+	s.Debugf(s.config, "Updated message: [%s], does cache contain it => [%t]", editedSlackMessageId, s.triggeringMsgToResponse.Contains(editedSlackMessageId))
+
+	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageId); exists {
+		responsesByAction := cachedResponses.(map[string]SlackMessageId)
+		newResponseByActionId := make(map[string]SlackMessageId)
+
+		outMsgs := s.routeMessage(rtm, combineIncomingMessageToHandle(msgEvent))
+		s.Debugf(s.config, "Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageId)
+
+		for _, o := range outMsgs {
+			// We had a previous response for that same plugin action so edit it instead of posting a new message
+			if r, ok := responsesByAction[o.pluginIdentifier]; ok {
+				s.Debugf(s.config, "Trying to update response at [%s] with message [%s]\n", r, o.OutgoingMessage.Text)
+
+				rId, err := s.updateExistingMessage(api, r, o)
+				if err != nil {
+					s.Logger.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageId, err)
+				} else {
+					// Add the new updated message to the new responses
+					newResponseByActionId[o.pluginIdentifier] = rId
+
+					// Remove entries for plugin actions as we process them so that we can detect afterwards if a plugin isn't triggering
+					// anymore (to delete those responses).
+					delete(responsesByAction, o.pluginIdentifier)
+				}
+			} else {
+				s.Debugf(s.config, "New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
+
+				// It's a new message for that action so post it as a new message
+				rId, err := s.sendNewMessage(api, o)
+				if err != nil {
+					s.Logger.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
+				} else {
+					// Add the new updated message to the new responses
+					newResponseByActionId[o.pluginIdentifier] = rId
+				}
+			}
+		}
+
+		// Delete any previous triggered responses that aren't triggering anymore
+		for _, r := range responsesByAction {
+			rtm.DeleteMessage(r.channelId, r.timestamp)
+		}
+
+		// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
+		if len(newResponseByActionId) > 0 {
+			s.Debugf(s.config, "Updating responses to edited message [%s]\n", editedSlackMessageId)
+			s.triggeringMsgToResponse.Add(editedSlackMessageId, newResponseByActionId)
+		} else {
+			s.Debugf(s.config, "Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageId)
+			s.triggeringMsgToResponse.Remove(editedSlackMessageId)
+		}
+	} else {
+		outMsgs := s.routeMessage(rtm, combineIncomingMessageToHandle(msgEvent))
+		s.sendOutgoingMessages(api, rtm, incomingMessageId, outMsgs)
+	}
+}
+
+// processDeletedMessage handles a deleted message. Slackscot cares about those in order to
+// delete any previous responses triggered by that now inexistant message
+func (s *Slackscot) processDeletedMessage(rtm *slack.RTM, msgEvent *slack.MessageEvent) {
+	deletedMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.DeletedTimestamp}
+
+	s.Debugf(s.config, "Message deleted: [%s] and cache contains: [%s]", deletedMessageId, s.triggeringMsgToResponse.Keys())
+
+	if existingResponses, exists := s.triggeringMsgToResponse.Get(deletedMessageId); exists {
+		byAction := existingResponses.(map[string]SlackMessageId)
+
+		for _, v := range byAction {
+			// Delete existing response since the triggering message was deleted
+			_, _, err := rtm.DeleteMessage(v.channelId, v.timestamp)
+			if err != nil {
+				s.Logger.Printf("Error deleting existing response to triggering message [%s]: %s: %v", deletedMessageId, v, err)
+			}
+		}
+
+		s.triggeringMsgToResponse.Remove(deletedMessageId)
+	}
+}
+
+// processNewMessage handles a regular new message and sends any triggered response
+func (s *Slackscot) processNewMessage(api *slack.Client, rtm *slack.RTM, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
+	outMsgs := s.routeMessage(rtm, &msgEvent.Msg)
+
+	s.sendOutgoingMessages(api, rtm, incomingMessageId, outMsgs)
+}
+
+// sendOutgoingMessages sends out any triggered plugin responses and keeps track of those in the internal cache
+func (s *Slackscot) sendOutgoingMessages(api *slack.Client, rtm *slack.RTM, incomingMessageId SlackMessageId, outMsgs []*OutgoingMessage) {
+	newResponseByActionId := make(map[string]SlackMessageId)
+
+	for _, o := range outMsgs {
+		// Send the message and keep track of our response in cache to be able to update it as needed later
+		rId, err := s.sendNewMessage(api, o)
+		if err != nil {
+			s.Logger.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageId, err)
+		} else {
+			// Add the new updated message to the new responses
+			newResponseByActionId[o.pluginIdentifier] = rId
+		}
+	}
+
+	if len(newResponseByActionId) > 0 {
+		s.Debugf(s.config, "Adding responses to triggering message [%s]: %s", incomingMessageId, newResponseByActionId)
+
+		// Add current responses for that triggering message
+		s.triggeringMsgToResponse.Add(incomingMessageId, newResponseByActionId)
+	}
+}
+
+// sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
+func (s *Slackscot) sendNewMessage(api *slack.Client, o *OutgoingMessage) (rId SlackMessageId, err error) {
+	channelId, newOutgoingMsgTimestamp, _, err := api.SendMessage(o.OutgoingMessage.Channel, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
+	rId = SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
+
+	return rId, err
+}
+
+// updateExistingMessage updates an existing message with the content of a newly triggered OutgoingMessage
+func (s *Slackscot) updateExistingMessage(api *slack.Client, r SlackMessageId, o *OutgoingMessage) (rId SlackMessageId, err error) {
+	channelId, newOutgoingMsgTimestamp, _, err := api.UpdateMessage(r.channelId, r.timestamp, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
+	rId = SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
+
+	return rId, err
 }
 
 // combineIncomingMessageToHandle combined a main message and its sub message to form what would be an intuitive message to process for
