@@ -11,8 +11,15 @@ type Configuration struct {
 	Token             string                       `json:"token"`
 	Debug             bool                         `json:"debug"`
 	ResponseCacheSize int                          `json:"responseCacheSize"`
+	ReplyBehavior     ReplyBehavior                `json:"replyBehavior"`
 	StoragePath       string                       `json:"storagePath"`
 	Plugins           map[string]map[string]string `json:"plugins"`
+}
+
+// ReplyBehavior holds flags to define the replying behavior (use threads or not and broadcast replies or not)
+type ReplyBehavior struct {
+	ThreadedReplies bool `json:"threadedReplies"`
+	Broadcast       bool `json:"broadcast"`
 }
 
 // LoadConfiguration loads a slackscot configuration from a given file path

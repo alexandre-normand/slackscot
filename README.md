@@ -32,6 +32,7 @@ Fancy features
 	- *Limitation*: Sending a `message` automatically splits it into multiple slack messages when it's too long. When updating messages,
 	  this spitting doesn't happen and results in an `message too long` error. Effectively, the last message in the initial response might get
 	  `deleted` as a result. Handling of this could be better but that is the current limitation.
+* Support for threaded replies to user message with option to also `broadcast` on channels (disabled by `default`). See [configuration example](#configuration-example) below where both are enabled. 
 
 Concepts
 --------
@@ -45,6 +46,7 @@ How to use
 ----------
 Slackscot provides the pieces to make your mascot but you'll have to assemble them for him/her to come alive. 
 
+### Integration and bringing your `slackscot` to life
 
 Here's an example of how [Youppi](https://github.com/alexandre-normand/youppi) does it (apologies for the verbose and repetitive error handling when creating instances of plugins):
 ```
@@ -107,6 +109,8 @@ func main() {
 
 ```
 
+### Configuration example
+
 You'll also need to define your `json` configuration for the core, built-in extensions and any configuration required by your own custom extensions (not shown here):
 
 ```
@@ -115,6 +119,10 @@ You'll also need to define your `json` configuration for the core, built-in exte
    "debug": false,
    "responseCacheSize": 5000,
    "storagePath": "/your-path-to-bot-home",
+   "replyBehavior": {
+      "threadedReplies": true,
+      "broadcast": true
+   }
    "plugins": {
       "fingerQuoter": {
          "frequency": "100",

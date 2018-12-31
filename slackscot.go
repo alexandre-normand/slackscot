@@ -252,7 +252,7 @@ func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msg
 				s.Debugf(s.config, "New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
 
 				// It's a new message for that action so post it as a new message
-				rId, err := s.sendNewMessage(api, o)
+				rId, err := s.sendNewMessage(api, o, incomingMessageId.timestamp)
 				if err != nil {
 					s.Logger.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
 				} else {
@@ -316,7 +316,7 @@ func (s *Slackscot) sendOutgoingMessages(api *slack.Client, rtm *slack.RTM, inco
 
 	for _, o := range outMsgs {
 		// Send the message and keep track of our response in cache to be able to update it as needed later
-		rId, err := s.sendNewMessage(api, o)
+		rId, err := s.sendNewMessage(api, o, incomingMessageId.timestamp)
 		if err != nil {
 			s.Logger.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageId, err)
 		} else {
@@ -334,8 +334,17 @@ func (s *Slackscot) sendOutgoingMessages(api *slack.Client, rtm *slack.RTM, inco
 }
 
 // sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
-func (s *Slackscot) sendNewMessage(api *slack.Client, o *OutgoingMessage) (rId SlackMessageId, err error) {
-	channelId, newOutgoingMsgTimestamp, _, err := api.SendMessage(o.OutgoingMessage.Channel, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
+func (s *Slackscot) sendNewMessage(api *slack.Client, o *OutgoingMessage, threadTS string) (rId SlackMessageId, err error) {
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true)}
+	if s.config.ReplyBehavior.ThreadedReplies {
+		options = append(options, slack.MsgOptionTS(threadTS))
+
+		if s.config.ReplyBehavior.Broadcast {
+			options = append(options, slack.MsgOptionBroadcast())
+		}
+	}
+
+	channelId, newOutgoingMsgTimestamp, _, err := api.SendMessage(o.OutgoingMessage.Channel, options...)
 	rId = SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
 
 	return rId, err
