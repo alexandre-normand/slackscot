@@ -1,3 +1,5 @@
+// Package store provides a simple and convenient data store service available for plugins to persist
+// data
 package store
 
 import (

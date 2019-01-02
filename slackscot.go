@@ -1,9 +1,15 @@
+// Package slackscot provides the building blocks to create a slack bot. It is
+// easily extendable via plugins that can combine commands, hear actions (listeners) as well
+// as scheduled actions. It also supports updating of triggered responses on message updates as well
+// as deleting triggered responses when the triggering messages are deleted by users.
 package slackscot
 
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/hashicorp/golang-lru"
+	"github.com/marcsantiago/gocron"
 	"github.com/nlopes/slack"
 	"log"
 	"os"
@@ -29,9 +35,10 @@ type Slackscot struct {
 
 // Plugin represents a plugin (its name and action definitions)
 type Plugin struct {
-	Name        string
-	Commands    []ActionDefinition
-	HearActions []ActionDefinition
+	Name             string
+	Commands         []ActionDefinition
+	HearActions      []ActionDefinition
+	ScheduledActions []ScheduledActionDefinition
 }
 
 // ActionDefinition represents how an action is triggered, published, used and described
@@ -53,10 +60,30 @@ type ActionDefinition struct {
 	Answerer ActionFunc
 }
 
+// ScheduledActionDefinition represents when a scheduled action is triggered as well
+// as what it does and how
+type ScheduledActionDefinition struct {
+	// Indicates whether the action should be omitted from the help message
+	Hidden bool
+
+	schedule.ScheduleDefinition
+
+	// Help description for the scheduled action
+	Description string
+
+	// ScheduledAction is the function that is invoked when the schedule activates
+	Action ScheduledAction
+}
+
 // ActionDefinitionWithId holds an action definition along with its identifier string
 type ActionDefinitionWithId struct {
 	ActionDefinition
 	id string
+}
+
+// String returns a friendly description of a ScheduledActionDefinition
+func (a ScheduledActionDefinition) String() string {
+	return fmt.Sprintf("`%s` - %s", a.ScheduleDefinition, a.Description)
 }
 
 // String returns a friendly description of an ActionDefinition
@@ -66,6 +93,9 @@ func (a ActionDefinition) String() string {
 
 // ActionFunc is what gets executed when an ActionDefinition is triggered
 type ActionFunc func(m *slack.Msg) string
+
+// ScheduledAction is what gets executed when a ScheduledActionDefinition is triggered (by its ScheduleDefinition)
+type ScheduledAction func(rtm *slack.RTM)
 
 // responseStrategy defines how a slack.OutgoingMessage is generated from a response
 type responseStrategy func(rtm *slack.RTM, m *slack.Msg, response string) *slack.OutgoingMessage
@@ -107,7 +137,7 @@ func (s *Slackscot) RegisterPlugin(p *Plugin) {
 // Run starts the Slackscot and loops until the process is interrupted
 func (s *Slackscot) Run() (err error) {
 	// Start by adding the help command now that we know all plugins have been registered
-	helpPlugin := newHelpPlugin(s.name, VERSION, s.plugins)
+	helpPlugin := newHelpPlugin(s.name, VERSION, s.config, s.plugins)
 	s.RegisterPlugin(&helpPlugin.Plugin)
 	s.attachIdentifiersToPluginActions()
 
@@ -120,6 +150,9 @@ func (s *Slackscot) Run() (err error) {
 	rtm := api.NewRTM()
 
 	go rtm.ManageConnection()
+
+	// Start scheduling of scheduled actions
+	go s.startActionScheduler(rtm)
 
 	for msg := range rtm.IncomingEvents {
 		switch e := msg.Data.(type) {
@@ -190,6 +223,31 @@ func (s *Slackscot) cacheSelfIdentity(rtm *slack.RTM) {
 	s.selfName = rtm.GetInfo().User.Name
 
 	s.Debugf(s.config, "Caching self id [%s] and self name [%s]\n", s.selfId, s.selfName)
+}
+
+// startActionScheduler creates all ScheduledActionDefinition from all plugins and registers them with the scheduler
+// Very importantly, it also starts the scheduler
+func (s *Slackscot) startActionScheduler(rtm *slack.RTM) (err error) {
+	gocron.ChangeLoc(s.config.TimeLocation)
+	sc := gocron.NewScheduler()
+
+	for _, p := range s.plugins {
+		if p.ScheduledActions != nil {
+			for _, sa := range p.ScheduledActions {
+				j := schedule.NewScheduledJob(sc, sa.ScheduleDefinition)
+				s.Debugf(s.config, "Adding job [%v] to scheduler\n", j)
+				j.Do(sa.Action, rtm)
+			}
+		}
+	}
+
+	_, t := sc.NextRun()
+	s.Debugf(s.config, "Starting scheduler with first job scheduled at [%s]\n", t)
+
+	// TODO: consider keeping track of the scheduler to stop it if it starts to appear necessary
+	<-sc.Start()
+
+	return nil
 }
 
 // processMessageEvent handles high-level processing of all slack message events.

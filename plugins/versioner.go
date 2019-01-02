@@ -1,3 +1,5 @@
+// Package plugins provides a collection of example (and usable) plugins for instances
+// of slackscot
 package plugins
 
 import (

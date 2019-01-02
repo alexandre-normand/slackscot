@@ -21,8 +21,7 @@ Features
 * Basic config interface with slack token and storage path. 
 * Plugin interface that is a logical grouping of one or many commands and "hear actions" (listeners). 
 
-Fancy features
---------------
+### Fancy Features
 
 * Support for reactions to message updates. `slackscot` does the following:
 	- Keeps track of plugin action responses and the message that triggered them
@@ -34,6 +33,7 @@ Fancy features
 	  this spitting doesn't happen and results in an `message too long` error. Effectively, the last message in the initial response might get
 	  `deleted` as a result. Handling of this could be better but that is the current limitation.
 * Support for threaded replies to user message with option to also `broadcast` on channels (disabled by `default`). See [configuration example](#configuration-example) below where both are enabled. 
+* Support for scheduled actions
 
 Concepts
 --------
@@ -102,6 +102,15 @@ func main() {
 	}
 	youppi.RegisterPlugin(&emojiBanner.Plugin)
 
+	ohMonday, err := plugins.NewOhMonday(c)
+	if err != nil {
+		log.Fatalf("Error initializing oh monday plugin: %v", err)
+	}
+	youppi.RegisterPlugin(&ohMonday.Plugin)
+
+	versioner := plugins.NewVersioner("youppi", VERSION)
+	youppi.RegisterPlugin(&versioner.Plugin)
+
 	err = youppi.Run()
 	if err != nil {
 		log.Fatal(err)
@@ -119,12 +128,16 @@ You'll also need to define your `json` configuration for the core, built-in exte
    "token": "your-slack-bot-token",
    "debug": false,
    "responseCacheSize": 5000,
+   "timeLocation": "America/Los_Angeles",
    "storagePath": "/your-path-to-bot-home",
    "replyBehavior": {
       "threadedReplies": true,
       "broadcast": true
    }
    "plugins": {
+   	  "ohMonday": {
+   	  	 "channelId": "slackChannelId"
+   	  },
       "fingerQuoter": {
          "frequency": "100",
          "channelIds": ""
