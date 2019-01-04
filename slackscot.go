@@ -14,7 +14,9 @@ import (
 	"github.com/spf13/viper"
 	"log"
 	"os"
+	"os/signal"
 	"regexp"
+	"syscall"
 	"time"
 )
 
@@ -165,6 +167,7 @@ func (s *Slackscot) Run() (err error) {
 
 	// Start scheduling of scheduled actions
 	go s.startActionScheduler(timeLoc, rtm)
+	go s.watchForTerminationSignalToAbort(rtm)
 
 	for msg := range rtm.IncomingEvents {
 		switch e := msg.Data.(type) {
@@ -198,6 +201,18 @@ func (s *Slackscot) Run() (err error) {
 	}
 
 	return nil
+}
+
+// watchForTerminationSignalToAbort waits for a SIGTERM or SIGINT and closes the rtm's IncomingEvents channel to finish
+// the main Run() loop and terminate cleanly. Note that this is meant to run in a go routine given that this is blocking
+func (s *Slackscot) watchForTerminationSignalToAbort(rtm *slack.RTM) {
+	tSignals := make(chan os.Signal, 1)
+	// Register to be notified of termination signals so we can abort
+	signal.Notify(tSignals, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-tSignals
+
+	s.Debugf("Received termination signal [%s], closing RTM's incoming events channel to terminate processing\n", sig)
+	close(rtm.IncomingEvents)
 }
 
 // attachIdentifiersToPluginActions attaches an action identifier to every plugin action and sets them accordingly
