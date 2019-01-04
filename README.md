@@ -52,6 +52,7 @@ Slackscot provides the pieces to make your mascot but you'll have to assemble th
 
 Here's an example of how [Youppi](https://github.com/alexandre-normand/youppi) does it (apologies for the verbose and repetitive error handling when creating instances of plugins):
 ```
+//go:generate giddyup
 package main
 
 import (
@@ -59,6 +60,7 @@ import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/plugins"
+	"github.com/spf13/viper"
 	"log"
 )
 
@@ -67,28 +69,37 @@ var (
 )
 
 func main() {
+	kingpin.Version(VERSION)
 	kingpin.Parse()
 
-	config, err := config.LoadConfiguration(*configurationPath)
+	v := config.NewViperWithDefaults()
+	v.SetConfigFile(*configurationPath)
+	err := v.ReadInConfig()
+	if err != nil {
+		log.Fatalf("Error loading configuration file [%s]: %v", *configurationPath, err)
+	}
+
+	// Do this only so that we can get a global debug flag available to everything
+	// TODO: clean this up
+	viper.Set(config.DebugKey, v.GetBool(config.DebugKey))
+
+	youppi, err := slackscot.NewSlackscot("youppi", v)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	c := *config
-
-	youppi, err := slackscot.NewSlackscot("youppi", c)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	karma, err := plugins.NewKarma(c)
+	karma, err := plugins.NewKarma(v)
 	if err != nil {
 		log.Fatalf("Error initializing karma plugin: %v", err)
 	}
 	defer karma.Close()
 	youppi.RegisterPlugin(&karma.Plugin)
 
-	fingerQuoter, err := plugins.NewFingerQuoter(c)
+	fingerQuoterConf, err := config.GetPluginConfig(v, plugins.FingerQuoterPluginName)
+	if err != nil {
+		log.Fatalf("Error initializing finger quoter plugin: %v", err)
+	}
+	fingerQuoter, err := plugins.NewFingerQuoter(fingerQuoterConf)
 	if err != nil {
 		log.Fatalf("Error initializing finger quoter plugin: %v", err)
 	}
@@ -97,13 +108,22 @@ func main() {
 	imager := plugins.NewImager()
 	youppi.RegisterPlugin(&imager.Plugin)
 
-	emojiBanner, err := plugins.NewEmojiBannerMaker(c)
+	emojiBannerConf, err := config.GetPluginConfig(v, plugins.EmojiBannerPluginName)
 	if err != nil {
 		log.Fatalf("Error initializing emoji banner plugin: %v", err)
 	}
+	emojiBanner, err := plugins.NewEmojiBannerMaker(emojiBannerConf)
+	if err != nil {
+		log.Fatalf("Error initializing emoji banner plugin: %v", err)
+	}
+	defer emojiBanner.Close()
 	youppi.RegisterPlugin(&emojiBanner.Plugin)
 
-	ohMonday, err := plugins.NewOhMonday(c)
+	ohMondayConf, err := config.GetPluginConfig(v, plugins.OhMondayPluginName)
+	if err != nil {
+		log.Fatalf("Error initializing oh monday plugin: %v", err)
+	}
+	ohMonday, err := plugins.NewOhMonday(ohMondayConf)
 	if err != nil {
 		log.Fatalf("Error initializing oh monday plugin: %v", err)
 	}
@@ -145,8 +165,7 @@ which means that you are free to use a different file format (`yaml`, `toml`, et
          "channelIds": ""
       },
       "emojiBanner": {
-         "fontPath": "/your-path-to-bot-home/fonts",
-         "fontName": "banner"
+         "figletFontUrl": "http://www.figlet.org/fonts/banner.flf"
       }
    }
 }

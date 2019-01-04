@@ -24,7 +24,7 @@ import (
 type Slackscot struct {
 	name                    string
 	config                  *viper.Viper
-	defaultAction           ActionFunc
+	defaultAction           Answerer
 	plugins                 []*Plugin
 	triggeringMsgToResponse *lru.ARCCache
 
@@ -51,8 +51,8 @@ type ActionDefinition struct {
 	// Indicates whether the action should be omitted from the help message
 	Hidden bool
 
-	// Pattern to match in the message for the action's Answerer function to execute
-	Regex *regexp.Regexp
+	// Matcher that will determine whether or not the action should be triggered
+	Match Matcher
 
 	// Usage example
 	Usage string
@@ -60,9 +60,13 @@ type ActionDefinition struct {
 	// Help description for the action
 	Description string
 
-	// Function to execute if the Regex matches
-	Answerer ActionFunc
+	// Function to execute if the Matcher matches
+	Answer Answerer
 }
+
+// Matcher is the function that determines whether or not an action should be triggered. Note that a match doesn't guarantee that the action should
+// actually respond with anything once invoked
+type Matcher func(t string, m *slack.Msg) bool
 
 // ScheduledActionDefinition represents when a scheduled action is triggered as well
 // as what it does and how
@@ -95,8 +99,8 @@ func (a ActionDefinition) String() string {
 	return fmt.Sprintf("`%s` - %s", a.Usage, a.Description)
 }
 
-// ActionFunc is what gets executed when an ActionDefinition is triggered
-type ActionFunc func(m *slack.Msg) string
+// Answerer is what gets executed when an ActionDefinition is triggered
+type Answerer func(m *slack.Msg) string
 
 // ScheduledAction is what gets executed when a ScheduledActionDefinition is triggered (by its ScheduleDefinition)
 type ScheduledAction func(rtm *slack.RTM)
@@ -504,10 +508,10 @@ func (s *Slackscot) routeMessage(rtm *slack.RTM, m *slack.Msg) (responses []*Out
 
 // handleCommand handles a command by trying a match with all known actions. If no match is found, the default action is invoked
 // Note that in the case of the default action being executed, the return value is still false to indicate no bot actions were triggered
-func handleCommand(defaultAction ActionFunc, actions []ActionDefinitionWithId, rtm *slack.RTM, content string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
+func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithId, rtm *slack.RTM, content string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
 	outMsgs = handleMessage(actions, rtm, content, m, rs)
 	if len(outMsgs) == 0 {
-		response := defaultAction(m)
+		response := defaultAnswer(m)
 
 		slackOutMsg := rs(rtm, m, response)
 		outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginIdentifier: "default"}
@@ -523,10 +527,10 @@ func handleMessage(actions []ActionDefinitionWithId, rtm *slack.RTM, t string, m
 	outMsgs = make([]*OutgoingMessage, 0)
 
 	for _, action := range actions {
-		matches := action.Regex.FindStringSubmatch(t)
+		matches := action.Match(t, m)
 
-		if len(matches) > 0 {
-			response := action.Answerer(m)
+		if matches {
+			response := action.Answer(m)
 
 			if response != "" {
 				slackOutMsg := rs(rtm, m, response)

@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -41,11 +42,14 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 
 	hearActions := []slackscot.ActionDefinition{
 		{
-			Hidden:      false,
-			Regex:       karmaRegex,
+			Hidden: false,
+			Match: func(t string, m *slack.Msg) bool {
+				matches := karmaRegex.FindStringSubmatch(t)
+				return len(matches) > 0
+			},
 			Usage:       "thing++ or thing--",
 			Description: "Keep track of karma",
-			Answerer: func(message *slack.Msg) string {
+			Answer: func(message *slack.Msg) string {
 				match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
 				var format string
@@ -82,11 +86,13 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 
 	commands := []slackscot.ActionDefinition{
 		{
-			Hidden:      false,
-			Regex:       topKarmaRegexp,
+			Hidden: false,
+			Match: func(t string, m *slack.Msg) bool {
+				return strings.HasPrefix(t, "karma top")
+			},
 			Usage:       "karma top <howMany>",
 			Description: "Return the X top things ever",
-			Answerer: func(message *slack.Msg) string {
+			Answer: func(message *slack.Msg) string {
 				match := topKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
 				log.Printf("Here are the matches: [%v]", match)
 
@@ -110,11 +116,13 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 			},
 		},
 		{
-			Hidden:      false,
-			Regex:       worstKarmaRegexp,
+			Hidden: false,
+			Match: func(t string, m *slack.Msg) bool {
+				return strings.HasPrefix(t, "karma worst")
+			},
 			Usage:       "karma worst <howMany>",
 			Description: "Return the X worst things ever",
-			Answerer: func(message *slack.Msg) string {
+			Answer: func(message *slack.Msg) string {
 				match := worstKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
 
 				rawCount := match[2]

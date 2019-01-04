@@ -5,7 +5,6 @@ import (
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
-	"regexp"
 	"strings"
 )
 
@@ -33,10 +32,12 @@ func newHelpPlugin(name string, version string, c *viper.Viper, plugins []*Plugi
 // Note that ActionDefinitions with the flag Hidden set to true won't be included in the list
 func generateHelpCommand(c *viper.Viper, slackscotName string, version string, commands []ActionDefinition, hearActions []ActionDefinition, pluginScheduledActions []pluginScheduledAction) ActionDefinition {
 	return ActionDefinition{
-		Regex:       regexp.MustCompile("(?i)help"),
+		Match: func(t string, m *slack.Msg) bool {
+			return strings.HasPrefix(t, "help")
+		},
 		Usage:       helpPluginName,
 		Description: "Reply with usage instructions",
-		Answerer: func(m *slack.Msg) string {
+		Answer: func(m *slack.Msg) string {
 			var b strings.Builder
 
 			fmt.Fprintf(&b, "I'm `%s` (engine version `%s`) that listens to the team's chat and provides automated functions.\n", slackscotName, version)

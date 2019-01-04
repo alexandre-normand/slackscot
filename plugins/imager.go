@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -80,33 +79,37 @@ func NewImager() (imager *Imager) {
 	imageRegex := regexp.MustCompile("(?i)(image|img) (.*)")
 	animateRegex := regexp.MustCompile("(?i)(animate) (.*)")
 	moosificateRegex := regexp.MustCompile("(?i)(moosificate) (.*)")
-	antlerificateRegex := regexp.MustCompile("(?i)(antlerificate) (.*)")
 	urlRegex := regexp.MustCompile("(?i).*https?://.*")
-	bombRegex := regexp.MustCompile("(?i)(bomb) (\\d+) (.+)")
 
 	commands := []slackscot.ActionDefinition{
 		{
-			Regex:       imageRegex,
+			Match: func(t string, m *slack.Msg) bool {
+				return strings.HasPrefix(t, "image")
+			},
 			Usage:       "image <search expression>",
 			Description: "Queries Google Images for _search expression_ and returns random result",
-			Answerer: func(message *slack.Msg) string {
+			Answer: func(message *slack.Msg) string {
 				return processQueryAndSearch(message.Text, imageRegex, false)
 			},
 		}, {
-			Regex:       animateRegex,
+			Match: func(t string, m *slack.Msg) bool {
+				return strings.HasPrefix(t, "animate")
+			},
 			Usage:       "animate <search expression>",
 			Description: "The sames as `image` except requests an animated gif matching _search expression_",
-			Answerer: func(message *slack.Msg) string {
+			Answer: func(message *slack.Msg) string {
 				searchExpression := animateRegex.FindAllStringSubmatch(message.Text, -1)[0]
 				slackscot.Debugf("Matches %v", searchExpression)
 
 				return searchGiphy(searchExpression[2], "dc6zaTOxFJmzC")
 			},
 		}, {
-			Regex:       moosificateRegex,
+			Match: func(t string, m *slack.Msg) bool {
+				return strings.HasPrefix(t, "moosificate")
+			},
 			Usage:       "moosificate <search expression or image url>",
 			Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
-			Answerer: func(message *slack.Msg) string {
+			Answer: func(message *slack.Msg) string {
 				match := moosificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
 				slackscot.Debugf("Here are the matches: [%v]", match)
 
@@ -121,43 +124,7 @@ func NewImager() (imager *Imager) {
 				slackscot.Debugf("Calling moosificator for url [%s]", toMoosificate)
 				return fmt.Sprintf("http://www.moosificator.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
 			},
-		}, {
-			Regex:       antlerificateRegex,
-			Usage:       "antlerlificate <search expression or image url>",
-			Description: "Antlerlificates an image from either an image search for the _search expression_ or a direct image URL",
-			Answerer: func(message *slack.Msg) string {
-				match := antlerificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf("Here are the matches: [%v]", match)
-
-				toAntlerlificate := match[2]
-				slackscot.Debugf("Thing to antlerlificate: %s", toAntlerlificate)
-				if !urlRegex.MatchString(toAntlerlificate) {
-					toAntlerlificate = imageSearch(toAntlerlificate, false, false, 1)
-				} else {
-					toAntlerlificate = toAntlerlificate[1 : len(toAntlerlificate)-1]
-				}
-
-				slackscot.Debugf("Calling moosificator for url [%s]", toAntlerlificate)
-				return fmt.Sprintf("http://www.moosificator.com/api/antler?image=%s", url.QueryEscape(toAntlerlificate))
-			},
-		}, {
-			Regex:       bombRegex,
-			Usage:       "bomb <howMany> <search expression>",
-			Description: "The `image me` except repeated multiple times",
-			Answerer: func(message *slack.Msg) string {
-				match := bombRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf("Here are the matches: [%v], [%s] [%s]", match, match[2], match[3])
-				count, _ := strconv.Atoi(match[2])
-				searchExpression := match[3]
-
-				slackscot.Debugf("Search: %s, count %d", searchExpression, count)
-				if len(searchExpression) > 0 {
-					return imageSearch(searchExpression, false, false, count)
-				}
-				return ""
-			},
-		},
-	}
+		}}
 
 	return &Imager{Plugin: slackscot.Plugin{Name: ImagerPluginName, Commands: commands, HearActions: nil}}
 }

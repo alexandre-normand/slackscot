@@ -69,10 +69,12 @@ func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, e
 	}
 
 	return &EmojiBannerMaker{Plugin: slackscot.Plugin{Name: EmojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
-		Regex:       emojiBannerRegex,
+		Match: func(t string, m *slack.Msg) bool {
+			return strings.HasPrefix(t, "emoji banner")
+		},
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
-		Answerer: func(message *slack.Msg) string {
+		Answer: func(message *slack.Msg) string {
 			return validateAndRenderEmoji(message.Text, emojiBannerRegex, renderer, options)
 		},
 	}}, HearActions: nil}, tempDirFontPath: tempDirFontPath}, nil

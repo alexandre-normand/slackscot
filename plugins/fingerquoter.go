@@ -6,9 +6,8 @@ import (
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/nlopes/slack"
 	"math/rand"
-	"regexp"
+	"strconv"
 	"strings"
-	"time"
 	"unicode"
 )
 
@@ -25,8 +24,6 @@ type FingerQuoter struct {
 
 // NewFingerQuoter creates a new instance of the plugin
 func NewFingerQuoter(config *config.PluginConfig) (p *FingerQuoter, err error) {
-	fingerQuoterRegex := regexp.MustCompile("(?i)([a-zA-Z\\-]{5,16})+")
-
 	var channels []string
 
 	channelValue := config.GetString(channelIdsKey)
@@ -39,34 +36,56 @@ func NewFingerQuoter(config *config.PluginConfig) (p *FingerQuoter, err error) {
 	frequency := config.GetInt(frequencyKey)
 
 	return &FingerQuoter{slackscot.Plugin{Name: "fingerQuoter", Commands: nil, HearActions: []slackscot.ActionDefinition{{
-		Hidden:      true,
-		Regex:       fingerQuoterRegex,
+		Hidden: true,
+		// Match based on the frequency probability and whether or not the channel is whitelisted
+		Match: func(t string, m *slack.Msg) bool {
+			if !isChannelWhiteListed(m.Channel, channels) {
+				return false
+			}
+
+			f, err := strconv.ParseFloat(m.Timestamp, 64)
+			if err != nil {
+				slackscot.Debugf("[%s] Skipping message [%s] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
+			} else {
+				// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
+				randomGen := rand.New(rand.NewSource(int64(f)))
+
+				// Determine if we're going to react this time or not
+				return randomGen.Int31n(int32(frequency)) == 0
+			}
+			return false
+		},
 		Usage:       "just speak",
 		Description: "finger quoter listens to what people say and (sometimes) finger quotes a word",
-		Answerer: func(m *slack.Msg) string {
-			if isChannelWhiteListed(m.Channel, channels) {
-				words := strings.FieldsFunc(m.Text, func(c rune) bool {
-					return !unicode.IsLetter(c) && c != '-'
-				})
+		Answer: func(m *slack.Msg) string {
+			candidates := splitInputIntoWordsLongerThan(m.Text, 4)
 
-				candidates := filterWordsLongerThan(words, 4)
+			if len(candidates) > 0 {
 
-				if len(candidates) > 0 {
-					randomGen := rand.New(rand.NewSource(time.Now().UnixNano()))
-					// Determine if we're going to react this time or not
-					if randomGen.Int31n(int32(frequency)) == 0 {
-						// That's it, let's pick a word and finger-quote it
-						i := randomGen.Int31n(int32(len(candidates)))
-						return fmt.Sprintf("\"%s\"", candidates[i])
-					}
+				f, err := strconv.ParseFloat(m.Timestamp, 64)
+				if err != nil {
+					slackscot.Debugf("[%s] Skipping message [%s] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
+				} else {
+					// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
+					randomGen := rand.New(rand.NewSource(int64(f)))
+
+					i := randomGen.Int31n(int32(len(candidates)))
+					return fmt.Sprintf("\"%s\"", candidates[i])
 				}
-			} else {
-				slackscot.Debugf("Channel [%s] is not whitelisted.", m.Channel)
 			}
+
 			// Not this time, skip
 			return ""
 		},
 	}}}}, nil
+}
+
+func splitInputIntoWordsLongerThan(t string, minLen int) []string {
+	words := strings.FieldsFunc(t, func(c rune) bool {
+		return !unicode.IsLetter(c) && c != '-'
+	})
+
+	return filterWordsLongerThan(words, minLen)
 }
 
 func filterWordsLongerThan(words []string, minLen int) []string {
