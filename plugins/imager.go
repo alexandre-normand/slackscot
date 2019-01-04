@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/config"
 	"github.com/nlopes/slack"
 	"io/ioutil"
 	"log"
@@ -70,15 +69,14 @@ type giphyGif struct {
 // Imager holds the plugin data for the imager plugin
 type Imager struct {
 	slackscot.Plugin
-	config.Configuration
 }
 
 const (
-	imagerPluginName = "imager"
+	ImagerPluginName = "imager"
 )
 
 // NewImager creates a new instance of the plugin
-func NewImager(c config.Configuration) (imager *Imager) {
+func NewImager() (imager *Imager) {
 	imageRegex := regexp.MustCompile("(?i)(image|img) (.*)")
 	animateRegex := regexp.MustCompile("(?i)(animate) (.*)")
 	moosificateRegex := regexp.MustCompile("(?i)(moosificate) (.*)")
@@ -92,7 +90,7 @@ func NewImager(c config.Configuration) (imager *Imager) {
 			Usage:       "image <search expression>",
 			Description: "Queries Google Images for _search expression_ and returns random result",
 			Answerer: func(message *slack.Msg) string {
-				return processQueryAndSearch(c, message.Text, imageRegex, false)
+				return processQueryAndSearch(message.Text, imageRegex, false)
 			},
 		}, {
 			Regex:       animateRegex,
@@ -100,9 +98,9 @@ func NewImager(c config.Configuration) (imager *Imager) {
 			Description: "The sames as `image` except requests an animated gif matching _search expression_",
 			Answerer: func(message *slack.Msg) string {
 				searchExpression := animateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf(c, "Matches %v", searchExpression)
+				slackscot.Debugf("Matches %v", searchExpression)
 
-				return searchGiphy(c, searchExpression[2], "dc6zaTOxFJmzC")
+				return searchGiphy(searchExpression[2], "dc6zaTOxFJmzC")
 			},
 		}, {
 			Regex:       moosificateRegex,
@@ -110,17 +108,17 @@ func NewImager(c config.Configuration) (imager *Imager) {
 			Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
 			Answerer: func(message *slack.Msg) string {
 				match := moosificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf(c, "Here are the matches: [%v]", match)
+				slackscot.Debugf("Here are the matches: [%v]", match)
 
 				toMoosificate := match[2]
-				slackscot.Debugf(c, "Thing to moosificate: %s", toMoosificate)
+				slackscot.Debugf("Thing to moosificate: %s", toMoosificate)
 				if !urlRegex.MatchString(toMoosificate) {
-					toMoosificate = imageSearch(c, toMoosificate, false, false, 1)
+					toMoosificate = imageSearch(toMoosificate, false, false, 1)
 				} else {
 					toMoosificate = toMoosificate[1 : len(toMoosificate)-1]
 				}
 
-				slackscot.Debugf(c, "Calling moosificator for url [%s]", toMoosificate)
+				slackscot.Debugf("Calling moosificator for url [%s]", toMoosificate)
 				return fmt.Sprintf("http://www.moosificator.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
 			},
 		}, {
@@ -129,17 +127,17 @@ func NewImager(c config.Configuration) (imager *Imager) {
 			Description: "Antlerlificates an image from either an image search for the _search expression_ or a direct image URL",
 			Answerer: func(message *slack.Msg) string {
 				match := antlerificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf(c, "Here are the matches: [%v]", match)
+				slackscot.Debugf("Here are the matches: [%v]", match)
 
 				toAntlerlificate := match[2]
-				slackscot.Debugf(c, "Thing to antlerlificate: %s", toAntlerlificate)
+				slackscot.Debugf("Thing to antlerlificate: %s", toAntlerlificate)
 				if !urlRegex.MatchString(toAntlerlificate) {
-					toAntlerlificate = imageSearch(c, toAntlerlificate, false, false, 1)
+					toAntlerlificate = imageSearch(toAntlerlificate, false, false, 1)
 				} else {
 					toAntlerlificate = toAntlerlificate[1 : len(toAntlerlificate)-1]
 				}
 
-				slackscot.Debugf(c, "Calling moosificator for url [%s]", toAntlerlificate)
+				slackscot.Debugf("Calling moosificator for url [%s]", toAntlerlificate)
 				return fmt.Sprintf("http://www.moosificator.com/api/antler?image=%s", url.QueryEscape(toAntlerlificate))
 			},
 		}, {
@@ -148,32 +146,32 @@ func NewImager(c config.Configuration) (imager *Imager) {
 			Description: "The `image me` except repeated multiple times",
 			Answerer: func(message *slack.Msg) string {
 				match := bombRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf(c, "Here are the matches: [%v], [%s] [%s]", match, match[2], match[3])
+				slackscot.Debugf("Here are the matches: [%v], [%s] [%s]", match, match[2], match[3])
 				count, _ := strconv.Atoi(match[2])
 				searchExpression := match[3]
 
-				slackscot.Debugf(c, "Search: %s, count %d", searchExpression, count)
+				slackscot.Debugf("Search: %s, count %d", searchExpression, count)
 				if len(searchExpression) > 0 {
-					return imageSearch(c, searchExpression, false, false, count)
+					return imageSearch(searchExpression, false, false, count)
 				}
 				return ""
 			},
 		},
 	}
 
-	return &Imager{Plugin: slackscot.Plugin{Name: imagerPluginName, Commands: commands, HearActions: nil}, Configuration: c}
+	return &Imager{Plugin: slackscot.Plugin{Name: ImagerPluginName, Commands: commands, HearActions: nil}}
 }
 
-func processQueryAndSearch(c config.Configuration, message string, regex *regexp.Regexp, animated bool) string {
+func processQueryAndSearch(message string, regex *regexp.Regexp, animated bool) string {
 	searchExpression := regex.FindStringSubmatch(message)
 
 	if len(searchExpression) > 0 {
-		return imageSearch(c, searchExpression[2], animated, false, 1)
+		return imageSearch(searchExpression[2], animated, false, 1)
 	}
 	return ""
 }
 
-func imageSearch(c config.Configuration, expr string, animated bool, faces bool, count int) string {
+func imageSearch(expr string, animated bool, faces bool, count int) string {
 	googleURL, err := url.Parse("http://ajax.googleapis.com/ajax/services/search/images")
 	if err != nil {
 		log.Printf("Error parsing Google Images URL: %s", err)
@@ -245,7 +243,7 @@ func imageSearch(c config.Configuration, expr string, animated bool, faces bool,
 				selectedImages = append(selectedImages, imageUrl)
 			}
 		}
-		slackscot.Debugf(c, "Images selected : %v", selectedImages)
+		slackscot.Debugf("Images selected : %v", selectedImages)
 
 		return strings.Join(selectedImages, "\n")
 	}
@@ -254,8 +252,8 @@ func imageSearch(c config.Configuration, expr string, animated bool, faces bool,
 
 }
 
-func searchGiphy(c config.Configuration, q string, key string) string {
-	slackscot.Debugf(c, "Searching giphy for %s", q)
+func searchGiphy(q string, key string) string {
+	slackscot.Debugf("Searching giphy for %s", q)
 	url := fmt.Sprintf("http://api.giphy.com/v1/gifs/search?q=%s&api_key=%s", url.QueryEscape(q), key)
 	resp, err := http.Get(url)
 	if err != nil {

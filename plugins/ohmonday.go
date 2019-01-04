@@ -18,7 +18,6 @@ const (
 	channelIdKey = "channelId"
 )
 
-var defaultScheduleDefinition = schedule.ScheduleDefinition{Interval: 1, Unit: schedule.WEEKS, Weekday: time.Monday.String(), AtTime: defaultAtTime}
 var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/giphy-downsized.gif",
 	"https://media.giphy.com/media/vguRpQzGag7M5h4UVt/giphy-downsized.gif",
 	"https://media.giphy.com/media/9GI7UlOQ6uU95v82q7/giphy-downsized.gif",
@@ -32,8 +31,8 @@ var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/
 }
 
 const (
-	ohMondayPluginName = "ohMonday"
 	defaultAtTime      = "10:00"
+	OhMondayPluginName = "ohMonday"
 )
 
 // OhMonday holds the plugin data for the Oh Monday plugin
@@ -42,36 +41,27 @@ type OhMonday struct {
 }
 
 // NewOhMonday creates a new instance of the OhMonday plugin
-func NewOhMonday(config config.Configuration) (p *OhMonday, err error) {
-	scheduleDefinition := defaultScheduleDefinition
-	channel := ""
+func NewOhMonday(c *config.PluginConfig) (p *OhMonday, err error) {
+	c.SetDefault(atTimeKey, defaultAtTime)
 
-	if pluginConfig, ok := config.Plugins[ohMondayPluginName]; ok {
-		if atTime, ok := pluginConfig[atTimeKey]; ok {
-			scheduleDefinition.AtTime = atTime
-		} else {
-			slackscot.Debugf(config, "Missing [%s] configuration, will use default atTime of [%s]\n", atTimeKey, defaultAtTime)
-		}
+	scheduleDefinition := schedule.ScheduleDefinition{Interval: 1, Unit: schedule.WEEKS, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
 
-		if channelId, ok := pluginConfig[channelIdKey]; ok {
-			channel = channelId
-		} else {
-			return nil, fmt.Errorf("Missing [%s] configuration key for plugin [%s]", channelIdKey, ohMondayPluginName)
-		}
-	} else {
-		return nil, fmt.Errorf("Missing configuration for plugin [%s]", ohMondayPluginName)
+	if ok := c.IsSet(channelIdKey); !ok {
+		return nil, fmt.Errorf("Missing [%s] configuration key for plugin [%s]", channelIdKey, OhMondayPluginName)
 	}
+
+	channelId := c.GetString(channelIdKey)
 
 	selectionRandom := rand.New(rand.NewSource(time.Now().Unix()))
 
 	mondayGreeting := slackscot.ScheduledActionDefinition{
-		ScheduleDefinition: scheduleDefinition, Description: "Start the week of with a nice greeting", Action: func(rtm *slack.RTM) {
-			o := rtm.NewOutgoingMessage(mondayPictures[selectionRandom.Intn(len(mondayPictures))], channel)
-			slackscot.Debugf(config, "[%s] About to send message [%s] to [%s]", o.Text, channel)
+		ScheduleDefinition: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: func(rtm *slack.RTM) {
+			o := rtm.NewOutgoingMessage(mondayPictures[selectionRandom.Intn(len(mondayPictures))], channelId)
+			slackscot.Debugf("[%s] About to send message [%s] to [%s]", o.Text, channelId)
 
 			rtm.SendMessage(o)
 		}}
 
-	plugin := OhMonday{Plugin: slackscot.Plugin{Name: ohMondayPluginName, Commands: nil, HearActions: nil, ScheduledActions: []slackscot.ScheduledActionDefinition{mondayGreeting}}}
+	plugin := OhMonday{Plugin: slackscot.Plugin{Name: OhMondayPluginName, Commands: nil, HearActions: nil, ScheduledActions: []slackscot.ScheduledActionDefinition{mondayGreeting}}}
 	return &plugin, nil
 }

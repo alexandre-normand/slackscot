@@ -2,70 +2,114 @@ package plugins
 
 import (
 	"fmt"
+	"github.com/alexandre-normand/figlet4go"
 	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/config"
-	"github.com/getwe/figlet4go"
-	"github.com/mitchellh/go-homedir"
 	"github.com/nlopes/slack"
-	"log"
+	"github.com/pkg/errors"
+	"github.com/spf13/viper"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
 )
 
 const (
-	fontPathKey           = "fontPath"
-	fontNameKey           = "fontName"
-	emojiBannerPluginName = "emojiBanner"
+	figletFontUrlKey      = "figletFontUrl" // Optional, string (url) to a figlet font. Default font is used if not set. Fonts can be found on http://www.figlet.org/fontdb.cgi and url should be for the raw .flf file like http://www.figlet.org/fonts/banner.flf
+	EmojiBannerPluginName = "emojiBanner"
 )
 
 // EmojiBannerMaker holds the plugin data for the emoji banner maker plugin
 type EmojiBannerMaker struct {
 	slackscot.Plugin
+	tempDirFontPath string
 }
 
-// NewEmojiBannerMaker creates a new instance of the plugin
-func NewEmojiBannerMaker(config config.Configuration) (emojiBannerPlugin *EmojiBannerMaker, err error) {
+// NewEmojiBannerMaker creates a new instance of the plugin. Note that since it creates a temporary
+// directory to store fonts, the caller should make sure to defer Close on shutdown
+func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, err error) {
 	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
 
 	options := figlet4go.NewRenderOptions()
 	renderer := figlet4go.NewAsciiRender()
 
-	if pluginConfig, ok := config.Plugins[emojiBannerPluginName]; !ok {
-		return nil, fmt.Errorf("Missing plugin config for %s", emojiBannerPluginName)
-	} else {
-
-		if fontPath, ok := pluginConfig[fontPathKey]; !ok {
-			return nil, fmt.Errorf("Missing %s config key: %s", emojiBannerPluginName, fontPathKey)
-		} else {
-			fontPath, err = homedir.Expand(fontPath)
-			if err != nil {
-				return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", emojiBannerPluginName, fontPath, err)
-			}
-
-			err := renderer.LoadFont(fontPath)
-			if err != nil {
-				return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", emojiBannerPluginName, fontPath, err)
-			}
-			log.Printf("Loaded fonts from [%s]", fontPath)
-
-			if fontName, ok := pluginConfig[fontNameKey]; !ok {
-				return nil, fmt.Errorf("Missing %s config key: %s", emojiBannerPluginName, fontNameKey)
-			} else {
-				options.FontName = fontName
-				log.Printf("Using font name [%s] if it exists", fontName)
-			}
-		}
+	tempDirFontPath, err := ioutil.TempDir("", EmojiBannerPluginName)
+	if err != nil {
+		return nil, err
 	}
 
-	return &EmojiBannerMaker{slackscot.Plugin{Name: emojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
+	// Handle clean up of the temporary font directory only if the plugin instance failed creation
+	defer func() {
+		if err != nil {
+			os.RemoveAll(tempDirFontPath)
+		}
+	}()
+
+	// Download all fonts and write them in the fontPath
+	fontUrl := c.GetString(figletFontUrlKey)
+	if fontUrl != "" {
+		fontName, err := downloadFontToDir(fontUrl, tempDirFontPath)
+		if err != nil {
+			return nil, err
+		}
+
+		err = renderer.LoadFont(tempDirFontPath)
+		if err != nil {
+			return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", EmojiBannerPluginName, tempDirFontPath, err)
+		}
+
+		slackscot.Debugf("Loaded fonts from [%s]: %s\n", tempDirFontPath, renderer)
+
+		options.FontName = fontName
+		slackscot.Debugf("Using font name [%s] from url [%s]", options.FontName, fontUrl)
+	}
+
+	return &EmojiBannerMaker{Plugin: slackscot.Plugin{Name: EmojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
 		Regex:       emojiBannerRegex,
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
 		Answerer: func(message *slack.Msg) string {
 			return validateAndRenderEmoji(message.Text, emojiBannerRegex, renderer, options)
 		},
-	}}, HearActions: nil}}, nil
+	}}, HearActions: nil}, tempDirFontPath: tempDirFontPath}, nil
+}
+
+// Close cleans up resources (temp font directory) used by the plugin
+func (e *EmojiBannerMaker) Close() {
+	os.RemoveAll(e.tempDirFontPath)
+}
+
+func downloadFontToDir(fontUrl string, fontPath string) (fontName string, err error) {
+	url, err := url.Parse(fontUrl)
+	if err != nil {
+		return "", errors.Wrapf(err, "Invalid font url [%s]", fontUrl)
+	}
+
+	resp, err := http.Get(fontUrl)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error loading font url [%s]", fontUrl)
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error reading data from font url [%s]", fontUrl, err)
+	}
+
+	filename := path.Base(url.EscapedPath())
+
+	fullpath := filepath.Join(fontPath, filename)
+	err = ioutil.WriteFile(fullpath, b, 0644)
+	if err != nil {
+		return "", errors.Wrapf(err, "Error saving file [%s] from font url [%s]", fullpath, fontUrl)
+	}
+
+	slackscot.Debugf("Downloaded font url [%s] to [%s]\n", fontUrl, fullpath)
+
+	return strings.TrimSuffix(filename, ".flf"), nil
 }
 
 func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {

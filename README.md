@@ -20,6 +20,7 @@ Features
 * Simple store API for persistence. It's basic a basic string key/string value thing.
 * Basic config interface with slack token and storage path. 
 * Plugin interface that is a logical grouping of one or many commands and "hear actions" (listeners). 
+* Support for various configuration sources/formats via [viper](https://github.com/spf13/viper)
 
 ### Fancy Features
 
@@ -121,7 +122,8 @@ func main() {
 
 ### Configuration example
 
-You'll also need to define your `json` configuration for the core, built-in extensions and any configuration required by your own custom extensions (not shown here):
+You'll also need to define your configuration for the `core`, built-in extensions and any configuration required by your own custom extensions (not shown here). `Slackscot` uses [viper](https://github.com/spf13/viper) for loading configuration
+which means that you are free to use a different file format (`yaml`, `toml`, etc.) as desired. 
 
 ```
 {

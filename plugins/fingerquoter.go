@@ -7,7 +7,6 @@ import (
 	"github.com/nlopes/slack"
 	"math/rand"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -16,7 +15,7 @@ import (
 const (
 	channelIdsKey          = "channelIds"
 	frequencyKey           = "frequency"
-	fingerQuoterPluginName = "fingerQuoter"
+	FingerQuoterPluginName = "fingerQuoter"
 )
 
 // FingerQuoter holds the plugin data for the finger quoter plugin
@@ -25,28 +24,19 @@ type FingerQuoter struct {
 }
 
 // NewFingerQuoter creates a new instance of the plugin
-func NewFingerQuoter(config config.Configuration) (p *FingerQuoter, err error) {
+func NewFingerQuoter(config *config.PluginConfig) (p *FingerQuoter, err error) {
 	fingerQuoterRegex := regexp.MustCompile("(?i)([a-zA-Z\\-]{5,16})+")
 
 	var channels []string
-	frequency := 0
 
-	if pluginConfig, ok := config.Plugins[fingerQuoterPluginName]; !ok {
-		return nil, fmt.Errorf("Missing plugin config for %s", fingerQuoterPluginName)
-	} else {
-		if channelValue, ok := pluginConfig[channelIdsKey]; ok {
-			channels = strings.Split(channelValue, ",")
-		}
+	channelValue := config.GetString(channelIdsKey)
+	channels = strings.Split(channelValue, ",")
 
-		if frequencyValue, ok := pluginConfig[frequencyKey]; !ok {
-			return nil, fmt.Errorf("Missing %s config key: %s", fingerQuoterPluginName, frequencyKey)
-		} else {
-			frequency, err = strconv.Atoi(frequencyValue)
-			if err != nil {
-				return nil, err
-			}
-		}
+	if ok := config.IsSet(frequencyKey); !ok {
+		return nil, fmt.Errorf("Missing %s config key: %s", FingerQuoterPluginName, frequencyKey)
 	}
+
+	frequency := config.GetInt(frequencyKey)
 
 	return &FingerQuoter{slackscot.Plugin{Name: "fingerQuoter", Commands: nil, HearActions: []slackscot.ActionDefinition{{
 		Hidden:      true,
@@ -71,7 +61,7 @@ func NewFingerQuoter(config config.Configuration) (p *FingerQuoter, err error) {
 					}
 				}
 			} else {
-				slackscot.Debugf(config, "Channel [%s] is not whitelisted.", m.Channel)
+				slackscot.Debugf("Channel [%s] is not whitelisted.", m.Channel)
 			}
 			// Not this time, skip
 			return ""

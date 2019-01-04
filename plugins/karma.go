@@ -9,6 +9,7 @@ import (
 	"github.com/alexandre-normand/slackscot/store"
 	"github.com/nlopes/slack"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"log"
 	"regexp"
 	"sort"
@@ -23,18 +24,19 @@ type Karma struct {
 }
 
 const (
-	karmaPluginName = "karma"
+	KarmaPluginName = "karma"
 )
 
 // NewKarma creates a new instance of the Karma plugin
-func NewKarma(c config.Configuration) (karma *Karma, err error) {
-	storage, err := store.NewStore(karmaPluginName, c.StoragePath)
+func NewKarma(v *viper.Viper) (karma *Karma, err error) {
+	storagePath := v.GetString(config.StoragePathKey)
+	storage, err := store.NewStore(KarmaPluginName, storagePath)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", karmaPluginName, c.StoragePath))
+		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", KarmaPluginName, storagePath))
 	}
 
-	//	v, err := storage.Get("test")
-	log.Printf("Initialized storage successfully: %v", storage)
+	slackscot.Debugf("Initialized storage successfully: %v", storage)
+
 	karmaRegex := regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
 
 	hearActions := []slackscot.ActionDefinition{
@@ -136,7 +138,7 @@ func NewKarma(c config.Configuration) (karma *Karma, err error) {
 		},
 	}
 
-	karmaPlugin := Karma{Plugin: slackscot.Plugin{Name: karmaPluginName, Commands: commands, HearActions: hearActions}, karmaStore: storage}
+	karmaPlugin := Karma{Plugin: slackscot.Plugin{Name: KarmaPluginName, Commands: commands, HearActions: hearActions}, karmaStore: storage}
 	return &karmaPlugin, nil
 }
 

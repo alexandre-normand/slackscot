@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/nlopes/slack"
+	"github.com/spf13/viper"
 	"regexp"
 	"strings"
 )
@@ -22,7 +23,7 @@ type pluginScheduledAction struct {
 	ScheduledActionDefinition
 }
 
-func newHelpPlugin(name string, version string, c config.Configuration, plugins []*Plugin) *helpPlugin {
+func newHelpPlugin(name string, version string, c *viper.Viper, plugins []*Plugin) *helpPlugin {
 	commands, hearActions, scheduledActions := findAllActions(plugins)
 
 	return &helpPlugin{Plugin{Name: helpPluginName, Commands: []ActionDefinition{generateHelpCommand(c, name, version, commands, hearActions, scheduledActions)}, HearActions: nil}}
@@ -30,7 +31,7 @@ func newHelpPlugin(name string, version string, c config.Configuration, plugins 
 
 // generateHelpCommand generates a command providing a list of all of the slackscot commands and hear actions.
 // Note that ActionDefinitions with the flag Hidden set to true won't be included in the list
-func generateHelpCommand(c config.Configuration, slackscotName string, version string, commands []ActionDefinition, hearActions []ActionDefinition, pluginScheduledActions []pluginScheduledAction) ActionDefinition {
+func generateHelpCommand(c *viper.Viper, slackscotName string, version string, commands []ActionDefinition, hearActions []ActionDefinition, pluginScheduledActions []pluginScheduledAction) ActionDefinition {
 	return ActionDefinition{
 		Regex:       regexp.MustCompile("(?i)help"),
 		Usage:       helpPluginName,
@@ -65,7 +66,7 @@ func generateHelpCommand(c config.Configuration, slackscotName string, version s
 
 				for _, value := range pluginScheduledActions {
 					if !value.ScheduledActionDefinition.Hidden {
-						fmt.Fprintf(&b, "\t• [`%s`] `%s` (`%s`) - %s\n", value.plugin, value.ScheduledActionDefinition.ScheduleDefinition, c.TimeLocation, value.ScheduledActionDefinition.Description)
+						fmt.Fprintf(&b, "\t• [`%s`] `%s` (`%s`) - %s\n", value.plugin, value.ScheduledActionDefinition.ScheduleDefinition, c.GetString(config.TimeLocationKey), value.ScheduledActionDefinition.Description)
 					}
 				}
 			}
