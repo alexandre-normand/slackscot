@@ -6,6 +6,7 @@ package slackscot
 
 import (
 	"fmt"
+	"github.com/alexandre-normand/slackscot/botservices"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/hashicorp/golang-lru"
@@ -43,6 +44,10 @@ type Plugin struct {
 	Commands         []ActionDefinition
 	HearActions      []ActionDefinition
 	ScheduledActions []ScheduledActionDefinition
+
+	// This is injected post-creation when slackscot is called
+	// TODO: There's something not right with the package name and struct name being the same. It doesn't follow the go guidelines. Rethink this and refactor if needed
+	BotServices *botservices.BotServices
 }
 
 // ActionDefinition represents how an action is triggered, published, used and described
@@ -153,21 +158,23 @@ func (s *Slackscot) Run() (err error) {
 	// TODO: get a better debug logging solution in place that can be used for plugins as well
 	viper.Set(config.DebugKey, s.config.GetBool(config.DebugKey))
 
-	api := slack.New(
+	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
 		slack.OptionLog(log.New(os.Stdout, "slack: ", log.Lshortfile|log.LstdFlags)),
 	)
 
-	rtm := api.NewRTM()
-
-	go rtm.ManageConnection()
+	s.injectBotServicesToPlugins(sc)
 
 	// Load time zone location for the scheduler
 	timeLoc, err := config.GetTimeLocation(s.config)
 	if err != nil {
 		return err
 	}
+
+	// This will initiate the connection to the slack RTM and start the reception of messages
+	rtm := sc.NewRTM()
+	go rtm.ManageConnection()
 
 	// Start scheduling of scheduled actions
 	go s.startActionScheduler(timeLoc, rtm)
@@ -184,7 +191,7 @@ func (s *Slackscot) Run() (err error) {
 			s.cacheSelfIdentity(rtm)
 
 		case *slack.MessageEvent:
-			s.processMessageEvent(api, rtm, e)
+			s.processMessageEvent(sc, rtm, e)
 
 		case *slack.PresenceChangeEvent:
 			s.Logger.Printf("Presence Change: %v\n", e)
@@ -202,6 +209,20 @@ func (s *Slackscot) Run() (err error) {
 		default:
 			// Ignoring other messages
 		}
+	}
+
+	return nil
+}
+
+// injectBotServicesToPlugins creates the BotServices instance and injects it in all plugins
+func (s *Slackscot) injectBotServicesToPlugins(sc *slack.Client) (err error) {
+	botServices, err := botservices.New(s.config, sc)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range s.plugins {
+		p.BotServices = botServices
 	}
 
 	return nil

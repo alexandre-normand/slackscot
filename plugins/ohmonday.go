@@ -31,8 +31,12 @@ var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/
 }
 
 const (
-	defaultAtTime      = "10:00"
+	// OhMondayPluginName holds identifying name for the karma plugin
 	OhMondayPluginName = "ohMonday"
+)
+
+const (
+	defaultAtTime = "10:00"
 )
 
 // OhMonday holds the plugin data for the Oh Monday plugin

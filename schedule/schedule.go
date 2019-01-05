@@ -10,13 +10,13 @@ import (
 
 // ScheduleDefinition repesents
 type ScheduleDefinition struct {
-	// Internal value (every 1 minute would be expressed with an interval of 1). Must be set explictly or implicitly (a weekday value implicitly sets the interval to 1)
+	// Internal value (every 1 minute would be expressed with an interval of 1). Must be set explicitly or implicitly (a weekday value implicitly sets the interval to 1)
 	Interval uint64
 
 	// Must be set explicitly or implicitly ("weeks" is implicitly set when "Weekday" is set). Valid time units are: "weeks", "hours", "days", "minutes", "seconds"
 	Unit string
 
-	// Optional day of the week. If set, unit and interval are ignored and implicitely considered to be "every 1 week"
+	// Optional day of the week. If set, unit and interval are ignored and implicitly considered to be "every 1 week"
 	Weekday string
 
 	// Optional "at time" value (i.e. "10:30")

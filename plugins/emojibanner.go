@@ -19,7 +19,11 @@ import (
 )
 
 const (
-	figletFontUrlKey      = "figletFontUrl" // Optional, string (url) to a figlet font. Default font is used if not set. Fonts can be found on http://www.figlet.org/fontdb.cgi and url should be for the raw .flf file like http://www.figlet.org/fonts/banner.flf
+	figletFontUrlKey = "figletFontUrl" // Optional, string (url) to a figlet font. Default font is used if not set. Fonts can be found on http://www.figlet.org/fontdb.cgi and url should be for the raw .flf file like http://www.figlet.org/fonts/banner.flf
+)
+
+const (
+	// EmojiBannerPluginName holds identifying name for the emoji banner plugin
 	EmojiBannerPluginName = "emojiBanner"
 )
 

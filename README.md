@@ -21,6 +21,8 @@ Features
 * Basic config interface with slack token and storage path. 
 * Plugin interface that is a logical grouping of one or many commands and "hear actions" (listeners). 
 * Support for various configuration sources/formats via [viper](https://github.com/spf13/viper)
+* Support for bot services providing plugins easy access to the slack web api as well as a `user info` service capable
+  of caching `user info` in memory. 
 
 ### Fancy Features
 

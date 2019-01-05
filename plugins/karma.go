@@ -25,6 +25,7 @@ type Karma struct {
 }
 
 const (
+	// KarmaPluginName holds identifying name for the karma plugin
 	KarmaPluginName = "karma"
 )
 

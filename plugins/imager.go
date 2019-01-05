@@ -71,6 +71,7 @@ type Imager struct {
 }
 
 const (
+	// ImagerPluginName holds identifying name for the imager plugin
 	ImagerPluginName = "imager"
 )
 

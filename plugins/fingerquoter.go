@@ -12,8 +12,12 @@ import (
 )
 
 const (
-	channelIdsKey          = "channelIds"
-	frequencyKey           = "frequency"
+	channelIdsKey = "channelIds"
+	frequencyKey  = "frequency"
+)
+
+const (
+	// FingerQuoterPluginName holds identifying name for the finger quoter plugin
 	FingerQuoterPluginName = "fingerQuoter"
 )
 
