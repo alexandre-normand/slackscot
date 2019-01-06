@@ -100,7 +100,6 @@ func NewImager() (imager *Imager) {
 			Description: "The sames as `image` except requests an animated gif matching _search expression_",
 			Answer: func(message *slack.Msg) string {
 				searchExpression := animateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf("Matches %v", searchExpression)
 
 				return searchGiphy(searchExpression[2], "dc6zaTOxFJmzC")
 			},
@@ -112,17 +111,14 @@ func NewImager() (imager *Imager) {
 			Description: "Moosificates an image from either an image search for the _search expression_ or a direct image URL",
 			Answer: func(message *slack.Msg) string {
 				match := moosificateRegex.FindAllStringSubmatch(message.Text, -1)[0]
-				slackscot.Debugf("Here are the matches: [%v]", match)
-
 				toMoosificate := match[2]
-				slackscot.Debugf("Thing to moosificate: %s", toMoosificate)
+
 				if !urlRegex.MatchString(toMoosificate) {
 					toMoosificate = imageSearch(toMoosificate, false, false, 1)
 				} else {
 					toMoosificate = toMoosificate[1 : len(toMoosificate)-1]
 				}
 
-				slackscot.Debugf("Calling moosificator for url [%s]", toMoosificate)
 				return fmt.Sprintf("http://www.moosificator.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
 			},
 		}}
@@ -211,7 +207,6 @@ func imageSearch(expr string, animated bool, faces bool, count int) string {
 				selectedImages = append(selectedImages, imageUrl)
 			}
 		}
-		slackscot.Debugf("Images selected : %v", selectedImages)
 
 		return strings.Join(selectedImages, "\n")
 	}
@@ -221,7 +216,6 @@ func imageSearch(expr string, animated bool, faces bool, count int) string {
 }
 
 func searchGiphy(q string, key string) string {
-	slackscot.Debugf("Searching giphy for %s", q)
 	url := fmt.Sprintf("http://api.giphy.com/v1/gifs/search?q=%s&api_key=%s", url.QueryEscape(q), key)
 	resp, err := http.Get(url)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
+	"github.com/alexandre-normand/slackscot/slog"
 	"github.com/nlopes/slack"
 	"math/rand"
 	"time"
@@ -39,13 +40,16 @@ const (
 	defaultAtTime = "10:00"
 )
 
+var selectionRandom = rand.New(rand.NewSource(time.Now().Unix()))
+
 // OhMonday holds the plugin data for the Oh Monday plugin
 type OhMonday struct {
 	slackscot.Plugin
+	channelId string
 }
 
 // NewOhMonday creates a new instance of the OhMonday plugin
-func NewOhMonday(c *config.PluginConfig) (p *OhMonday, err error) {
+func NewOhMonday(c *config.PluginConfig) (o *OhMonday, err error) {
 	c.SetDefault(atTimeKey, defaultAtTime)
 
 	scheduleDefinition := schedule.ScheduleDefinition{Interval: 1, Unit: schedule.WEEKS, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
@@ -54,18 +58,17 @@ func NewOhMonday(c *config.PluginConfig) (p *OhMonday, err error) {
 		return nil, fmt.Errorf("Missing [%s] configuration key for plugin [%s]", channelIdKey, OhMondayPluginName)
 	}
 
-	channelId := c.GetString(channelIdKey)
+	o = new(OhMonday)
+	o.Name = OhMondayPluginName
+	o.channelId = c.GetString(channelIdKey)
+	o.ScheduledActions = []slackscot.ScheduledActionDefinition{{ScheduleDefinition: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: o.sendGreeting}}
 
-	selectionRandom := rand.New(rand.NewSource(time.Now().Unix()))
+	return o, nil
+}
 
-	mondayGreeting := slackscot.ScheduledActionDefinition{
-		ScheduleDefinition: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: func(rtm *slack.RTM) {
-			o := rtm.NewOutgoingMessage(mondayPictures[selectionRandom.Intn(len(mondayPictures))], channelId)
-			slackscot.Debugf("[%s] About to send message [%s] to [%s]", o.Text, channelId)
+func (o *OhMonday) sendGreeting(rtm *slack.RTM) {
+	m := rtm.NewOutgoingMessage(mondayPictures[selectionRandom.Intn(len(mondayPictures))], o.channelId)
+	slog.Debugf(o.Plugin.BotServices.Logger, "[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, m.Text, o.channelId)
 
-			rtm.SendMessage(o)
-		}}
-
-	plugin := OhMonday{Plugin: slackscot.Plugin{Name: OhMondayPluginName, Commands: nil, HearActions: nil, ScheduledActions: []slackscot.ScheduledActionDefinition{mondayGreeting}}}
-	return &plugin, nil
+	rtm.SendMessage(m)
 }

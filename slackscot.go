@@ -9,6 +9,7 @@ import (
 	"github.com/alexandre-normand/slackscot/botservices"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
+	"github.com/alexandre-normand/slackscot/slog"
 	"github.com/hashicorp/golang-lru"
 	"github.com/marcsantiago/gocron"
 	"github.com/nlopes/slack"
@@ -19,6 +20,11 @@ import (
 	"regexp"
 	"syscall"
 	"time"
+)
+
+const (
+	defaultLogPrefix = "slackscot: "
+	defaultLogFlag   = log.Lshortfile | log.LstdFlags
 )
 
 // Slackscot represents what defines a Slack Mascot (mostly, a name and its plugins)
@@ -35,7 +41,7 @@ type Slackscot struct {
 
 	selfId   string
 	selfName string
-	*log.Logger
+	log      *log.Logger
 }
 
 // Plugin represents a plugin (its name and action definitions)
@@ -129,16 +135,44 @@ type OutgoingMessage struct {
 	pluginIdentifier string
 }
 
+// Option defines an option for a Slackscot
+type Option func(*Slackscot)
+
+// OptionLog sets a logger for Slackscot
+func OptionLog(logger *log.Logger) func(*Slackscot) {
+	return func(s *Slackscot) {
+		s.log = logger
+	}
+}
+
+// OptionLogfile sets a logfile for Slackscot while using the other default logging prefix and options
+func OptionLogfile(logfile *os.File) func(*Slackscot) {
+	return func(s *Slackscot) {
+		s.log = log.New(logfile, defaultLogPrefix, defaultLogFlag)
+	}
+}
+
 // NewSlackscot creates a new slackscot from an array of plugins and a name
-func NewSlackscot(name string, v *viper.Viper) (bot *Slackscot, err error) {
-	triggeringMsgToResponseCache, err := lru.NewARC(v.GetInt(config.ResponseCacheSizeKey))
+func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot, err error) {
+	s = new(Slackscot)
+
+	s.triggeringMsgToResponse, err = lru.NewARC(v.GetInt(config.ResponseCacheSizeKey))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Slackscot{name: name, config: v, defaultAction: func(m *slack.Msg) string {
+	s.name = name
+	s.config = v
+	s.defaultAction = func(m *slack.Msg) string {
 		return fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)
-	}, plugins: []*Plugin{}, triggeringMsgToResponse: triggeringMsgToResponseCache, Logger: log.New(os.Stdout, "slackscot: ", log.Lshortfile|log.LstdFlags)}, nil
+	}
+	s.log = log.New(os.Stdout, defaultLogPrefix, defaultLogFlag)
+
+	for _, opt := range options {
+		opt(s)
+	}
+
+	return s, nil
 }
 
 // RegisterPlugin registers a plugin with the Slackscot engine. This should be invoked
@@ -155,16 +189,18 @@ func (s *Slackscot) Run() (err error) {
 	s.attachIdentifiersToPluginActions()
 
 	// Push the Debug configuration to the global Viper instance so it's available to plugins too.
-	// TODO: get a better debug logging solution in place that can be used for plugins as well
 	viper.Set(config.DebugKey, s.config.GetBool(config.DebugKey))
 
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
-		slack.OptionLog(log.New(os.Stdout, "slack: ", log.Lshortfile|log.LstdFlags)),
+		// TODO: For now, the slackscot logger is propagated to slack for its own logging. This means that the prefix is the same for both. With
+		// https://github.com/golang/go/commit/51104cd4d2dab6bdd8bda694c0a9a5613cec3b84 (to be released in 1.12), we should be able to create a new logger to the same
+		// file but using a different prefix
+		slack.OptionLog(s.log),
 	)
 
-	s.injectBotServicesToPlugins(sc)
+	s.injectBotServicesToPlugins(sc, s.log)
 
 	// Load time zone location for the scheduler
 	timeLoc, err := config.GetTimeLocation(s.config)
@@ -186,24 +222,24 @@ func (s *Slackscot) Run() (err error) {
 			// Ignore hello
 
 		case *slack.ConnectedEvent:
-			s.Logger.Println("Infos:", e.Info)
-			s.Logger.Println("Connection counter:", e.ConnectionCount)
+			s.log.Println("Infos:", e.Info)
+			s.log.Println("Connection counter:", e.ConnectionCount)
 			s.cacheSelfIdentity(rtm)
 
 		case *slack.MessageEvent:
 			s.processMessageEvent(sc, rtm, e)
 
 		case *slack.PresenceChangeEvent:
-			s.Logger.Printf("Presence Change: %v\n", e)
+			s.log.Printf("Presence Change: %v\n", e)
 
 		case *slack.LatencyReport:
-			s.Logger.Printf("Current latency: %v\n", e.Value)
+			s.log.Printf("Current latency: %v\n", e.Value)
 
 		case *slack.RTMError:
-			s.Logger.Printf("Error: %s\n", e.Error())
+			s.log.Printf("Error: %s\n", e.Error())
 
 		case *slack.InvalidAuthEvent:
-			s.Logger.Printf("Invalid credentials")
+			s.log.Printf("Invalid credentials")
 			return
 
 		default:
@@ -215,8 +251,8 @@ func (s *Slackscot) Run() (err error) {
 }
 
 // injectBotServicesToPlugins creates the BotServices instance and injects it in all plugins
-func (s *Slackscot) injectBotServicesToPlugins(sc *slack.Client) (err error) {
-	botServices, err := botservices.New(s.config, sc)
+func (s *Slackscot) injectBotServicesToPlugins(sc *slack.Client, l *log.Logger) (err error) {
+	botServices, err := botservices.New(s.config, l, sc)
 	if err != nil {
 		return err
 	}
@@ -236,7 +272,7 @@ func (s *Slackscot) watchForTerminationSignalToAbort(rtm *slack.RTM) {
 	signal.Notify(tSignals, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-tSignals
 
-	s.Debugf("Received termination signal [%s], closing RTM's incoming events channel to terminate processing\n", sig)
+	slog.Debugf(s.log, "Received termination signal [%s], closing RTM's incoming events channel to terminate processing\n", sig)
 	close(rtm.IncomingEvents)
 }
 
@@ -274,7 +310,7 @@ func (s *Slackscot) cacheSelfIdentity(rtm *slack.RTM) {
 	s.selfId = rtm.GetInfo().User.ID
 	s.selfName = rtm.GetInfo().User.Name
 
-	s.Debugf("Caching self id [%s] and self name [%s]\n", s.selfId, s.selfName)
+	slog.Debugf(s.log, "Caching self id [%s] and self name [%s]\n", s.selfId, s.selfName)
 }
 
 // startActionScheduler creates all ScheduledActionDefinition from all plugins and registers them with the scheduler
@@ -287,14 +323,14 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, rtm *slack.RTM)
 		if p.ScheduledActions != nil {
 			for _, sa := range p.ScheduledActions {
 				j := schedule.NewScheduledJob(sc, sa.ScheduleDefinition)
-				s.Debugf("Adding job [%v] to scheduler\n", j)
+				slog.Debugf(s.log, "Adding job [%v] to scheduler\n", j)
 				j.Do(sa.Action, rtm)
 			}
 		}
 	}
 
 	_, t := sc.NextRun()
-	s.Debugf("Starting scheduler with first job scheduled at [%s]\n", t)
+	slog.Debugf(s.log, "Starting scheduler with first job scheduled at [%s]\n", t)
 
 	// TODO: consider keeping track of the scheduler to stop it if it starts to appear necessary
 	<-sc.Start()
@@ -306,7 +342,7 @@ func (s *Slackscot) processMessageEvent(api *slack.Client, rtm *slack.RTM, msgEv
 	// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
 	isReply := msgEvent.ReplyTo > 0
 
-	s.Debugf("Processing event : %v\n", msgEvent)
+	slog.Debugf(s.log, "Processing event : %v\n", msgEvent)
 
 	if !isReply && msgEvent.Type == "message" {
 		slackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.Timestamp}
@@ -331,23 +367,23 @@ func (s *Slackscot) processMessageEvent(api *slack.Client, rtm *slack.RTM, msgEv
 func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
 	editedSlackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
 
-	s.Debugf("Updated message: [%s], does cache contain it => [%t]", editedSlackMessageId, s.triggeringMsgToResponse.Contains(editedSlackMessageId))
+	slog.Debugf(s.log, "Updated message: [%s], does cache contain it => [%t]", editedSlackMessageId, s.triggeringMsgToResponse.Contains(editedSlackMessageId))
 
 	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageId); exists {
 		responsesByAction := cachedResponses.(map[string]SlackMessageId)
 		newResponseByActionId := make(map[string]SlackMessageId)
 
 		outMsgs := s.routeMessage(rtm, combineIncomingMessageToHandle(msgEvent))
-		s.Debugf("Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageId)
+		slog.Debugf(s.log, "Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageId)
 
 		for _, o := range outMsgs {
 			// We had a previous response for that same plugin action so edit it instead of posting a new message
 			if r, ok := responsesByAction[o.pluginIdentifier]; ok {
-				s.Debugf("Trying to update response at [%s] with message [%s]\n", r, o.OutgoingMessage.Text)
+				slog.Debugf(s.log, "Trying to update response at [%s] with message [%s]\n", r, o.OutgoingMessage.Text)
 
 				rId, err := s.updateExistingMessage(api, r, o)
 				if err != nil {
-					s.Logger.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageId, err)
+					s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageId, err)
 				} else {
 					// Add the new updated message to the new responses
 					newResponseByActionId[o.pluginIdentifier] = rId
@@ -357,12 +393,12 @@ func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msg
 					delete(responsesByAction, o.pluginIdentifier)
 				}
 			} else {
-				s.Debugf("New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
+				slog.Debugf(s.log, "New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
 
 				// It's a new message for that action so post it as a new message
 				rId, err := s.sendNewMessage(api, o, incomingMessageId.timestamp)
 				if err != nil {
-					s.Logger.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
+					s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
 				} else {
 					// Add the new updated message to the new responses
 					newResponseByActionId[o.pluginIdentifier] = rId
@@ -377,10 +413,10 @@ func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msg
 
 		// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
 		if len(newResponseByActionId) > 0 {
-			s.Debugf("Updating responses to edited message [%s]\n", editedSlackMessageId)
+			slog.Debugf(s.log, "Updating responses to edited message [%s]\n", editedSlackMessageId)
 			s.triggeringMsgToResponse.Add(editedSlackMessageId, newResponseByActionId)
 		} else {
-			s.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageId)
+			slog.Debugf(s.log, "Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageId)
 			s.triggeringMsgToResponse.Remove(editedSlackMessageId)
 		}
 	} else {
@@ -394,7 +430,7 @@ func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msg
 func (s *Slackscot) processDeletedMessage(rtm *slack.RTM, msgEvent *slack.MessageEvent) {
 	deletedMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.DeletedTimestamp}
 
-	s.Debugf("Message deleted: [%s] and cache contains: [%s]", deletedMessageId, s.triggeringMsgToResponse.Keys())
+	slog.Debugf(s.log, "Message deleted: [%s] and cache contains: [%s]", deletedMessageId, s.triggeringMsgToResponse.Keys())
 
 	if existingResponses, exists := s.triggeringMsgToResponse.Get(deletedMessageId); exists {
 		byAction := existingResponses.(map[string]SlackMessageId)
@@ -403,7 +439,7 @@ func (s *Slackscot) processDeletedMessage(rtm *slack.RTM, msgEvent *slack.Messag
 			// Delete existing response since the triggering message was deleted
 			_, _, err := rtm.DeleteMessage(v.channelId, v.timestamp)
 			if err != nil {
-				s.Logger.Printf("Error deleting existing response to triggering message [%s]: %s: %v", deletedMessageId, v, err)
+				s.log.Printf("Error deleting existing response to triggering message [%s]: %s: %v", deletedMessageId, v, err)
 			}
 		}
 
@@ -426,7 +462,7 @@ func (s *Slackscot) sendOutgoingMessages(api *slack.Client, rtm *slack.RTM, inco
 		// Send the message and keep track of our response in cache to be able to update it as needed later
 		rId, err := s.sendNewMessage(api, o, incomingMessageId.timestamp)
 		if err != nil {
-			s.Logger.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageId, err)
+			s.log.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageId, err)
 		} else {
 			// Add the new updated message to the new responses
 			newResponseByActionId[o.pluginIdentifier] = rId
@@ -434,7 +470,7 @@ func (s *Slackscot) sendOutgoingMessages(api *slack.Client, rtm *slack.RTM, inco
 	}
 
 	if len(newResponseByActionId) > 0 {
-		s.Debugf("Adding responses to triggering message [%s]: %s", incomingMessageId, newResponseByActionId)
+		slog.Debugf(s.log, "Adding responses to triggering message [%s]: %s", incomingMessageId, newResponseByActionId)
 
 		// Add current responses for that triggering message
 		s.triggeringMsgToResponse.Add(incomingMessageId, newResponseByActionId)
@@ -498,7 +534,7 @@ func (s *Slackscot) routeMessage(rtm *slack.RTM, m *slack.Msg) (responses []*Out
 
 	// Ignore messages send by "us"
 	if m.User == s.selfId || m.BotID == s.selfId {
-		s.Debugf("Ignoring message from user [%s] because that's \"us\" [%s]", m.User, s.selfId)
+		slog.Debugf(s.log, "Ignoring message from user [%s] because that's \"us\" [%s]", m.User, s.selfId)
 
 		return responses
 	}
@@ -582,19 +618,4 @@ func directReply(rtm *slack.RTM, rm *slack.Msg, response string) *slack.Outgoing
 func send(rtm *slack.RTM, rm *slack.Msg, response string) *slack.OutgoingMessage {
 	om := rtm.NewOutgoingMessage(response, rm.Channel)
 	return om
-}
-
-// Debugf logs a debug line after checking if the configuration is in debug mode
-func (s *Slackscot) Debugf(format string, v ...interface{}) {
-	if s.config.GetBool(config.DebugKey) {
-		s.Logger.Printf(format, v...)
-	}
-}
-
-// Debugf logs a debug line after checking if the configuration is in debug mode
-func Debugf(format string, v ...interface{}) {
-	// TODO: formalize a better debug logging for slackscot and get rid of this global usage of viper
-	if viper.GetBool(config.DebugKey) {
-		log.Printf(format, v...)
-	}
 }

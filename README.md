@@ -54,20 +54,21 @@ Slackscot provides the pieces to make your mascot but you'll have to assemble th
 
 Here's an example of how [Youppi](https://github.com/alexandre-normand/youppi) does it (apologies for the verbose and repetitive error handling when creating instances of plugins):
 ```
-//go:generate giddyup
 package main
 
 import (
-	"github.com/alecthomas/kingpin"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/spf13/viper"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
+	"os"
 )
 
 var (
 	configurationPath = kingpin.Flag("configuration", "The path to the configuration file.").Required().String()
+	logfile           = kingpin.Flag("log", "The path to the log file").OpenFile(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 )
 
 func main() {
@@ -82,10 +83,14 @@ func main() {
 	}
 
 	// Do this only so that we can get a global debug flag available to everything
-	// TODO: clean this up
 	viper.Set(config.DebugKey, v.GetBool(config.DebugKey))
 
-	youppi, err := slackscot.NewSlackscot("youppi", v)
+	options := make([]slackscot.Option, 0)
+	if *logfile != nil {
+		options = append(options, slackscot.OptionLogfile(*logfile))
+	}
+
+	youppi, err := slackscot.NewSlackscot("youppi", v, options...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -139,7 +144,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
 ```
 
 ### Configuration example

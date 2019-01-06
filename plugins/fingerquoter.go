@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/slog"
 	"github.com/nlopes/slack"
 	"math/rand"
 	"strconv"
@@ -24,64 +25,69 @@ const (
 // FingerQuoter holds the plugin data for the finger quoter plugin
 type FingerQuoter struct {
 	slackscot.Plugin
+	channels  []string
+	frequency int
 }
 
 // NewFingerQuoter creates a new instance of the plugin
-func NewFingerQuoter(config *config.PluginConfig) (p *FingerQuoter, err error) {
-	var channels []string
-
-	channelValue := config.GetString(channelIdsKey)
-	channels = strings.Split(channelValue, ",")
-
+func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 	if ok := config.IsSet(frequencyKey); !ok {
 		return nil, fmt.Errorf("Missing %s config key: %s", FingerQuoterPluginName, frequencyKey)
 	}
 
-	frequency := config.GetInt(frequencyKey)
-
-	return &FingerQuoter{slackscot.Plugin{Name: "fingerQuoter", Commands: nil, HearActions: []slackscot.ActionDefinition{{
+	f = new(FingerQuoter)
+	channelValue := config.GetString(channelIdsKey)
+	f.channels = strings.Split(channelValue, ",")
+	f.frequency = config.GetInt(frequencyKey)
+	f.Name = FingerQuoterPluginName
+	f.HearActions = []slackscot.ActionDefinition{{
 		Hidden: true,
 		// Match based on the frequency probability and whether or not the channel is whitelisted
-		Match: func(t string, m *slack.Msg) bool {
-			if !isChannelWhiteListed(m.Channel, channels) {
-				return false
-			}
-
-			f, err := strconv.ParseFloat(m.Timestamp, 64)
-			if err != nil {
-				slackscot.Debugf("[%s] Skipping message [%s] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
-			} else {
-				// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
-				randomGen := rand.New(rand.NewSource(int64(f)))
-
-				// Determine if we're going to react this time or not
-				return randomGen.Int31n(int32(frequency)) == 0
-			}
-			return false
-		},
+		Match:       f.trigger,
 		Usage:       "just speak",
 		Description: "finger quoter listens to what people say and (sometimes) finger quotes a word",
-		Answer: func(m *slack.Msg) string {
-			candidates := splitInputIntoWordsLongerThan(m.Text, 4)
+		Answer:      f.fingerQuoteMsg,
+	}}
 
-			if len(candidates) > 0 {
+	return f, err
+}
 
-				f, err := strconv.ParseFloat(m.Timestamp, 64)
-				if err != nil {
-					slackscot.Debugf("[%s] Skipping message [%s] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
-				} else {
-					// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
-					randomGen := rand.New(rand.NewSource(int64(f)))
+func (f *FingerQuoter) trigger(t string, m *slack.Msg) bool {
+	if !isChannelWhiteListed(m.Channel, f.channels) {
+		return false
+	}
 
-					i := randomGen.Int31n(int32(len(candidates)))
-					return fmt.Sprintf("\"%s\"", candidates[i])
-				}
-			}
+	ts, err := strconv.ParseFloat(m.Timestamp, 64)
+	if err != nil {
+		slog.Debugf(f.Plugin.BotServices.Logger, "[%s] Skipping message [%s] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
+	} else {
+		// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
+		randomGen := rand.New(rand.NewSource(int64(ts)))
 
-			// Not this time, skip
-			return ""
-		},
-	}}}}, nil
+		// Determine if we're going to react this time or not
+		return randomGen.Int31n(int32(f.frequency)) == 0
+	}
+	return false
+}
+
+func (f *FingerQuoter) fingerQuoteMsg(m *slack.Msg) string {
+	candidates := splitInputIntoWordsLongerThan(m.Text, 4)
+
+	if len(candidates) > 0 {
+		ts, err := strconv.ParseFloat(m.Timestamp, 64)
+		if err != nil {
+			slog.Debugf(f.Plugin.BotServices.Logger, "[%s] Skipping message [%s] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
+		} else {
+			// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
+			randomGen := rand.New(rand.NewSource(int64(ts)))
+
+			i := randomGen.Int31n(int32(len(candidates)))
+			return fmt.Sprintf("\"%s\"", candidates[i])
+		}
+	}
+
+	// Not this time, skip
+	return ""
 }
 
 func splitInputIntoWordsLongerThan(t string, minLen int) []string {

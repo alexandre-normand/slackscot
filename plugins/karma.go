@@ -37,8 +37,6 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", KarmaPluginName, storagePath))
 	}
 
-	slackscot.Debugf("Initialized storage successfully: %v", storage)
-
 	karmaRegex := regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
 
 	hearActions := []slackscot.ActionDefinition{

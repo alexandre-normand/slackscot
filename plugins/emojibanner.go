@@ -66,10 +66,7 @@ func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, e
 			return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", EmojiBannerPluginName, tempDirFontPath, err)
 		}
 
-		slackscot.Debugf("Loaded fonts from [%s]: %s\n", tempDirFontPath, renderer)
-
 		options.FontName = fontName
-		slackscot.Debugf("Using font name [%s] from url [%s]", options.FontName, fontUrl)
 	}
 
 	return &EmojiBannerMaker{Plugin: slackscot.Plugin{Name: EmojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
@@ -112,8 +109,6 @@ func downloadFontToDir(fontUrl string, fontPath string) (fontName string, err er
 	if err != nil {
 		return "", errors.Wrapf(err, "Error saving file [%s] from font url [%s]", fullpath, fontUrl)
 	}
-
-	slackscot.Debugf("Downloaded font url [%s] to [%s]\n", fontUrl, fullpath)
 
 	return strings.TrimSuffix(filename, ".flf"), nil
 }
