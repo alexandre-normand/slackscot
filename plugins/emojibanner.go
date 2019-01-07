@@ -99,7 +99,7 @@ func downloadFontToDir(fontUrl string, fontPath string) (fontName string, err er
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", errors.Wrapf(err, "Error reading data from font url [%s]", fontUrl, err)
+		return "", errors.Wrapf(err, "Error reading data from font url [%s]: %v", fontUrl, err)
 	}
 
 	filename := path.Base(url.EscapedPath())
