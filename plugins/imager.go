@@ -119,7 +119,7 @@ func NewImager() (imager *Imager) {
 					toMoosificate = toMoosificate[1 : len(toMoosificate)-1]
 				}
 
-				return fmt.Sprintf("http://moosificator.herokuapp.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
+				return fmt.Sprintf("https://moosificator.herokuapp.com/api/moose?image=%s", url.QueryEscape(toMoosificate))
 			},
 		}}
 
