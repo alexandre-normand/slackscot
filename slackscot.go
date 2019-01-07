@@ -407,7 +407,8 @@ func (s *Slackscot) processUpdatedMessage(api *slack.Client, rtm *slack.RTM, msg
 		}
 
 		// Delete any previous triggered responses that aren't triggering anymore
-		for _, r := range responsesByAction {
+		for pa, r := range responsesByAction {
+			slog.Debugf(s.log, "Deleting previous response [%s] on a now non-triggered plugin action [%s]\n", r, pa)
 			rtm.DeleteMessage(r.channelId, r.timestamp)
 		}
 

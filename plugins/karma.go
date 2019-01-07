@@ -93,7 +93,6 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 			Description: "Return the X top things ever",
 			Answer: func(message *slack.Msg) string {
 				match := topKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
-				log.Printf("Here are the matches: [%v]", match)
 
 				rawCount := match[2]
 				count, _ := strconv.Atoi(rawCount)
