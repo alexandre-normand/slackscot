@@ -25,7 +25,7 @@ func NewVersioner(name string, version string) *Versioner {
 			return strings.HasPrefix(t, "version")
 		},
 		Usage:       "version",
-		Description: "Reply with the name and version of this slackscot instance",
+		Description: fmt.Sprintf("Reply with `%s`'s `version` number", name),
 		Answer: func(m *slack.Msg) string {
 			return fmt.Sprintf("I'm `%s`, version `%s`", name, version)
 		}}}, HearActions: nil}}
