@@ -1,3 +1,5 @@
+// Package slog provides a simple wrapper around log.Printf that is only executed when
+// debug is set in configuration
 package slog
 
 import (
