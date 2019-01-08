@@ -3,7 +3,7 @@ package botservices
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/slog"
+	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/hashicorp/golang-lru"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"

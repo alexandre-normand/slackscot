@@ -4,10 +4,10 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/config"
-	"github.com/alexandre-normand/slackscot/schedule"
-	"github.com/alexandre-normand/slackscot/slog"
+	"github.com/alexandre-normand/slackscot/v2"
+	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/v2/schedule"
+	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/nlopes/slack"
 	"math/rand"
 	"time"

@@ -3,7 +3,7 @@ package plugins
 import (
 	"fmt"
 	"github.com/alexandre-normand/figlet4go"
-	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/nlopes/slack"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"

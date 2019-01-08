@@ -3,7 +3,7 @@ package plugins
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/nlopes/slack"
 	"io/ioutil"
 	"log"

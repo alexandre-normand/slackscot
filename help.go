@@ -2,8 +2,8 @@ package slackscot
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/config"
-	"github.com/alexandre-normand/slackscot/slog"
+	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"strings"

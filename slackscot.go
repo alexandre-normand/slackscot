@@ -6,10 +6,10 @@ package slackscot
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/botservices"
-	"github.com/alexandre-normand/slackscot/config"
-	"github.com/alexandre-normand/slackscot/schedule"
-	"github.com/alexandre-normand/slackscot/slog"
+	"github.com/alexandre-normand/slackscot/v2/botservices"
+	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/v2/schedule"
+	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/hashicorp/golang-lru"
 	"github.com/marcsantiago/gocron"
 	"github.com/nlopes/slack"
