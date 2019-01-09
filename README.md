@@ -151,7 +151,7 @@ func main() {
 You'll also need to define your configuration for the `core`, built-in extensions and any configuration required by your own custom extensions (not shown here). `Slackscot` uses [viper](https://github.com/spf13/viper) for loading configuration
 which means that you are free to use a different file format (`yaml`, `toml`, etc.) as desired. 
 
-```
+```json
 {
    "token": "your-slack-bot-token",
    "debug": false,
@@ -161,11 +161,11 @@ which means that you are free to use a different file format (`yaml`, `toml`, et
    "replyBehavior": {
       "threadedReplies": true,
       "broadcast": true
-   }
+   },
    "plugins": {
-   	  "ohMonday": {
-   	  	 "channelId": "slackChannelId"
-   	  },
+      "ohMonday": {
+   	"channelId": "slackChannelId"
+      },
       "fingerQuoter": {
          "frequency": "100",
          "channelIds": ""
