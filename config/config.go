@@ -20,17 +20,29 @@ const (
 	PluginsKey                  = "plugins"                                // Root element of the map of string key/values for plugins string
 )
 
+// Configuration defaults
+const (
+	debugDefault                    = false
+	responseCacheSizeDefault        = 5000
+	timeLocationDefault             = "Local"
+	threadedRepliesDefault          = false
+	broadcastThreadedRepliesDefault = true
+)
+
 // ReplyBehavior holds flags to define the replying behavior (use threads or not and broadcast replies or not)
 type ReplyBehavior struct {
 	ThreadedReplies bool
 	Broadcast       bool
 }
 
+// PluginConfig is a sub-viper instance holding the subtree specific to a named plugin
+type PluginConfig = viper.Viper
+
 // NewViperWithDefaults creates a new viper instance with defaults set on it
 func NewViperWithDefaults() (v *viper.Viper) {
 	v = viper.New()
-	v.SetDefault(DebugKey, false)
-	v.SetDefault(ResponseCacheSizeKey, 5000)
+	v.SetDefault(DebugKey, debugDefault)
+	v.SetDefault(ResponseCacheSizeKey, responseCacheSizeDefault)
 	v.SetDefault(TimeLocationKey, "Local")
 	v.SetDefault(ThreadedRepliesKey, false)
 	v.SetDefault(BroadcastThreadedRepliesKey, true)
@@ -50,9 +62,6 @@ func GetTimeLocation(v *viper.Viper) (timeLoc *time.Location, err error) {
 
 	return timeLoc, nil
 }
-
-// PluginConfig is a sub-viper instance holding the subtree specific to a named plugin
-type PluginConfig = viper.Viper
 
 // GetPluginConfig returns the viper sub-tree for a named plugin
 func GetPluginConfig(v *viper.Viper, name string) (pluginConfig *PluginConfig, err error) {
