@@ -53,7 +53,7 @@ Slackscot provides the pieces to make your mascot but you'll have to assemble th
 ### Integration and bringing your `slackscot` to life
 
 Here's an example of how [Youppi](https://github.com/alexandre-normand/youppi) does it (apologies for the verbose and repetitive error handling when creating instances of plugins):
-```
+```go
 package main
 
 import (
