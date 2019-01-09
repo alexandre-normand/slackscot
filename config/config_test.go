@@ -25,7 +25,7 @@ func TestGetTimeLocationWithDefault(t *testing.T) {
 
 	assert.Nil(t, err)
 	if assert.NotNil(t, timeLoc) {
-		assert.Equal(t, "Local", timeLoc.String())
+		assert.Conditionf(t, func() bool { return timeLoc.String() == "Local" || timeLoc.String() == "UTC" }, "timeLoc should be either Local or UTC but was %s", timeLoc.String())
 	}
 }
 

@@ -36,7 +36,7 @@ func TestScheduleDefinitionString(t *testing.T) {
 
 	for _, testCase := range scheduleDefinitionToString {
 		friendlyStr := testCase.sd.String()
-		assert.Equal(t, testCase.friendlyString, friendlyStr, "Expected different string value for schedule definition: %v", testCase.sd)
+		assert.Equalf(t, testCase.friendlyString, friendlyStr, "Expected different string value for schedule definition: %v", testCase.sd)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestNewScheduledJobFromScheduleDefinition(t *testing.T) {
 		_, err := schedule.NewJob(scheduler, testCase.sd)
 
 		if testCase.valid {
-			assert.Nil(t, err, "Expected valid job to be created for schedule definition: %v", testCase.sd)
+			assert.Nilf(t, err, "Expected valid job to be created for schedule definition: %v", testCase.sd)
 		} else {
 			if assert.NotNil(t, err) {
 				assert.Contains(t, err.Error(), testCase.errorMessage)
