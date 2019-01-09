@@ -322,9 +322,13 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, rtm *slack.RTM)
 	for _, p := range s.plugins {
 		if p.ScheduledActions != nil {
 			for _, sa := range p.ScheduledActions {
-				j := schedule.NewScheduledJob(sc, sa.ScheduleDefinition)
-				slog.Debugf(s.log, "Adding job [%v] to scheduler\n", j)
-				j.Do(sa.Action, rtm)
+				j, err := schedule.NewJob(sc, sa.ScheduleDefinition)
+				if err != nil {
+					slog.Debugf(s.log, "Adding job [%v] to scheduler\n", j)
+					j.Do(sa.Action, rtm)
+				} else {
+					s.log.Printf("Error: failed to schedule job for scheduled action [%s]: %v\n", sa, err)
+				}
 			}
 		}
 	}

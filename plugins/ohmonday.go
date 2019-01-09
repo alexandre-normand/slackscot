@@ -52,7 +52,7 @@ type OhMonday struct {
 func NewOhMonday(c *config.PluginConfig) (o *OhMonday, err error) {
 	c.SetDefault(atTimeKey, defaultAtTime)
 
-	scheduleDefinition := schedule.ScheduleDefinition{Interval: 1, Unit: schedule.WEEKS, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
+	scheduleDefinition := schedule.ScheduleDefinition{Interval: 1, Unit: schedule.Weeks, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
 
 	if ok := c.IsSet(channelIdKey); !ok {
 		return nil, fmt.Errorf("Missing [%s] configuration key for plugin [%s]", channelIdKey, OhMondayPluginName)

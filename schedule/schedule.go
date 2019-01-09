@@ -25,11 +25,11 @@ type ScheduleDefinition struct {
 
 // Unit values
 const (
-	WEEKS   = "weeks"
-	HOURS   = "hours"
-	DAYS    = "days"
-	MINUTES = "minutes"
-	SECONDS = "seconds"
+	Weeks   = "weeks"
+	Hours   = "hours"
+	Days    = "days"
+	Minutes = "minutes"
+	Seconds = "seconds"
 )
 
 var weekdayToNumeral = map[string]time.Weekday{
@@ -63,8 +63,8 @@ func (s ScheduleDefinition) String() string {
 	return b.String()
 }
 
-// NewScheduledJob sets up the gocron.Job with the schedule and leaves the task undefined for the caller to set up
-func NewScheduledJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job) {
+// NewJob sets up the gocron.Job with the schedule and leaves the task undefined for the caller to set up
+func NewJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job, err error) {
 	j = s.Every(sd.Interval, false)
 
 	if _, ok := weekdayToNumeral[sd.Weekday]; ok {
@@ -86,18 +86,26 @@ func NewScheduledJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job)
 		}
 	} else {
 		switch sd.Unit {
-		case WEEKS:
+		case Weeks:
 			j = j.Weeks()
-		case HOURS:
+		case Hours:
 			j = j.Hours()
-		case DAYS:
+		case Days:
 			j = j.Days()
-		case MINUTES:
+		case Minutes:
 			j = j.Minutes()
-		case SECONDS:
+		case Seconds:
 			j = j.Seconds()
 		}
 	}
 
-	return j.At(sd.AtTime)
+	if sd.AtTime != "" {
+		j = j.At(sd.AtTime)
+	}
+
+	if j.Err() != nil {
+		return nil, j.Err()
+	}
+
+	return j, nil
 }
