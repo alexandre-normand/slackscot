@@ -1,26 +1,27 @@
-package config
+package config_test
 
 import (
+	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestNewWithDefault(t *testing.T) {
-	v := NewViperWithDefaults()
+	v := config.NewViperWithDefaults()
 
-	assert.Equal(t, debugDefault, v.GetBool(DebugKey), "%s should be %t", DebugKey, debugDefault)
-	assert.Equal(t, responseCacheSizeDefault, v.GetInt(ResponseCacheSizeKey), "%s should be %d", ResponseCacheSizeKey, responseCacheSizeDefault)
-	assert.Equal(t, timeLocationDefault, v.GetString(TimeLocationKey), "%s should be %s", TimeLocationKey, timeLocationDefault)
-	assert.Equal(t, threadedRepliesDefault, v.GetBool(ThreadedRepliesKey), "%s should be %t", ThreadedRepliesKey, threadedRepliesDefault)
-	assert.Equal(t, broadcastThreadedRepliesDefault, v.GetBool(BroadcastThreadedRepliesKey), "%s should be %t", BroadcastThreadedRepliesKey, broadcastThreadedRepliesDefault)
+	assert.Equal(t, false, v.GetBool(config.DebugKey), "%s should be %t", config.DebugKey, false)
+	assert.Equal(t, 5000, v.GetInt(config.ResponseCacheSizeKey), "%s should be %d", config.ResponseCacheSizeKey, 5000)
+	assert.Equal(t, "Local", v.GetString(config.TimeLocationKey), "%s should be %s", config.TimeLocationKey, "Local")
+	assert.Equal(t, false, v.GetBool(config.ThreadedRepliesKey), "%s should be %t", config.ThreadedRepliesKey, false)
+	assert.Equal(t, true, v.GetBool(config.BroadcastThreadedRepliesKey), "%s should be %t", config.BroadcastThreadedRepliesKey, true)
 }
 
 func TestGetTimeLocationWithDefault(t *testing.T) {
 	v := viper.New()
-	v.Set(TimeLocationKey, timeLocationDefault)
+	v.Set(config.TimeLocationKey, "Local")
 
-	timeLoc, err := GetTimeLocation(v)
+	timeLoc, err := config.GetTimeLocation(v)
 
 	assert.Nil(t, err)
 	if assert.NotNil(t, timeLoc) {
@@ -30,9 +31,9 @@ func TestGetTimeLocationWithDefault(t *testing.T) {
 
 func TestGetTimeLocationWithTimezoneId(t *testing.T) {
 	v := viper.New()
-	v.Set(TimeLocationKey, "America/Los_Angeles")
+	v.Set(config.TimeLocationKey, "America/Los_Angeles")
 
-	timeLoc, err := GetTimeLocation(v)
+	timeLoc, err := config.GetTimeLocation(v)
 
 	assert.Nil(t, err)
 	if assert.NotNil(t, timeLoc) {
@@ -42,9 +43,9 @@ func TestGetTimeLocationWithTimezoneId(t *testing.T) {
 
 func TestGetTimeLocationWithInvalidValue(t *testing.T) {
 	v := viper.New()
-	v.Set(TimeLocationKey, "invalid")
+	v.Set(config.TimeLocationKey, "invalid")
 
-	_, err := GetTimeLocation(v)
+	_, err := config.GetTimeLocation(v)
 
 	if assert.NotNil(t, err) {
 		assert.Contains(t, err.Error(), "invalid")
@@ -61,11 +62,11 @@ func TestGetPluginConfig(t *testing.T) {
 		},
 	}
 	// Set the test configuration
-	v.Set(PluginsKey, map[string]interface{}{
+	v.Set(config.PluginsKey, map[string]interface{}{
 		"pluginName": configValues,
 	})
 
-	pc, err := GetPluginConfig(v, "pluginName")
+	pc, err := config.GetPluginConfig(v, "pluginName")
 
 	assert.Nil(t, err)
 	if assert.NotNil(t, pc) {
@@ -76,7 +77,7 @@ func TestGetPluginConfig(t *testing.T) {
 func TestGetPluginConfigWithMissingConfig(t *testing.T) {
 	v := viper.New()
 
-	_, err := GetPluginConfig(v, "pluginName")
+	_, err := config.GetPluginConfig(v, "pluginName")
 
 	if assert.NotNil(t, err) {
 		assert.Contains(t, err.Error(), "Missing plugin configuration for plugin [pluginName]")

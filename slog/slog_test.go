@@ -1,7 +1,8 @@
-package slog
+package slog_test
 
 import (
 	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"log"
@@ -14,7 +15,7 @@ func TestLogWhenDebugEnabled(t *testing.T) {
 
 	var b strings.Builder
 	l := log.New(&b, "", 0)
-	Debugf(l, "Writing a log statement for my little %s\n", "red bird")
+	slog.Debugf(l, "Writing a log statement for my little %s\n", "red bird")
 
 	o := b.String()
 
@@ -26,7 +27,7 @@ func TestLogWhenDebugDisabled(t *testing.T) {
 
 	var b strings.Builder
 	l := log.New(&b, "", 0)
-	Debugf(l, "Writing a log statement for my little %s\n", "red bird")
+	slog.Debugf(l, "Writing a log statement for my little %s\n", "red bird")
 
 	o := b.String()
 
