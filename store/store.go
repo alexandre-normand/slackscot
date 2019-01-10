@@ -17,9 +17,9 @@ type Store struct {
 	database *leveldb.DB
 }
 
-// NewStore instantiates and open a new Store instance backed by a leveldb database. If the
+// New instantiates and open a new Store instance backed by a leveldb database. If the
 // leveldb database doesn't exist, one is created
-func NewStore(name string, storagePath string) (store *Store, err error) {
+func New(name string, storagePath string) (store *Store, err error) {
 	// Expand '~' as the full home directory path if appropriate
 	path, err := homedir.Expand(storagePath)
 	if err != nil {

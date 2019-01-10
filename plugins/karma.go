@@ -32,7 +32,7 @@ const (
 // NewKarma creates a new instance of the Karma plugin
 func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 	storagePath := v.GetString(config.StoragePathKey)
-	storage, err := store.NewStore(KarmaPluginName, storagePath)
+	storage, err := store.New(KarmaPluginName, storagePath)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", KarmaPluginName, storagePath))
 	}
