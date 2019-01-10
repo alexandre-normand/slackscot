@@ -44,7 +44,7 @@ func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 		Hidden: true,
 		// Match based on the frequency probability and whether or not the channel is whitelisted
 		Match:       f.trigger,
-		Usage:       "just speak",
+		Usage:       "just converse",
 		Description: "finger quoter listens to what people say and (sometimes) finger quotes a word",
 		Answer:      f.fingerQuoteMsg,
 	}}

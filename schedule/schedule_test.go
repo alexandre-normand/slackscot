@@ -35,8 +35,10 @@ func TestScheduleDefinitionString(t *testing.T) {
 	}
 
 	for _, testCase := range scheduleDefinitionToString {
-		friendlyStr := testCase.sd.String()
-		assert.Equalf(t, testCase.friendlyString, friendlyStr, "Expected different string value for schedule definition: %v", testCase.sd)
+		t.Run(testCase.friendlyString, func(t *testing.T) {
+			friendlyStr := testCase.sd.String()
+			assert.Equalf(t, testCase.friendlyString, friendlyStr, "Expected different string value for schedule definition: %v", testCase.sd)
+		})
 	}
 }
 
@@ -73,14 +75,17 @@ func TestNewScheduledJobFromScheduleDefinition(t *testing.T) {
 
 	scheduler := gocron.NewScheduler()
 	for _, testCase := range scheduleDefinitionToResult {
-		_, err := schedule.NewJob(scheduler, testCase.sd)
+		t.Run(testCase.sd.String(), func(t *testing.T) {
 
-		if testCase.valid {
-			assert.Nilf(t, err, "Expected valid job to be created for schedule definition: %v", testCase.sd)
-		} else {
-			if assert.NotNil(t, err) {
-				assert.Contains(t, err.Error(), testCase.errorMessage)
+			_, err := schedule.NewJob(scheduler, testCase.sd)
+
+			if testCase.valid {
+				assert.Nilf(t, err, "Expected valid job to be created for schedule definition: %v", testCase.sd)
+			} else {
+				if assert.NotNil(t, err) {
+					assert.Contains(t, err.Error(), testCase.errorMessage)
+				}
 			}
-		}
+		})
 	}
 }
