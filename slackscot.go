@@ -114,7 +114,7 @@ func (a ActionDefinition) String() string {
 type Answerer func(m *slack.Msg) string
 
 // ScheduledAction is what gets executed when a ScheduledActionDefinition is triggered (by its ScheduleDefinition)
-type ScheduledAction func(rtm *slack.RTM)
+type ScheduledAction func(sender MessageSender)
 
 // responseStrategy defines how a slack.OutgoingMessage is generated from a response
 type responseStrategy func(rtm *slack.RTM, m *slack.Msg, response string) *slack.OutgoingMessage
@@ -318,6 +318,7 @@ func (s *Slackscot) cacheSelfIdentity(rtm *slack.RTM) {
 func (s *Slackscot) startActionScheduler(timeLoc *time.Location, rtm *slack.RTM) {
 	gocron.ChangeLoc(timeLoc)
 	sc := gocron.NewScheduler()
+	slackSender := &slackMsgSender{rtm: rtm}
 
 	for _, p := range s.plugins {
 		if p.ScheduledActions != nil {
@@ -325,7 +326,7 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, rtm *slack.RTM)
 				j, err := schedule.NewJob(sc, sa.ScheduleDefinition)
 				if err != nil {
 					slog.Debugf(s.log, "Adding job [%v] to scheduler\n", j)
-					j.Do(sa.Action, rtm)
+					j.Do(sa.Action, slackSender)
 				} else {
 					s.log.Printf("Error: failed to schedule job for scheduled action [%s]: %v\n", sa, err)
 				}
