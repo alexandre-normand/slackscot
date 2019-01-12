@@ -10,7 +10,6 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-	"log"
 	"regexp"
 	"sort"
 	"strconv"
@@ -29,15 +28,23 @@ const (
 	KarmaPluginName = "karma"
 )
 
+var karmaRegex = regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
+var topKarmaRegexp = regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
+var worstKarmaRegexp = regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
+
 // NewKarma creates a new instance of the Karma plugin
 func NewKarma(v *viper.Viper) (karma *Karma, err error) {
+	if !v.IsSet(config.StoragePathKey) {
+		return nil, fmt.Errorf("Missing [%s] configuration key in the top value configuration", config.StoragePathKey)
+	}
+
 	storagePath := v.GetString(config.StoragePathKey)
 	storage, err := store.New(KarmaPluginName, storagePath)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", KarmaPluginName, storagePath))
 	}
 
-	karmaRegex := regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
+	k := new(Karma)
 
 	hearActions := []slackscot.ActionDefinition{
 		{
@@ -48,40 +55,8 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 			},
 			Usage:       "thing++ or thing--",
 			Description: "Keep track of karma",
-			Answer: func(message *slack.Msg) string {
-				match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
-
-				var format string
-				thing := match[1]
-				rawValue, err := storage.Get(thing)
-				if err != nil {
-					rawValue = "0"
-				}
-				k, err := strconv.Atoi(rawValue)
-				if err != nil {
-					log.Printf("Error parsing current karma value [%s], something's wrong and resetting to 0: %v", rawValue, err)
-					k = 0
-				}
-
-				if match[2] == "++" {
-					format = "`%s` just gained a level (`%s`: %d)"
-					k++
-				} else {
-					format = "`%s` just lost a life (`%s`: %d)"
-					k--
-				}
-
-				// Store new value
-				err = karma.karmaStore.Put(thing, strconv.Itoa(k))
-				if err != nil {
-					log.Printf("Error persisting karma: %v", err)
-				}
-				return fmt.Sprintf(format, thing, thing, k)
-			},
+			Answer:      k.recordKarma,
 		}}
-
-	topKarmaRegexp := regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
-	worstKarmaRegexp := regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
 
 	commands := []slackscot.ActionDefinition{
 		{
@@ -91,27 +66,7 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 			},
 			Usage:       "karma top <howMany>",
 			Description: "Return the X top things ever",
-			Answer: func(message *slack.Msg) string {
-				match := topKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
-
-				rawCount := match[2]
-				count, _ := strconv.Atoi(rawCount)
-
-				values, err := storage.Scan()
-				if err != nil {
-					return fmt.Sprintf("Sorry, I couldn't get the top [%d] things for you. If you must know, thing happened: %v", count, err)
-				}
-
-				pairs, err := getTopThings(values, count)
-				if err != nil {
-					return fmt.Sprintf("Sorry, I couldn't get the top [%d] things for you. If you must know, thing happened: %v", count, err)
-				}
-				var buffer bytes.Buffer
-
-				buffer.WriteString(fmt.Sprintf("Here are the top %d things: \n", count))
-				buffer.WriteString(formatList(pairs))
-				return buffer.String()
-			},
+			Answer:      k.answerKarmaTop,
 		},
 		{
 			Hidden: false,
@@ -120,32 +75,90 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 			},
 			Usage:       "karma worst <howMany>",
 			Description: "Return the X worst things ever",
-			Answer: func(message *slack.Msg) string {
-				match := worstKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
-
-				rawCount := match[2]
-				count, _ := strconv.Atoi(rawCount)
-
-				values, err := storage.Scan()
-				if err != nil {
-					return fmt.Sprintf("Sorry, I couldn't get the worst [%d] things for you. If you must know, thing happened: %v", count, err)
-				}
-
-				pairs, err := getWorstThings(values, count)
-				if err != nil {
-					return fmt.Sprintf("Sorry, I couldn't get the worst [%d] things for you. If you must know, thing happened: %v", count, err)
-				}
-				var buffer bytes.Buffer
-
-				buffer.WriteString(fmt.Sprintf("Here are the %d worst things: \n", count))
-				buffer.WriteString(formatList(pairs))
-				return buffer.String()
-			},
+			Answer:      k.answerKarmaWorst,
 		},
 	}
 
-	karmaPlugin := Karma{Plugin: slackscot.Plugin{Name: KarmaPluginName, Commands: commands, HearActions: hearActions}, karmaStore: storage}
-	return &karmaPlugin, nil
+	k.Plugin = slackscot.Plugin{Name: KarmaPluginName, Commands: commands, HearActions: hearActions}
+	k.karmaStore = storage
+
+	return k, nil
+}
+
+func (k *Karma) recordKarma(message *slack.Msg) string {
+	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
+
+	var format string
+	thing := match[1]
+	rawValue, err := k.karmaStore.Get(thing)
+	if err != nil {
+		rawValue = "0"
+	}
+	karma, err := strconv.Atoi(rawValue)
+	if err != nil {
+		k.Plugin.BotServices.Logger.Printf("[%s] Error parsing current karma value [%s], something's wrong and resetting to 0: %v", KarmaPluginName, rawValue, err)
+		karma = 0
+	}
+
+	if match[2] == "++" {
+		format = "`%s` just gained a level (`%s`: %d)"
+		karma++
+	} else {
+		format = "`%s` just lost a life (`%s`: %d)"
+		karma--
+	}
+
+	// Store new value
+	err = k.karmaStore.Put(thing, strconv.Itoa(karma))
+	if err != nil {
+		k.Plugin.BotServices.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
+	}
+	return fmt.Sprintf(format, thing, thing, karma)
+
+}
+
+func (k *Karma) answerKarmaTop(message *slack.Msg) string {
+	match := topKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
+
+	rawCount := match[2]
+	count, _ := strconv.Atoi(rawCount)
+
+	values, err := k.karmaStore.Scan()
+	if err != nil {
+		return fmt.Sprintf("Sorry, I couldn't get the top [%d] things for you. If you must know, thing happened: %v", count, err)
+	}
+
+	pairs, err := getTopThings(values, count)
+	if err != nil {
+		return fmt.Sprintf("Sorry, I couldn't get the top [%d] things for you. If you must know, thing happened: %v", count, err)
+	}
+	var buffer bytes.Buffer
+
+	buffer.WriteString(fmt.Sprintf("Here are the top %d things: \n", count))
+	buffer.WriteString(formatList(pairs))
+	return buffer.String()
+}
+
+func (k *Karma) answerKarmaWorst(message *slack.Msg) string {
+	match := worstKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
+
+	rawCount := match[2]
+	count, _ := strconv.Atoi(rawCount)
+
+	values, err := k.karmaStore.Scan()
+	if err != nil {
+		return fmt.Sprintf("Sorry, I couldn't get the worst [%d] things for you. If you must know, thing happened: %v", count, err)
+	}
+
+	pairs, err := getWorstThings(values, count)
+	if err != nil {
+		return fmt.Sprintf("Sorry, I couldn't get the worst [%d] things for you. If you must know, thing happened: %v", count, err)
+	}
+	var buffer bytes.Buffer
+
+	buffer.WriteString(fmt.Sprintf("Here are the %d worst things: \n", count))
+	buffer.WriteString(formatList(pairs))
+	return buffer.String()
 }
 
 func formatList(pl pairList) string {
