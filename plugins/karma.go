@@ -96,7 +96,7 @@ func (k *Karma) recordKarma(message *slack.Msg) string {
 	}
 	karma, err := strconv.Atoi(rawValue)
 	if err != nil {
-		k.Plugin.BotServices.Logger.Printf("[%s] Error parsing current karma value [%s], something's wrong and resetting to 0: %v", KarmaPluginName, rawValue, err)
+		k.Logger.Printf("[%s] Error parsing current karma value [%s], something's wrong and resetting to 0: %v", KarmaPluginName, rawValue, err)
 		karma = 0
 	}
 
@@ -111,7 +111,7 @@ func (k *Karma) recordKarma(message *slack.Msg) string {
 	// Store new value
 	err = k.karmaStore.Put(thing, strconv.Itoa(karma))
 	if err != nil {
-		k.Plugin.BotServices.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
+		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
 	}
 	return fmt.Sprintf(format, thing, thing, karma)
 

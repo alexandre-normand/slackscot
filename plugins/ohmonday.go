@@ -7,7 +7,6 @@ import (
 	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/alexandre-normand/slackscot/v2/schedule"
-	"github.com/alexandre-normand/slackscot/v2/slog"
 	"math/rand"
 	"time"
 )
@@ -67,7 +66,7 @@ func NewOhMonday(c *config.PluginConfig) (o *OhMonday, err error) {
 
 func (o *OhMonday) sendGreeting(sender slackscot.MessageSender) {
 	message := mondayPictures[selectionRandom.Intn(len(mondayPictures))]
-	slog.Debugf(o.Plugin.BotServices.Logger, "[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, o.channelId)
+	o.Logger.Debugf("[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, o.channelId)
 
 	sender.SendNewMessage(message, o.channelId)
 }

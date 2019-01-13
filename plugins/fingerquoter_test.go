@@ -17,7 +17,7 @@ func TestMatchFrequency(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.Plugin.HearActions[0]
+	h := f.HearActions[0]
 	matches := 0
 	ts := "15468332%02d.036900"
 
@@ -40,7 +40,7 @@ func TestChannelWhitelisting(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.Plugin.HearActions[0]
+	h := f.HearActions[0]
 
 	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}))
 	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}))
@@ -54,7 +54,7 @@ func TestMatchConsistentWithSameTimestamp(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.Plugin.HearActions[0]
+	h := f.HearActions[0]
 
 	for i := 0; i < 100; i++ {
 		assert.True(t, h.Match("text", &slack.Msg{Timestamp: "1546833210.036900"}))
@@ -69,7 +69,7 @@ func TestQuotingOfSingleLongWord(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.Plugin.HearActions[0]
+	h := f.HearActions[0]
 
 	assert.Equal(t, "\"belong\"", h.Answer(&slack.Msg{Text: "Do I belong or not?", Timestamp: "1546833210.036900"}))
 }
@@ -81,7 +81,7 @@ func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.Plugin.HearActions[0]
+	h := f.HearActions[0]
 
 	// Validate one pick with a different timestamp
 	assert.Equal(t, "\"breathed\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
@@ -103,7 +103,7 @@ func TestNoQuotingIfOnlySmallWords(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.Plugin.HearActions[0]
+	h := f.HearActions[0]
 
 	assert.Equal(t, "", h.Answer(&slack.Msg{Text: "Do I or not?", Timestamp: "1546833210.036900"}))
 }

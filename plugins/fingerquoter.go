@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/config"
-	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/nlopes/slack"
 	"math/rand"
 	"strconv"
@@ -59,7 +58,7 @@ func (f *FingerQuoter) trigger(t string, m *slack.Msg) bool {
 
 	ts, err := strconv.ParseFloat(m.Timestamp, 64)
 	if err != nil {
-		slog.Debugf(f.Plugin.BotServices.Logger, "[%s] Skipping message [%v] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
+		f.Logger.Debugf("[%s] Skipping message [%v] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
 	} else {
 		// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
 		randomGen := rand.New(rand.NewSource(int64(ts)))
@@ -76,7 +75,7 @@ func (f *FingerQuoter) fingerQuoteMsg(m *slack.Msg) string {
 	if len(candidates) > 0 {
 		ts, err := strconv.ParseFloat(m.Timestamp, 64)
 		if err != nil {
-			slog.Debugf(f.Plugin.BotServices.Logger, "[%s] Skipping message [%v] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
+			f.Logger.Debugf("[%s] Skipping message [%v] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
 		} else {
 			// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
 			randomGen := rand.New(rand.NewSource(int64(ts)))

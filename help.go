@@ -3,7 +3,6 @@ package slackscot
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2/config"
-	"github.com/alexandre-normand/slackscot/v2/slog"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"strings"
@@ -60,9 +59,9 @@ func (h *helpPlugin) showHelp(m *slack.Msg) string {
 
 	// Get the user's first name using the botservices
 	userId := m.User
-	user, err := h.BotServices.GetUserInfo(userId)
+	user, err := h.UserInfoFinder.GetUserInfo(userId)
 	if err != nil {
-		slog.Debugf(h.BotServices.Logger, "Error getting user info for user id [%s] so skipping mentioning the name (it would be awkward): %v", userId, err)
+		h.Logger.Debugf("Error getting user info for user id [%s] so skipping mentioning the name (it would be awkward): %v", userId, err)
 	} else {
 		fmt.Fprintf(&b, "🤝 You're `%s` and ", user.RealName)
 	}

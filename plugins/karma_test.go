@@ -2,7 +2,7 @@ package plugins_test
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2/botservices"
+	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/alexandre-normand/slackscot/v2/plugins"
 	"github.com/nlopes/slack"
@@ -75,8 +75,7 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 
 	// Attach the logger
 	var b strings.Builder
-	k.BotServices = new(botservices.BotServices)
-	k.BotServices.Logger = log.New(&b, "", 0)
+	k.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
 
 	if assert.NotNil(t, k) {
 		defer k.Close()
@@ -95,7 +94,7 @@ func drivePlugin(text string, k *plugins.Karma) (matches map[string]bool, answer
 	matches = make(map[string]bool)
 	answers = make(map[string]string)
 
-	for i, h := range k.Plugin.HearActions {
+	for i, h := range k.HearActions {
 		id := fmt.Sprintf("h[%d]", i)
 
 		msg := slack.Msg{Text: text}
@@ -107,7 +106,7 @@ func drivePlugin(text string, k *plugins.Karma) (matches map[string]bool, answer
 		}
 	}
 
-	for i, c := range k.Plugin.Commands {
+	for i, c := range k.Commands {
 		id := fmt.Sprintf("c[%d]", i)
 
 		msg := slack.Msg{Text: text}

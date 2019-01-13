@@ -1,7 +1,7 @@
 package plugins_test
 
 import (
-	"github.com/alexandre-normand/slackscot/v2/botservices"
+	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/plugins"
 	"github.com/alexandre-normand/slackscot/v2/schedule"
 	"github.com/nlopes/slack"
@@ -36,10 +36,9 @@ func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	o, err := plugins.NewOhMonday(pc)
 	assert.Nil(t, err)
 
-	sa := o.Plugin.ScheduledActions[0]
+	sa := o.ScheduledActions[0]
 	var b strings.Builder
-	o.BotServices = new(botservices.BotServices)
-	o.BotServices.Logger = log.New(&b, "", 0)
+	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
 
 	sender := FakeSender{}
 
@@ -57,7 +56,7 @@ func TestDefaultAtTime(t *testing.T) {
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.Nil(t, err)
-	sa := o.Plugin.ScheduledActions[0]
+	sa := o.ScheduledActions[0]
 
 	assert.Equal(t, schedule.ScheduleDefinition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, sa.ScheduleDefinition)
 }
@@ -78,7 +77,7 @@ func TestAtTimeOverride(t *testing.T) {
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.Nil(t, err)
-	sa := o.Plugin.ScheduledActions[0]
+	sa := o.ScheduledActions[0]
 
 	assert.Equal(t, schedule.ScheduleDefinition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, sa.ScheduleDefinition)
 
