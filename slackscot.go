@@ -187,9 +187,6 @@ func (s *Slackscot) Run() (err error) {
 	s.RegisterPlugin(&helpPlugin.Plugin)
 	s.attachIdentifiersToPluginActions()
 
-	// Push the Debug configuration to the global Viper instance so it's available to plugins too.
-	viper.Set(config.DebugKey, s.config.GetBool(config.DebugKey))
-
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
