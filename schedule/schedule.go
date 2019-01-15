@@ -67,24 +67,23 @@ func (s ScheduleDefinition) String() string {
 func NewJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job, err error) {
 	j = s.Every(sd.Interval, false)
 
-	if _, ok := weekdayToNumeral[sd.Weekday]; ok {
-		switch sd.Weekday {
-		case time.Monday.String():
-			j = j.Monday()
-		case time.Tuesday.String():
-			j = j.Tuesday()
-		case time.Wednesday.String():
-			j = j.Wednesday()
-		case time.Thursday.String():
-			j = j.Thursday()
-		case time.Friday.String():
-			j = j.Friday()
-		case time.Saturday.String():
-			j = j.Saturday()
-		case time.Sunday.String():
-			j = j.Sunday()
-		}
-	} else {
+	switch sd.Weekday {
+	case time.Monday.String():
+		j = j.Monday()
+	case time.Tuesday.String():
+		j = j.Tuesday()
+	case time.Wednesday.String():
+		j = j.Wednesday()
+	case time.Thursday.String():
+		j = j.Thursday()
+	case time.Friday.String():
+		j = j.Friday()
+	case time.Saturday.String():
+		j = j.Saturday()
+	case time.Sunday.String():
+		j = j.Sunday()
+	// Weekday isn't set so we use units
+	default:
 		switch sd.Unit {
 		case Weeks:
 			j = j.Weeks()

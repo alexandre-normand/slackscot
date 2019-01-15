@@ -7,16 +7,22 @@ import (
 	"github.com/spf13/viper"
 )
 
-// UserInfoFinder defines the interface for finding a slack user's info
-type UserInfoFinder interface {
-	GetUserInfo(userId string) (user *slack.User, err error)
-}
-
 const (
 	userInfoCacheSizeKey           = "userInfoCacheSize" // The number of entries to keep in the user info cache, int value. Defaults to no caching
 	userInfoCacheSizeDisabledValue = 0
 )
 
+// UserInfoFinder defines the interface for finding a slack user's info
+type UserInfoFinder interface {
+	GetUserInfo(userId string) (user *slack.User, err error)
+}
+
+// selfInfoFinder defines the interface for finding our (the slackscot instance) user info
+type selfInfoFinder interface {
+	GetInfo() (user *slack.Info)
+}
+
+// cachingUserInfoFinder holds a cache and a loading UserInfoFinder to implement the UserInfoFinder loading entries from cache
 type cachingUserInfoFinder struct {
 	loader           UserInfoFinder
 	logger           SLogger

@@ -22,6 +22,8 @@ func TestNewStoreWithInvalidPath(t *testing.T) {
 
 func TestNewStore(t *testing.T) {
 	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
+
 	defer os.RemoveAll(dir)
 
 	ts, err := store.New("test", dir)
@@ -32,6 +34,7 @@ func TestNewStore(t *testing.T) {
 
 func TestPutGetScan(t *testing.T) {
 	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
 	defer os.RemoveAll(dir)
 
 	ts, err := store.New("test", dir)

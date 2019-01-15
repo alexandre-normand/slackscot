@@ -249,8 +249,8 @@ func convertMapValues(rawData map[string]string) (result map[string]int, err err
 }
 
 // Close closes the plugin and its underlying database
-func (karma Karma) Close() {
-	if karma.karmaStore != nil {
-		karma.karmaStore.Close()
+func (k *Karma) Close() {
+	if k.karmaStore != nil {
+		k.karmaStore.Close()
 	}
 }
