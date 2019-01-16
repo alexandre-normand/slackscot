@@ -63,28 +63,35 @@ func (s ScheduleDefinition) String() string {
 	return b.String()
 }
 
-// NewJob sets up the gocron.Job with the schedule and leaves the task undefined for the caller to set up
-func NewJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job, err error) {
-	j = s.Every(sd.Interval, false)
+// Option defines an option for a Slackscot
+type scheduleOption func(j *gocron.Job)
 
-	switch sd.Weekday {
-	case time.Monday.String():
-		j = j.Monday()
-	case time.Tuesday.String():
-		j = j.Tuesday()
-	case time.Wednesday.String():
-		j = j.Wednesday()
-	case time.Thursday.String():
-		j = j.Thursday()
-	case time.Friday.String():
-		j = j.Friday()
-	case time.Saturday.String():
-		j = j.Saturday()
-	case time.Sunday.String():
-		j = j.Sunday()
-	// Weekday isn't set so we use units
-	default:
-		switch sd.Unit {
+// optionWeekday sets the weekday of a recurring job
+func optionWeekday(weekday string) func(j *gocron.Job) {
+	return func(j *gocron.Job) {
+		switch weekday {
+		case time.Monday.String():
+			j = j.Monday()
+		case time.Tuesday.String():
+			j = j.Tuesday()
+		case time.Wednesday.String():
+			j = j.Wednesday()
+		case time.Thursday.String():
+			j = j.Thursday()
+		case time.Friday.String():
+			j = j.Friday()
+		case time.Saturday.String():
+			j = j.Saturday()
+		case time.Sunday.String():
+			j = j.Sunday()
+		}
+	}
+}
+
+// optionUnit sets the unit of a recurring job
+func optionUnit(unit string) func(j *gocron.Job) {
+	return func(j *gocron.Job) {
+		switch unit {
 		case Weeks:
 			j = j.Weeks()
 		case Hours:
@@ -97,9 +104,33 @@ func NewJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job, err erro
 			j = j.Seconds()
 		}
 	}
+}
+
+// optionAtTime sets the AtTime of a recurring job
+func optionAtTime(atTime string) func(j *gocron.Job) {
+	return func(j *gocron.Job) {
+		j = j.At(atTime)
+	}
+}
+
+// NewJob sets up the gocron.Job with the schedule and leaves the task undefined for the caller to set up
+func NewJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job, err error) {
+	j = s.Every(sd.Interval, false)
+
+	scheduleOptions := make([]scheduleOption, 0)
+
+	if sd.Weekday != "" {
+		scheduleOptions = append(scheduleOptions, optionWeekday(sd.Weekday))
+	} else if sd.Unit != "" {
+		scheduleOptions = append(scheduleOptions, optionUnit(sd.Unit))
+	}
 
 	if sd.AtTime != "" {
-		j = j.At(sd.AtTime)
+		scheduleOptions = append(scheduleOptions, optionAtTime(sd.AtTime))
+	}
+
+	for _, option := range scheduleOptions {
+		option(j)
 	}
 
 	if j.Err() != nil {
