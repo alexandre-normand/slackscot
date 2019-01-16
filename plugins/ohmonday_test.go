@@ -58,7 +58,7 @@ func TestDefaultAtTime(t *testing.T) {
 	assert.Nil(t, err)
 	sa := o.ScheduledActions[0]
 
-	assert.Equal(t, schedule.ScheduleDefinition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, sa.ScheduleDefinition)
+	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, sa.Schedule)
 }
 
 func TestMissingChannelId(t *testing.T) {
@@ -79,6 +79,6 @@ func TestAtTimeOverride(t *testing.T) {
 	assert.Nil(t, err)
 	sa := o.ScheduledActions[0]
 
-	assert.Equal(t, schedule.ScheduleDefinition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, sa.ScheduleDefinition)
+	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, sa.Schedule)
 
 }

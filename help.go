@@ -93,7 +93,7 @@ func (h *helpPlugin) showHelp(m *slack.Msg) string {
 
 		for _, value := range h.pluginScheduledActions {
 			if !value.ScheduledActionDefinition.Hidden {
-				fmt.Fprintf(&b, "\t• [`%s`] `%s` (`%s`) - %s\n", value.plugin, value.ScheduledActionDefinition.ScheduleDefinition, h.v.GetString(config.TimeLocationKey), value.ScheduledActionDefinition.Description)
+				fmt.Fprintf(&b, "\t• [`%s`] `%s` (`%s`) - %s\n", value.plugin, value.ScheduledActionDefinition.Schedule, h.v.GetString(config.TimeLocationKey), value.ScheduledActionDefinition.Description)
 			}
 		}
 	}

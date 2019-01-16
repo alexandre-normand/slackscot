@@ -87,7 +87,8 @@ type ScheduledActionDefinition struct {
 	// Indicates whether the action should be omitted from the help message
 	Hidden bool
 
-	schedule.ScheduleDefinition
+	// Schedule definition determining when the action runs
+	Schedule schedule.Definition
 
 	// Help description for the scheduled action
 	Description string
@@ -104,7 +105,7 @@ type ActionDefinitionWithId struct {
 
 // String returns a friendly description of a ScheduledActionDefinition
 func (a ScheduledActionDefinition) String() string {
-	return fmt.Sprintf("`%s` - %s", a.ScheduleDefinition, a.Description)
+	return fmt.Sprintf("`%s` - %s", a.Schedule, a.Description)
 }
 
 // String returns a friendly description of an ActionDefinition
@@ -332,7 +333,7 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, sender RealTime
 	for _, p := range s.plugins {
 		if p.ScheduledActions != nil {
 			for _, sa := range p.ScheduledActions {
-				j, err := schedule.NewJob(sc, sa.ScheduleDefinition)
+				j, err := schedule.NewJob(sc, sa.Schedule)
 				if err != nil {
 					s.log.Debugf("Adding job [%v] to scheduler\n", j)
 					j.Do(sa.Action, sender)
