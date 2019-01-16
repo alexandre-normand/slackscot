@@ -18,34 +18,34 @@ The first concrete bot implementation using this code was [youppi](https://githu
 Features
 --------
 
-* Simple store API for persistence. It's basic a basic string key/string value thing.
-* Basic config interface with slack token and storage path. 
-* Plugin interface that is a logical grouping of one or many commands and "hear actions" (listeners). 
-* Support for various configuration sources/formats via [viper](https://github.com/spf13/viper)
-* Support for bot services providing plugins easy access to the slack web api as well as a `user info` service capable
-  of caching `user info` in memory. 
+*   Simple store API for persistence. It's basic a basic string key/string value thing.
+*   Basic config interface with slack token and storage path. 
+*   Plugin interface that is a logical grouping of one or many commands and "hear actions" (listeners). 
+*   Support for various configuration sources/formats via [viper](https://github.com/spf13/viper)
+*   Support for bot services providing plugins easy access to the slack web api as well as a `user info` service capable
+    of caching `user info` in memory. 
 
 ### Fancy Features
 
-* Support for reactions to message updates. `slackscot` does the following:
-	- Keeps track of plugin action responses and the message that triggered them
-	- On message updates:
-		1. Update responses for each triggered action
-		2. Delete responses that aren't triggering anymore (or result in errors during the message update)
-	- On deletion of triggering messages, responses are also deleted
-	- *Limitation*: Sending a `message` automatically splits it into multiple slack messages when it's too long. When updating messages,
+*   Support for reactions to message updates. `slackscot` does the following:
+   * Keeps track of plugin action responses and the message that triggered them
+   * On message updates:
+      1. Update responses for each triggered action
+      2. Delete responses that aren't triggering anymore (or result in errors during the message update)
+	* On deletion of triggering messages, responses are also deleted
+	* *Limitation*: Sending a `message` automatically splits it into multiple slack messages when it's too long. When updating messages,
 	  this spitting doesn't happen and results in an `message too long` error. Effectively, the last message in the initial response might get
 	  `deleted` as a result. Handling of this could be better but that is the current limitation.
-* Support for threaded replies to user message with option to also `broadcast` on channels (disabled by `default`). See [configuration example](#configuration-example) below where both are enabled. 
-* Support for scheduled actions
+*   Support for threaded replies to user message with option to also `broadcast` on channels (disabled by `default`). See [configuration example](#configuration-example) below where both are enabled. 
+*   Support for scheduled actions
 
 Concepts
 --------
 
-* Commands: commands are well-defined actions with a format. `Slackscot` handles all direct messages as implicit commands as well as `@mention <command>` on channels. Responses to commands are directed to the person who
-  invoked it.
-* Hear actions: those are listeners that can potentially match on any message sent on channels that `slackscot` is a member of. This can include actions that will randomly generate a response. Note that responses
-  are not automatically directed to the person who authored the message triggering the response (although an implementation is free to use the user id of the triggering message if desired). 
+*   Commands: commands are well-defined actions with a format. `Slackscot` handles all direct messages as implicit commands as well as `@mention <command>` on channels. Responses to commands are directed to the person who
+    invoked it.
+*   Hear actions: those are listeners that can potentially match on any message sent on channels that `slackscot` is a member of. This can include actions that will randomly generate a response. Note that responses
+    are not automatically directed to the person who authored the message triggering the response (although an implementation is free to use the user id of the triggering message if desired). 
 
 How to use
 ----------
