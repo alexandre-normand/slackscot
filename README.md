@@ -1,6 +1,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexandre-normand/slackscot)](https://goreportcard.com/report/github.com/alexandre-normand/slackscot)
 [![GoDoc](https://godoc.org/github.com/alexandre-normand/slackscot?status.svg)](https://godoc.org/github.com/alexandre-normand/slackscot)
 [![Build Status](https://travis-ci.org/alexandre-normand/slackscot.svg)](https://travis-ci.org/alexandre-normand/slackscot)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/94f3bf0f20294440a163107b9813e0f6)](https://app.codacy.com/app/alexandre-normand/slackscot?utm_source=github.com&utm_medium=referral&utm_content=alexandre-normand/slackscot&utm_campaign=Badge_Grade_Dashboard)
 
 ![logo.svg](logo.svg)
 
