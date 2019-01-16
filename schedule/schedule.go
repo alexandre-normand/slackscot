@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// ScheduleDefinition repesents
-type ScheduleDefinition struct {
+// Definition holds the data defining a schedule definition
+type Definition struct {
 	// Internal value (every 1 minute would be expressed with an interval of 1). Must be set explicitly or implicitly (a weekday value implicitly sets the interval to 1)
 	Interval uint64
 
@@ -42,22 +42,22 @@ var weekdayToNumeral = map[string]time.Weekday{
 	time.Sunday.String():    time.Sunday,
 }
 
-// Returns a human-friendly string for the ScheduledDefinition
-func (s ScheduleDefinition) String() string {
+// Returns a human-friendly string for the schedule definition
+func (d Definition) String() string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "Every ")
 
-	if s.Weekday != "" {
-		fmt.Fprintf(&b, "%s", s.Weekday)
-	} else if s.Interval == 1 {
-		fmt.Fprintf(&b, "%s", strings.TrimSuffix(s.Unit, "s"))
+	if d.Weekday != "" {
+		fmt.Fprintf(&b, "%s", d.Weekday)
+	} else if d.Interval == 1 {
+		fmt.Fprintf(&b, "%s", strings.TrimSuffix(d.Unit, "s"))
 	} else {
-		fmt.Fprintf(&b, "%d %s", s.Interval, s.Unit)
+		fmt.Fprintf(&b, "%d %s", d.Interval, d.Unit)
 	}
 
-	if s.AtTime != "" {
-		fmt.Fprintf(&b, " at %s", s.AtTime)
+	if d.AtTime != "" {
+		fmt.Fprintf(&b, " at %s", d.AtTime)
 	}
 
 	return b.String()
@@ -114,19 +114,19 @@ func optionAtTime(atTime string) func(j *gocron.Job) {
 }
 
 // NewJob sets up the gocron.Job with the schedule and leaves the task undefined for the caller to set up
-func NewJob(s *gocron.Scheduler, sd ScheduleDefinition) (j *gocron.Job, err error) {
-	j = s.Every(sd.Interval, false)
+func NewJob(s *gocron.Scheduler, def Definition) (j *gocron.Job, err error) {
+	j = s.Every(def.Interval, false)
 
 	scheduleOptions := make([]scheduleOption, 0)
 
-	if sd.Weekday != "" {
-		scheduleOptions = append(scheduleOptions, optionWeekday(sd.Weekday))
-	} else if sd.Unit != "" {
-		scheduleOptions = append(scheduleOptions, optionUnit(sd.Unit))
+	if def.Weekday != "" {
+		scheduleOptions = append(scheduleOptions, optionWeekday(def.Weekday))
+	} else if def.Unit != "" {
+		scheduleOptions = append(scheduleOptions, optionUnit(def.Unit))
 	}
 
-	if sd.AtTime != "" {
-		scheduleOptions = append(scheduleOptions, optionAtTime(sd.AtTime))
+	if def.AtTime != "" {
+		scheduleOptions = append(scheduleOptions, optionAtTime(def.AtTime))
 	}
 
 	for _, option := range scheduleOptions {
