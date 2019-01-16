@@ -24,19 +24,6 @@ type messageSender interface {
 	SendMessage(channelId string, options ...slack.MsgOption) (rChannelId string, rTimestamp string, rText string, err error)
 }
 
-// messageCreator is implemented by any value that has the NewOutgoingMessage method. This is the preferred way to create a new outgoing message
-// as it sets the message identifier.
-// TODO: remove this unnecessary usage since we ignore the id it generates when sending
-type messageCreator interface {
-	NewOutgoingMessage(text string, channelId string, options ...slack.RTMsgOption) *slack.OutgoingMessage
-}
-
-// messageCreatorSender is implemented by any value that has the messageCreator and messageSender interfaces
-type messageCreatorSender interface {
-	messageCreator
-	messageSender
-}
-
 // messageUpdater is implemented by any value that has the UpdateMessage method.
 //
 // slack.Client implements this interface

@@ -119,7 +119,7 @@ type Answerer func(m *slack.Msg) string
 type ScheduledAction func(sender RealTimeMessageSender)
 
 // responseStrategy defines how a slack.OutgoingMessage is generated from a response
-type responseStrategy func(msgGen messageCreator, m *slack.Msg, response string) *slack.OutgoingMessage
+type responseStrategy func(m *slack.Msg, response string) *slack.OutgoingMessage
 
 // SlackMessageId holds the elements that form a unique message identifier for slack. Technically, slack also uses
 // the workspace id as the first part of that unique identifier but since an instance of slackscot only lives within
@@ -217,7 +217,7 @@ func (s *Slackscot) Run() (err error) {
 
 	// This is a blocking call and only terminates when the channel is closed which normally happens when
 	// a kill signal is received and slackscot closes it
-	s.handleIncomingEvents(rtm.IncomingEvents, sc, rtm, rtm)
+	s.handleIncomingEvents(rtm.IncomingEvents, sc, rtm)
 
 	return nil
 }
@@ -226,7 +226,7 @@ func (s *Slackscot) Run() (err error) {
 // always process events as long as the process isn't interrupted. Normally, this happens
 // by a kill signal being sent and slackscot gets notified and closes the events channel which
 // terminates this loop and shuts down gracefully
-func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, driver chatDriver, msgCreator messageCreator, selfInfoFinder selfInfoFinder) {
+func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, driver chatDriver, selfInfoFinder selfInfoFinder) {
 	for msg := range events {
 		switch e := msg.Data.(type) {
 		case *slack.HelloEvent:
@@ -238,7 +238,7 @@ func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, driver ch
 			s.cacheSelfIdentity(selfInfoFinder)
 
 		case *slack.MessageEvent:
-			s.processMessageEvent(driver, msgCreator, e)
+			s.processMessageEvent(driver, e)
 
 		case *slack.PresenceChangeEvent:
 			s.log.Printf("Presence Change: %v\n", e)
@@ -351,7 +351,7 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, sender RealTime
 }
 
 // processMessageEvent handles high-level processing of all slack message events.
-func (s *Slackscot) processMessageEvent(driver chatDriver, msgCreator messageCreator, msgEvent *slack.MessageEvent) {
+func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.MessageEvent) {
 	// reply_to is an field set to 1 sent by slack when a sent message has been acknowledged and should be considered
 	// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
 	isReply := msgEvent.ReplyTo > 0
@@ -365,9 +365,9 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgCreator messageCre
 			s.processDeletedMessage(driver, msgEvent)
 		} else {
 			if msgEvent.SubType == "message_changed" {
-				s.processUpdatedMessage(driver, msgCreator, msgEvent, slackMessageId)
+				s.processUpdatedMessage(driver, msgEvent, slackMessageId)
 			} else {
-				s.processNewMessage(driver, msgCreator, msgEvent, slackMessageId)
+				s.processNewMessage(driver, msgEvent, slackMessageId)
 			}
 		}
 	}
@@ -378,7 +378,7 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgCreator messageCre
 // 2. If the message is present in cache, we had pre-existing responses so we handle this by updating responses on a plugin action basis. A plugin action that isn't triggering anymore gets its previous
 //    response deleted while a still triggering response will result in a message update. Newly triggered actions will be sent out as new messages.
 // 3. The new state of responses replaces the previous one for the triggering message in the cache
-func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgCreator messageCreator, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
+func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
 	editedSlackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
 
 	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedSlackMessageId, s.triggeringMsgToResponse.Contains(editedSlackMessageId))
@@ -387,7 +387,7 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgCreator messageC
 		responsesByAction := cachedResponses.(map[string]SlackMessageId)
 		newResponseByActionId := make(map[string]SlackMessageId)
 
-		outMsgs := s.routeMessage(msgCreator, combineIncomingMessageToHandle(msgEvent))
+		outMsgs := s.routeMessage(combineIncomingMessageToHandle(msgEvent))
 		s.log.Debugf("Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageId)
 
 		for _, o := range outMsgs {
@@ -435,7 +435,7 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgCreator messageC
 			s.triggeringMsgToResponse.Remove(editedSlackMessageId)
 		}
 	} else {
-		outMsgs := s.routeMessage(msgCreator, combineIncomingMessageToHandle(msgEvent))
+		outMsgs := s.routeMessage(combineIncomingMessageToHandle(msgEvent))
 		s.sendOutgoingMessages(driver, incomingMessageId, outMsgs)
 	}
 }
@@ -463,8 +463,8 @@ func (s *Slackscot) processDeletedMessage(deleter messageDeleter, msgEvent *slac
 }
 
 // processNewMessage handles a regular new message and sends any triggered response
-func (s *Slackscot) processNewMessage(msgSender messageSender, msgCreator messageCreator, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
-	outMsgs := s.routeMessage(msgCreator, &msgEvent.Msg)
+func (s *Slackscot) processNewMessage(msgSender messageSender, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
+	outMsgs := s.routeMessage(&msgEvent.Msg)
 
 	s.sendOutgoingMessages(msgSender, incomingMessageId, outMsgs)
 }
@@ -540,7 +540,7 @@ func combineIncomingMessageToHandle(messageEvent *slack.MessageEvent) (combinedM
 // 	1. If the message is on a channel with a direct mention to us (@name), we route to commands
 // 	2. If the message is a direct message to us, we route to commands
 // 	3. If the message is on a channel without mention (regular conversation), we route to hear actions
-func (s *Slackscot) routeMessage(msgCreator messageCreator, m *slack.Msg) (responses []*OutgoingMessage) {
+func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
 	// Built regex to detect if message was directed at "us"
 	r, _ := regexp.Compile("^(<@" + s.selfId + ">|@?" + s.selfName + "):? (.+)")
 	matches := r.FindStringSubmatch(m.Text)
@@ -556,20 +556,20 @@ func (s *Slackscot) routeMessage(msgCreator messageCreator, m *slack.Msg) (respo
 
 	if len(matches) == 3 {
 		if s.commandsWithId != nil {
-			omsgs := handleCommand(s.defaultAction, s.commandsWithId, msgCreator, matches[2], m, reply)
+			omsgs := handleCommand(s.defaultAction, s.commandsWithId, matches[2], m, reply)
 			if len(omsgs) > 0 {
 				responses = append(responses, omsgs...)
 			}
 		}
 	} else if m.Channel[0] == 'D' {
 		if s.commandsWithId != nil {
-			omsgs := handleCommand(s.defaultAction, s.commandsWithId, msgCreator, m.Text, m, directReply)
+			omsgs := handleCommand(s.defaultAction, s.commandsWithId, m.Text, m, directReply)
 			if len(omsgs) > 0 {
 				responses = append(responses, omsgs...)
 			}
 		}
 	} else if s.hearActionsWithId != nil {
-		omsgs := handleMessage(s.hearActionsWithId, msgCreator, m.Text, m, send)
+		omsgs := handleMessage(s.hearActionsWithId, m.Text, m, send)
 		if len(omsgs) > 0 {
 			responses = append(responses, omsgs...)
 		}
@@ -580,12 +580,12 @@ func (s *Slackscot) routeMessage(msgCreator messageCreator, m *slack.Msg) (respo
 
 // handleCommand handles a command by trying a match with all known actions. If no match is found, the default action is invoked
 // Note that in the case of the default action being executed, the return value is still false to indicate no bot actions were triggered
-func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithId, msgCreator messageCreator, content string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
-	outMsgs = handleMessage(actions, msgCreator, content, m, rs)
+func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithId, content string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
+	outMsgs = handleMessage(actions, content, m, rs)
 	if len(outMsgs) == 0 {
 		response := defaultAnswer(m)
 
-		slackOutMsg := rs(msgCreator, m, response)
+		slackOutMsg := rs(m, response)
 		outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginIdentifier: "default"}
 		return []*OutgoingMessage{&outMsg}
 	}
@@ -595,7 +595,7 @@ func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithId, msg
 
 // processMessage loops over all action definitions and invokes its action if the incoming message matches it's regular expression
 // Note that more than one action can be triggered during the processing of a single message
-func handleMessage(actions []ActionDefinitionWithId, msgCreator messageCreator, t string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
+func handleMessage(actions []ActionDefinitionWithId, t string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
 	outMsgs = make([]*OutgoingMessage, 0)
 
 	for _, action := range actions {
@@ -605,7 +605,7 @@ func handleMessage(actions []ActionDefinitionWithId, msgCreator messageCreator, 
 			response := action.Answer(m)
 
 			if response != "" {
-				slackOutMsg := rs(msgCreator, m, response)
+				slackOutMsg := rs(m, response)
 				outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginIdentifier: action.id}
 
 				outMsgs = append(outMsgs, &outMsg)
@@ -616,21 +616,30 @@ func handleMessage(actions []ActionDefinitionWithId, msgCreator messageCreator, 
 	return outMsgs
 }
 
+// newOutgoingMessage creates a new slack.OutgoingMessage for a given channelId and text content
+func newOutgoingMessage(channelId string, text string) *slack.OutgoingMessage {
+	om := slack.OutgoingMessage{
+		Type:    "message",
+		Channel: channelId,
+		Text:    text,
+	}
+
+	return &om
+}
+
 // reply sends a reply to the user (using @user) who sent the message on the channel it was sent on
-func reply(msgGen messageCreator, rm *slack.Msg, response string) *slack.OutgoingMessage {
-	om := msgGen.NewOutgoingMessage(fmt.Sprintf("<@%s>: %s", rm.User, response), rm.Channel)
-	return om
+func reply(replyToMsg *slack.Msg, response string) *slack.OutgoingMessage {
+	return newOutgoingMessage(replyToMsg.Channel, fmt.Sprintf("<@%s>: %s", replyToMsg.User, response))
 }
 
 // directReply sends a reply to a direct message (which is internally a channel id for slack). It is essentially
 // the same as send but it's kept separate for clarity
-func directReply(msgGen messageCreator, rm *slack.Msg, response string) *slack.OutgoingMessage {
-	return send(msgGen, rm, response)
+func directReply(replyToMsg *slack.Msg, response string) *slack.OutgoingMessage {
+	return send(replyToMsg, response)
 }
 
 // send creates a message to be sent on the same channel as received (which can be a direct message since
 // slack internally uses a channel id for private conversations)
-func send(msgGen messageCreator, rm *slack.Msg, response string) *slack.OutgoingMessage {
-	om := msgGen.NewOutgoingMessage(response, rm.Channel)
-	return om
+func send(replyToMsg *slack.Msg, response string) *slack.OutgoingMessage {
+	return newOutgoingMessage(replyToMsg.Channel, response)
 }
