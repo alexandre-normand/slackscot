@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-## Is your feature request related to a problem? Do you think it's something that needs to be implemented in `slackscot` (versus your integrating `bot`)? Please describe.
+## Is your feature request related to a problem? Do you think it's something that needs to be implemented in `slackscot` (versus your integrating `bot`)? Please describe
 A clear and concise description of what the problem is. Ex. I'm always frustrated when `...`
 
 ## Describe the solution you'd like
