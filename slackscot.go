@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -34,11 +35,11 @@ type Slackscot struct {
 	triggeringMsgToResponse *lru.ARCCache
 
 	// Internal state as an optimization when looping through all commands/hearActions
-	commandsWithId    []ActionDefinitionWithId
-	hearActionsWithId []ActionDefinitionWithId
+	commandsWithID    []ActionDefinitionWithID
+	hearActionsWithID []ActionDefinitionWithID
 
 	// Caching self identity used during message processing/filtering
-	selfId   string
+	selfID   string
 	selfName string
 
 	// Logger
@@ -97,8 +98,8 @@ type ScheduledActionDefinition struct {
 	Action ScheduledAction
 }
 
-// ActionDefinitionWithId holds an action definition along with its identifier string
-type ActionDefinitionWithId struct {
+// ActionDefinitionWithID holds an action definition along with its identifier string
+type ActionDefinitionWithID struct {
 	ActionDefinition
 	id string
 }
@@ -122,11 +123,11 @@ type ScheduledAction func(sender RealTimeMessageSender)
 // responseStrategy defines how a slack.OutgoingMessage is generated from a response
 type responseStrategy func(m *slack.Msg, response string) *slack.OutgoingMessage
 
-// SlackMessageId holds the elements that form a unique message identifier for slack. Technically, slack also uses
+// SlackMessageID holds the elements that form a unique message identifier for slack. Technically, slack also uses
 // the workspace id as the first part of that unique identifier but since an instance of slackscot only lives within
 // a single workspace, that part is left out
-type SlackMessageId struct {
-	channelId string
+type SlackMessageID struct {
+	channelID string
 	timestamp string
 }
 
@@ -136,6 +137,11 @@ type OutgoingMessage struct {
 
 	// The identifier of the source of the outgoing message. The format being: pluginName.c[commandIndex] (for a command) or pluginName.h[actionIndex] (for an hear action)
 	pluginIdentifier string
+}
+
+// terminationEvent is an empty struct that is only used for whitebox testing in order to signal slackscot to terminate
+// Any such events when executed as part of the normal API would be ignored
+type terminationEvent struct {
 }
 
 // Option defines an option for a Slackscot
@@ -175,6 +181,9 @@ func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot,
 		opt(s)
 	}
 
+	s.commandsWithID = make([]ActionDefinitionWithID, 0)
+	s.hearActionsWithID = make([]ActionDefinitionWithID, 0)
+
 	return s, nil
 }
 
@@ -182,6 +191,7 @@ func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot,
 // prior to calling Run
 func (s *Slackscot) RegisterPlugin(p *Plugin) {
 	s.plugins = append(s.plugins, p)
+	s.attachIdentifiersToPluginActions(p)
 }
 
 // Run starts the Slackscot and loops until the process is interrupted
@@ -189,13 +199,12 @@ func (s *Slackscot) Run() (err error) {
 	// Start by adding the help command now that we know all plugins have been registered
 	helpPlugin := newHelpPlugin(s.name, VERSION, s.config, s.plugins)
 	s.RegisterPlugin(&helpPlugin.Plugin)
-	s.attachIdentifiersToPluginActions()
 
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
-		slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
 	)
+	//slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
 
 	s.injectServicesToPlugins(sc, s.log)
 
@@ -214,11 +223,19 @@ func (s *Slackscot) Run() (err error) {
 
 	// Start scheduling of scheduled actions
 	go s.startActionScheduler(timeLoc, &slackRealTimeMsgSender)
-	go s.watchForTerminationSignalToAbort(rtm)
 
-	// This is a blocking call and only terminates when the channel is closed which normally happens when
-	// a kill signal is received and slackscot closes it
-	s.handleIncomingEvents(rtm.IncomingEvents, sc, rtm)
+	termination := make(chan bool)
+
+	// Register to receive a notification for a termination signal which will, in turn, send a termination message to the
+	// termination channel
+	go s.watchForTerminationSignalToAbort(rtm, termination)
+
+	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
+	// in a production scenario is by receiving a termination signal which
+	go s.handleIncomingEvents(rtm.IncomingEvents, termination, sc, rtm, true)
+
+	// Wait for termination
+	<-termination
 
 	return nil
 }
@@ -227,12 +244,13 @@ func (s *Slackscot) Run() (err error) {
 // always process events as long as the process isn't interrupted. Normally, this happens
 // by a kill signal being sent and slackscot gets notified and closes the events channel which
 // terminates this loop and shuts down gracefully
-func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, driver chatDriver, selfInfoFinder selfInfoFinder) {
+func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, termination chan<- bool, driver chatDriver, selfInfoFinder selfInfoFinder, productionMode bool) {
+	defer func() {
+		termination <- true
+	}()
+
 	for msg := range events {
 		switch e := msg.Data.(type) {
-		case *slack.HelloEvent:
-			// Ignore hello
-
 		case *slack.ConnectedEvent:
 			s.log.Printf("Infos: %v\n", e.Info)
 			s.log.Printf("Connection counter: %d\n", e.ConnectionCount)
@@ -240,9 +258,6 @@ func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, driver ch
 
 		case *slack.MessageEvent:
 			s.processMessageEvent(driver, e)
-
-		case *slack.PresenceChangeEvent:
-			s.log.Printf("Presence Change: %v\n", e)
 
 		case *slack.LatencyReport:
 			s.log.Printf("Current latency: %v\n", e.Value)
@@ -254,6 +269,11 @@ func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, driver ch
 			s.log.Printf("Invalid credentials\n")
 			return
 
+		case *terminationEvent:
+			if !productionMode {
+				s.log.Printf("Received termination event in test mode, terminating\n")
+				return
+			}
 		default:
 			// Ignoring other messages
 		}
@@ -277,17 +297,17 @@ func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder
 
 // watchForTerminationSignalToAbort waits for a SIGTERM or SIGINT and closes the rtm's IncomingEvents channel to finish
 // the main Run() loop and terminate cleanly. Note that this is meant to run in a go routine given that this is blocking
-func (s *Slackscot) watchForTerminationSignalToAbort(rtm *slack.RTM) {
+func (s *Slackscot) watchForTerminationSignalToAbort(rtm *slack.RTM, termination chan<- bool) {
 	tSignals := make(chan os.Signal, 1)
 	// Register to be notified of termination signals so we can abort
 	signal.Notify(tSignals, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-tSignals
 
 	s.log.Debugf("Received termination signal [%s], closing RTM's incoming events channel to terminate processing\n", sig)
-	close(rtm.IncomingEvents)
+	termination <- true
 }
 
-// attachIdentifiersToPluginActions attaches an action identifier to every plugin action and sets them accordingly
+// attachIdentifiersToPluginActions attaches an action identifier to a plugin action and sets them accordingly
 // in the internal state of Slackscot
 // The identifiers are generated the following way:
 //  - pluginName.c[pluginIndexOfTheCommand] for commands
@@ -297,31 +317,26 @@ func (s *Slackscot) watchForTerminationSignalToAbort(rtm *slack.RTM) {
 //  reorders/replaces actions. Since the identifier isn't used for any durable functionality at the moment, this seems
 //  adequate. If this ever changes, we might formalize an action identifier that could be generated by users and validated
 //  to be unique.
-func (s *Slackscot) attachIdentifiersToPluginActions() {
-	s.commandsWithId = make([]ActionDefinitionWithId, 0)
-	s.hearActionsWithId = make([]ActionDefinitionWithId, 0)
-
-	for _, p := range s.plugins {
-		if p.Commands != nil {
-			for i, c := range p.Commands {
-				s.commandsWithId = append(s.commandsWithId, ActionDefinitionWithId{ActionDefinition: c, id: fmt.Sprintf("%s.c[%d]", p.Name, i)})
-			}
+func (s *Slackscot) attachIdentifiersToPluginActions(p *Plugin) {
+	if p.Commands != nil {
+		for i, c := range p.Commands {
+			s.commandsWithID = append(s.commandsWithID, ActionDefinitionWithID{ActionDefinition: c, id: fmt.Sprintf("%s.c[%d]", p.Name, i)})
 		}
+	}
 
-		if p.HearActions != nil {
-			for i, c := range p.HearActions {
-				s.hearActionsWithId = append(s.hearActionsWithId, ActionDefinitionWithId{ActionDefinition: c, id: fmt.Sprintf("%s.c[%d]", p.Name, i)})
-			}
+	if p.HearActions != nil {
+		for i, c := range p.HearActions {
+			s.hearActionsWithID = append(s.hearActionsWithID, ActionDefinitionWithID{ActionDefinition: c, id: fmt.Sprintf("%s.c[%d]", p.Name, i)})
 		}
 	}
 }
 
-// cacheSelfIdentity gets "our" identity and keeps the selfId and selfName to avoid having to look it up every time
+// cacheSelfIdentity gets "our" identity and keeps the selfID and selfName to avoid having to look it up every time
 func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder) {
-	s.selfId = selfInfoFinder.GetInfo().User.ID
+	s.selfID = selfInfoFinder.GetInfo().User.ID
 	s.selfName = selfInfoFinder.GetInfo().User.Name
 
-	s.log.Debugf("Caching self id [%s] and self name [%s]\n", s.selfId, s.selfName)
+	s.log.Debugf("Caching self id [%s] and self name [%s]\n", s.selfID, s.selfName)
 }
 
 // startActionScheduler creates all ScheduledActionDefinition from all plugins and registers them with the scheduler
@@ -360,15 +375,15 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.Messa
 	s.log.Debugf("Processing event : %v\n", msgEvent)
 
 	if !isReply && msgEvent.Type == "message" {
-		slackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.Timestamp}
+		slackMessageID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.Timestamp}
 
 		if msgEvent.SubType == "message_deleted" {
 			s.processDeletedMessage(driver, msgEvent)
 		} else {
 			if msgEvent.SubType == "message_changed" {
-				s.processUpdatedMessage(driver, msgEvent, slackMessageId)
+				s.processUpdatedMessage(driver, msgEvent, slackMessageID)
 			} else {
-				s.processNewMessage(driver, msgEvent, slackMessageId)
+				s.processNewMessage(driver, msgEvent, slackMessageID)
 			}
 		}
 	}
@@ -379,29 +394,29 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.Messa
 // 2. If the message is present in cache, we had pre-existing responses so we handle this by updating responses on a plugin action basis. A plugin action that isn't triggering anymore gets its previous
 //    response deleted while a still triggering response will result in a message update. Newly triggered actions will be sent out as new messages.
 // 3. The new state of responses replaces the previous one for the triggering message in the cache
-func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
-	editedSlackMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
+func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.MessageEvent, incomingMessageID SlackMessageID) {
+	editedSlackMessageID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
 
-	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedSlackMessageId, s.triggeringMsgToResponse.Contains(editedSlackMessageId))
+	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedSlackMessageID, s.triggeringMsgToResponse.Contains(editedSlackMessageID))
 
-	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageId); exists {
-		responsesByAction := cachedResponses.(map[string]SlackMessageId)
-		newResponseByActionId := make(map[string]SlackMessageId)
+	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageID); exists {
+		responsesByAction := cachedResponses.(map[string]SlackMessageID)
+		newResponseByActionID := make(map[string]SlackMessageID)
 
 		outMsgs := s.routeMessage(combineIncomingMessageToHandle(msgEvent))
-		s.log.Debugf("Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageId)
+		s.log.Debugf("Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageID)
 
 		for _, o := range outMsgs {
 			// We had a previous response for that same plugin action so edit it instead of posting a new message
 			if r, ok := responsesByAction[o.pluginIdentifier]; ok {
 				s.log.Debugf("Trying to update response at [%s] with message [%s]\n", r, o.OutgoingMessage.Text)
 
-				rId, err := s.updateExistingMessage(driver, r, o)
+				rID, err := s.updateExistingMessage(driver, r, o)
 				if err != nil {
-					s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageId, err)
+					s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageID, err)
 				} else {
 					// Add the new updated message to the new responses
-					newResponseByActionId[o.pluginIdentifier] = rId
+					newResponseByActionID[o.pluginIdentifier] = rID
 
 					// Remove entries for plugin actions as we process them so that we can detect afterwards if a plugin isn't triggering
 					// anymore (to delete those responses).
@@ -411,12 +426,12 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.Mes
 				s.log.Debugf("New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
 
 				// It's a new message for that action so post it as a new message
-				rId, err := s.sendNewMessage(driver, o, incomingMessageId.timestamp)
+				rID, err := s.sendNewMessage(driver, o, incomingMessageID.timestamp)
 				if err != nil {
 					s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
 				} else {
 					// Add the new updated message to the new responses
-					newResponseByActionId[o.pluginIdentifier] = rId
+					newResponseByActionID[o.pluginIdentifier] = rID
 				}
 			}
 		}
@@ -424,78 +439,78 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.Mes
 		// Delete any previous triggered responses that aren't triggering anymore
 		for pa, r := range responsesByAction {
 			s.log.Debugf("Deleting previous response [%s] on a now non-triggered plugin action [%s]\n", r, pa)
-			driver.DeleteMessage(r.channelId, r.timestamp)
+			driver.DeleteMessage(r.channelID, r.timestamp)
 		}
 
 		// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
-		if len(newResponseByActionId) > 0 {
-			s.log.Debugf("Updating responses to edited message [%s]\n", editedSlackMessageId)
-			s.triggeringMsgToResponse.Add(editedSlackMessageId, newResponseByActionId)
+		if len(newResponseByActionID) > 0 {
+			s.log.Debugf("Updating responses to edited message [%s]\n", editedSlackMessageID)
+			s.triggeringMsgToResponse.Add(editedSlackMessageID, newResponseByActionID)
 		} else {
-			s.log.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageId)
-			s.triggeringMsgToResponse.Remove(editedSlackMessageId)
+			s.log.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageID)
+			s.triggeringMsgToResponse.Remove(editedSlackMessageID)
 		}
 	} else {
 		outMsgs := s.routeMessage(combineIncomingMessageToHandle(msgEvent))
-		s.sendOutgoingMessages(driver, incomingMessageId, outMsgs)
+		s.sendOutgoingMessages(driver, incomingMessageID, outMsgs)
 	}
 }
 
 // processDeletedMessage handles a deleted message. Slackscot cares about those in order to
 // delete any previous responses triggered by that now inexistant message
 func (s *Slackscot) processDeletedMessage(deleter messageDeleter, msgEvent *slack.MessageEvent) {
-	deletedMessageId := SlackMessageId{channelId: msgEvent.Channel, timestamp: msgEvent.DeletedTimestamp}
+	deletedMessageID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.DeletedTimestamp}
 
-	s.log.Debugf("Message deleted: [%s] and cache contains: [%s]", deletedMessageId, s.triggeringMsgToResponse.Keys())
+	s.log.Debugf("Message deleted: [%s] and cache contains: [%s]", deletedMessageID, s.triggeringMsgToResponse.Keys())
 
-	if existingResponses, exists := s.triggeringMsgToResponse.Get(deletedMessageId); exists {
-		byAction := existingResponses.(map[string]SlackMessageId)
+	if existingResponses, exists := s.triggeringMsgToResponse.Get(deletedMessageID); exists {
+		byAction := existingResponses.(map[string]SlackMessageID)
 
 		for _, v := range byAction {
 			// Delete existing response since the triggering message was deleted
-			_, _, err := deleter.DeleteMessage(v.channelId, v.timestamp)
+			_, _, err := deleter.DeleteMessage(v.channelID, v.timestamp)
 			if err != nil {
-				s.log.Printf("Error deleting existing response to triggering message [%s]: %s: %v", deletedMessageId, v, err)
+				s.log.Printf("Error deleting existing response to triggering message [%s]: %s: %v", deletedMessageID, v, err)
 			}
 		}
 
-		s.triggeringMsgToResponse.Remove(deletedMessageId)
+		s.triggeringMsgToResponse.Remove(deletedMessageID)
 	}
 }
 
 // processNewMessage handles a regular new message and sends any triggered response
-func (s *Slackscot) processNewMessage(msgSender messageSender, msgEvent *slack.MessageEvent, incomingMessageId SlackMessageId) {
+func (s *Slackscot) processNewMessage(msgSender messageSender, msgEvent *slack.MessageEvent, incomingMessageID SlackMessageID) {
 	outMsgs := s.routeMessage(&msgEvent.Msg)
 
-	s.sendOutgoingMessages(msgSender, incomingMessageId, outMsgs)
+	s.sendOutgoingMessages(msgSender, incomingMessageID, outMsgs)
 }
 
 // sendOutgoingMessages sends out any triggered plugin responses and keeps track of those in the internal cache
-func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageId SlackMessageId, outMsgs []*OutgoingMessage) {
-	newResponseByActionId := make(map[string]SlackMessageId)
+func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID SlackMessageID, outMsgs []*OutgoingMessage) {
+	newResponseByActionID := make(map[string]SlackMessageID)
 
 	for _, o := range outMsgs {
 		// Send the message and keep track of our response in cache to be able to update it as needed later
-		rId, err := s.sendNewMessage(sender, o, incomingMessageId.timestamp)
+		rID, err := s.sendNewMessage(sender, o, incomingMessageID.timestamp)
 		if err != nil {
-			s.log.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageId, err)
+			s.log.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageID, err)
 		} else {
 			// Add the new updated message to the new responses
-			newResponseByActionId[o.pluginIdentifier] = rId
+			newResponseByActionID[o.pluginIdentifier] = rID
 		}
 	}
 
-	if len(newResponseByActionId) > 0 {
-		s.log.Debugf("Adding responses to triggering message [%s]: %s", incomingMessageId, newResponseByActionId)
+	if len(newResponseByActionID) > 0 {
+		s.log.Debugf("Adding responses to triggering message [%s]: %s", incomingMessageID, newResponseByActionID)
 
 		// Add current responses for that triggering message
-		s.triggeringMsgToResponse.Add(incomingMessageId, newResponseByActionId)
+		s.triggeringMsgToResponse.Add(incomingMessageID, newResponseByActionID)
 	}
 }
 
 // sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
-func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, threadTS string) (rId SlackMessageId, err error) {
-	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true)}
+func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, threadTS string) (rID SlackMessageID, err error) {
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
 	if s.config.GetBool(config.ThreadedRepliesKey) {
 		options = append(options, slack.MsgOptionTS(threadTS))
 
@@ -504,18 +519,18 @@ func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, thr
 		}
 	}
 
-	channelId, newOutgoingMsgTimestamp, _, err := sender.SendMessage(o.OutgoingMessage.Channel, options...)
-	rId = SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
+	channelID, newOutgoingMsgTimestamp, _, err := sender.SendMessage(o.OutgoingMessage.Channel, options...)
+	rID = SlackMessageID{channelID: channelID, timestamp: newOutgoingMsgTimestamp}
 
-	return rId, err
+	return rID, err
 }
 
 // updateExistingMessage updates an existing message with the content of a newly triggered OutgoingMessage
-func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessageId, o *OutgoingMessage) (rId SlackMessageId, err error) {
-	channelId, newOutgoingMsgTimestamp, _, err := updater.UpdateMessage(r.channelId, r.timestamp, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfId), slack.MsgOptionAsUser(true))
-	rId = SlackMessageId{channelId: channelId, timestamp: newOutgoingMsgTimestamp}
+func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessageID, o *OutgoingMessage) (rID SlackMessageID, err error) {
+	channelID, newOutgoingMsgTimestamp, _, err := updater.UpdateMessage(r.channelID, r.timestamp, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true))
+	rID = SlackMessageID{channelID: channelID, timestamp: newOutgoingMsgTimestamp}
 
-	return rId, err
+	return rID, err
 }
 
 // combineIncomingMessageToHandle combined a main message and its sub message to form what would be an intuitive message to process for
@@ -543,34 +558,34 @@ func combineIncomingMessageToHandle(messageEvent *slack.MessageEvent) (combinedM
 // 	3. If the message is on a channel without mention (regular conversation), we route to hear actions
 func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
 	// Built regex to detect if message was directed at "us"
-	r, _ := regexp.Compile("^(<@" + s.selfId + ">|@?" + s.selfName + "):? (.+)")
+	r, _ := regexp.Compile("^(<@" + s.selfID + ">|@?" + s.selfName + "):? (.+)")
 	matches := r.FindStringSubmatch(m.Text)
 
 	responses = make([]*OutgoingMessage, 0)
 
 	// Ignore messages send by "us"
-	if m.User == s.selfId || m.BotID == s.selfId {
-		s.log.Debugf("Ignoring message from user [%s] because that's \"us\" [%s]", m.User, s.selfId)
+	if m.User == s.selfID || m.BotID == s.selfID {
+		s.log.Debugf("Ignoring message from user [%s] because that's \"us\" [%s]", m.User, s.selfID)
 
 		return responses
 	}
 
 	if len(matches) == 3 {
-		if s.commandsWithId != nil {
-			omsgs := handleCommand(s.defaultAction, s.commandsWithId, matches[2], m, reply)
+		if s.commandsWithID != nil {
+			omsgs := handleCommand(s.defaultAction, s.commandsWithID, matches[2], m, reply)
 			if len(omsgs) > 0 {
 				responses = append(responses, omsgs...)
 			}
 		}
-	} else if m.Channel[0] == 'D' {
-		if s.commandsWithId != nil {
-			omsgs := handleCommand(s.defaultAction, s.commandsWithId, m.Text, m, directReply)
+	} else if strings.HasPrefix(m.Channel, "D") {
+		if s.commandsWithID != nil {
+			omsgs := handleCommand(s.defaultAction, s.commandsWithID, m.Text, m, directReply)
 			if len(omsgs) > 0 {
 				responses = append(responses, omsgs...)
 			}
 		}
-	} else if s.hearActionsWithId != nil {
-		omsgs := handleMessage(s.hearActionsWithId, m.Text, m, send)
+	} else if s.hearActionsWithID != nil {
+		omsgs := handleMessage(s.hearActionsWithID, m.Text, m, send)
 		if len(omsgs) > 0 {
 			responses = append(responses, omsgs...)
 		}
@@ -581,7 +596,7 @@ func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
 
 // handleCommand handles a command by trying a match with all known actions. If no match is found, the default action is invoked
 // Note that in the case of the default action being executed, the return value is still false to indicate no bot actions were triggered
-func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithId, content string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
+func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithID, content string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
 	outMsgs = handleMessage(actions, content, m, rs)
 	if len(outMsgs) == 0 {
 		response := defaultAnswer(m)
@@ -596,7 +611,7 @@ func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithId, con
 
 // processMessage loops over all action definitions and invokes its action if the incoming message matches it's regular expression
 // Note that more than one action can be triggered during the processing of a single message
-func handleMessage(actions []ActionDefinitionWithId, t string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
+func handleMessage(actions []ActionDefinitionWithID, t string, m *slack.Msg, rs responseStrategy) (outMsgs []*OutgoingMessage) {
 	outMsgs = make([]*OutgoingMessage, 0)
 
 	for _, action := range actions {
@@ -617,11 +632,11 @@ func handleMessage(actions []ActionDefinitionWithId, t string, m *slack.Msg, rs 
 	return outMsgs
 }
 
-// newOutgoingMessage creates a new slack.OutgoingMessage for a given channelId and text content
-func newOutgoingMessage(channelId string, text string) *slack.OutgoingMessage {
+// newOutgoingMessage creates a new slack.OutgoingMessage for a given channelID and text content
+func newOutgoingMessage(channelID string, text string) *slack.OutgoingMessage {
 	om := slack.OutgoingMessage{
 		Type:    "message",
-		Channel: channelId,
+		Channel: channelID,
 		Text:    text,
 	}
 
