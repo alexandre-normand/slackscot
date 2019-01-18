@@ -19,7 +19,7 @@ func TestMatchFrequency(t *testing.T) {
 
 	h := f.HearActions[0]
 	matches := 0
-	ts := "15468332%02d.036900"
+	ts := "1546833245.0369%02d"
 
 	for i := 0; i < 10; i++ {
 		msgt := fmt.Sprintf(ts, i)
@@ -57,8 +57,8 @@ func TestMatchConsistentWithSameTimestamp(t *testing.T) {
 	h := f.HearActions[0]
 
 	for i := 0; i < 100; i++ {
-		assert.True(t, h.Match("text", &slack.Msg{Timestamp: "1546833210.036900"}))
-		assert.False(t, h.Match("text", &slack.Msg{Timestamp: "1546833222.036900"}))
+		assert.True(t, h.Match("text", &slack.Msg{Timestamp: "1546833210.036903"}))
+		assert.False(t, h.Match("text", &slack.Msg{Timestamp: "1546833222.031904"}))
 	}
 }
 
@@ -84,16 +84,22 @@ func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
 	h := f.HearActions[0]
 
 	// Validate one pick with a different timestamp
-	assert.Equal(t, "\"breathed\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+	assert.Equal(t, "\"screams\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
 			the street screams there's no science`, Timestamp: "1546833310.036900"}))
 
 	// Validate that calling the answer function a hundred times with the same timestamp results in the same pick
 	for i := 0; i < 100; i++ {
-		assert.Equal(t, "\"locked\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+		assert.Equal(t, "\"Where\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
 			the street screams there's no science`, Timestamp: "1546833210.036900"}))
 	}
+
+	// Validate that a timestamp *almost* equal to the prior one (except for decimals) results in something different to make sure
+	// we don't ignore those
+	assert.Equal(t, "\"Handing\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
+			the street screams there's no science`, Timestamp: "1546833210.036907"}))
 }
 
 func TestNoQuotingIfOnlySmallWords(t *testing.T) {
