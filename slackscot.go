@@ -203,9 +203,8 @@ func (s *Slackscot) Run() (err error) {
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
-		slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
 	)
-
+	//	slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
 	s.injectServicesToPlugins(sc, s.log)
 
 	// Load time zone location for the scheduler
@@ -326,7 +325,7 @@ func (s *Slackscot) attachIdentifiersToPluginActions(p *Plugin) {
 
 	if p.HearActions != nil {
 		for i, c := range p.HearActions {
-			s.hearActionsWithID = append(s.hearActionsWithID, ActionDefinitionWithID{ActionDefinition: c, id: fmt.Sprintf("%s.c[%d]", p.Name, i)})
+			s.hearActionsWithID = append(s.hearActionsWithID, ActionDefinitionWithID{ActionDefinition: c, id: fmt.Sprintf("%s.h[%d]", p.Name, i)})
 		}
 	}
 }
@@ -398,12 +397,13 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.Mes
 	editedSlackMessageID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
 
 	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedSlackMessageID, s.triggeringMsgToResponse.Contains(editedSlackMessageID))
+	combinedMessage := combineIncomingMessage(msgEvent)
 
 	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageID); exists {
 		responsesByAction := cachedResponses.(map[string]SlackMessageID)
 		newResponseByActionID := make(map[string]SlackMessageID)
 
-		outMsgs := s.routeMessage(combineIncomingMessageToHandle(msgEvent))
+		outMsgs := s.routeMessage(combinedMessage)
 		s.log.Debugf("Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageID)
 
 		for _, o := range outMsgs {
@@ -451,7 +451,7 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.Mes
 			s.triggeringMsgToResponse.Remove(editedSlackMessageID)
 		}
 	} else {
-		outMsgs := s.routeMessage(combineIncomingMessageToHandle(msgEvent))
+		outMsgs := s.routeMessage(combinedMessage)
 		s.sendOutgoingMessages(driver, incomingMessageID, outMsgs)
 	}
 }
@@ -533,22 +533,15 @@ func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessage
 	return rID, err
 }
 
-// combineIncomingMessageToHandle combined a main message and its sub message to form what would be an intuitive message to process for
-// a bot. That is, a message with the new updated text (in the case of a changed message) along with the channel being the one where the message
-// is visible and with the user correctly set to the person who updated/sent the message
-// Given the current behavior, this means
-//   1. Returning the mainMessage when the subType is not "message_changed"
-//   2. If the subType is "message_changed", take everything from the main message except for the text and user that is set on
-//      the SubMessage
-func combineIncomingMessageToHandle(messageEvent *slack.MessageEvent) (combinedMessage *slack.Msg) {
-	if messageEvent.SubType == "message_changed" {
-		combined := messageEvent.Msg
-		combined.Text = messageEvent.SubMessage.Text
-		combined.User = messageEvent.SubMessage.User
-		return &combined
-	}
-
-	return &messageEvent.Msg
+// combineIncomingMessageForHandling combines a main message and its sub message to form what would be an intuitive message to process for
+// a bot. That is, a message with the new updated text (since we're talking about a changed message) along with the channel being the one where the message
+// is visible and with the user correctly set to the person who updated/sent the message. Essentially, take everything from the main message except
+// for the text and user that is set on the SubMessage
+func combineIncomingMessage(messageEvent *slack.MessageEvent) (combinedMessage *slack.Msg) {
+	combined := messageEvent.Msg
+	combined.Text = messageEvent.SubMessage.Text
+	combined.User = messageEvent.SubMessage.User
+	return &combined
 }
 
 // routeMessage handles routing the message to commands or hear actions according to the context
