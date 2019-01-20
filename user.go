@@ -14,7 +14,7 @@ const (
 
 // UserInfoFinder defines the interface for finding a slack user's info
 type UserInfoFinder interface {
-	GetUserInfo(userId string) (user *slack.User, err error)
+	GetUserInfo(userID string) (user *slack.User, err error)
 }
 
 // selfInfoFinder defines the interface for finding our (the slackscot instance) user info
@@ -51,10 +51,10 @@ func NewCachingUserInfoFinder(v *viper.Viper, loader UserInfoFinder, logger SLog
 
 // GetUserInfo gets the user info or returns an error and a nil user is not found or
 // an error occurred during retrieval
-func (c cachingUserInfoFinder) GetUserInfo(userId string) (u *slack.User, err error) {
+func (c cachingUserInfoFinder) GetUserInfo(userID string) (u *slack.User, err error) {
 	if c.userProfileCache == nil {
-		c.logger.Debugf("Cache disabled, loading user info for [%s] from slack instead\n", userId)
-		u, err := c.loader.GetUserInfo(userId)
+		c.logger.Debugf("Cache disabled, loading user info for [%s] from slack instead\n", userID)
+		u, err := c.loader.GetUserInfo(userID)
 		if err != nil {
 			return nil, err
 		}
@@ -62,24 +62,24 @@ func (c cachingUserInfoFinder) GetUserInfo(userId string) (u *slack.User, err er
 		return u, nil
 	}
 
-	if userProfile, exists := c.userProfileCache.Get(userId); exists {
-		c.logger.Debugf("User info in cache [%s] so using that\n", userId)
+	if userProfile, exists := c.userProfileCache.Get(userID); exists {
+		c.logger.Debugf("User info in cache [%s] so using that\n", userID)
 
 		userProfile, ok := userProfile.(slack.User)
 		if !ok {
-			return nil, fmt.Errorf("Error converting cached value for user id [%s]: %v", userId, err)
+			return nil, fmt.Errorf("Error converting cached value for user id [%s]: %v", userID, err)
 		}
 
 		return &userProfile, nil
 	}
 
-	c.logger.Debugf("User info for [%s] not found in cache, retrieving from slack and saving\n", userId)
-	u, err = c.loader.GetUserInfo(userId)
+	c.logger.Debugf("User info for [%s] not found in cache, retrieving from slack and saving\n", userID)
+	u, err = c.loader.GetUserInfo(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	c.userProfileCache.Add(userId, *u)
+	c.userProfileCache.Add(userID, *u)
 
 	return u, nil
 }

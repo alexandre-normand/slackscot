@@ -58,10 +58,10 @@ func (h *helpPlugin) showHelp(m *slack.Msg) string {
 	var b strings.Builder
 
 	// Get the user's first name using the botservices
-	userId := m.User
-	user, err := h.UserInfoFinder.GetUserInfo(userId)
+	userID := m.User
+	user, err := h.UserInfoFinder.GetUserInfo(userID)
 	if err != nil {
-		h.Logger.Debugf("Error getting user info for user id [%s] so skipping mentioning the name (it would be awkward): %v", userId, err)
+		h.Logger.Debugf("Error getting user info for user id [%s] so skipping mentioning the name (it would be awkward): %v", userID, err)
 	} else {
 		fmt.Fprintf(&b, "🤝 You're `%s` and ", user.RealName)
 	}

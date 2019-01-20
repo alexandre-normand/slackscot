@@ -1,6 +1,7 @@
-// GENERATED and MANAGED by giddyup (https://github.com/alexandre-normand/giddyup)
 package slackscot
 
+// GENERATED and MANAGED by giddyup (https://github.com/alexandre-normand/giddyup)
 const (
+	// VERSION represents the current slackscot version
 	VERSION = "2.0.1"
 )
