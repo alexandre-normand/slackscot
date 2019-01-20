@@ -2,13 +2,13 @@ package slackscot
 
 import (
 	"fmt"
+	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/hashicorp/golang-lru"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 )
 
 const (
-	userInfoCacheSizeKey           = "userInfoCacheSize" // The number of entries to keep in the user info cache, int value. Defaults to no caching
 	userInfoCacheSizeDisabledValue = 0
 )
 
@@ -34,7 +34,7 @@ type cachingUserInfoFinder struct {
 func NewCachingUserInfoFinder(v *viper.Viper, loader UserInfoFinder, logger SLogger) (uf UserInfoFinder, err error) {
 	cuf := new(cachingUserInfoFinder)
 
-	cs := v.GetInt(userInfoCacheSizeKey)
+	cs := v.GetInt(config.UserInfoCacheSizeKey)
 
 	if cs > userInfoCacheSizeDisabledValue {
 		cuf.userProfileCache, err = lru.NewARC(cs)

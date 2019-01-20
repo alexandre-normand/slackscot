@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/nlopes/slack"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
@@ -74,7 +75,7 @@ func formatTimestamp(ts uint64) string {
 	return fmt.Sprintf("%d.000000", ts)
 }
 
-type infoFinder struct {
+type selfFinder struct {
 }
 
 type userInfoFinder struct {
@@ -144,7 +145,7 @@ func newTestPlugin() (tp *testPlugin) {
 	return tp
 }
 
-func (i *infoFinder) GetInfo() (user *slack.Info) {
+func (i *selfFinder) GetInfo() (user *slack.Info) {
 	return &slack.Info{User: &slack.UserDetails{ID: "BotUserID", Name: "Daniel Quinn"}}
 }
 
@@ -158,7 +159,7 @@ func TestLogfileOverrideUsed(t *testing.T) {
 
 	defer os.Remove(tmpfile.Name()) // clean up
 
-	runSlackscotWithIncomingEvents(t, []slack.RTMEvent{}, OptionLogfile(tmpfile))
+	runSlackscotWithIncomingEvents(t, nil, []slack.RTMEvent{}, OptionLogfile(tmpfile))
 
 	logs, err := ioutil.ReadFile(tmpfile.Name())
 	assert.Nil(t, err)
@@ -167,7 +168,7 @@ func TestLogfileOverrideUsed(t *testing.T) {
 }
 
 func TestLatencyReport(t *testing.T) {
-	_, _, _, logs := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	_, _, _, logs := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		slack.RTMEvent{Type: "latency_report", Data: &slack.LatencyReport{Value: 120}},
 	})
 
@@ -175,7 +176,7 @@ func TestLatencyReport(t *testing.T) {
 }
 
 func TestRTMError(t *testing.T) {
-	_, _, _, logs := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	_, _, _, logs := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		slack.RTMEvent{Type: "rtm_error", Data: &slack.RTMError{Code: 500, Msg: "test error"}},
 	})
 
@@ -183,7 +184,7 @@ func TestRTMError(t *testing.T) {
 }
 
 func TestInvalidCredentialsShutsdownImmediately(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, logs := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, logs := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		slack.RTMEvent{Type: "invalid_auth_event", Data: &slack.InvalidAuthEvent{}},
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "Bonjour", "Alphonse", timestamp1)),
 	})
@@ -195,12 +196,15 @@ func TestInvalidCredentialsShutsdownImmediately(t *testing.T) {
 }
 
 func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 	})
 
-	assert.Equal(t, 1, len(sentMsgs))
-	assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
 }
@@ -213,7 +217,7 @@ func TestIgnoreReplyToMessage(t *testing.T) {
 	msge.Text = "blue jars"
 	msge.ReplyTo = 1
 
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(msge),
 	})
 
@@ -223,24 +227,101 @@ func TestIgnoreReplyToMessage(t *testing.T) {
 }
 
 func TestIncomingMessageUpdateTriggeringResponseUpdate(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 
 	if assert.Equal(t, 1, len(updatedMsgs)) {
 		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+	}
+
+	assert.Equal(t, 0, len(deletedMsgs))
+}
+
+func TestIncomingMessageUpdateNotTriggeringUpdateIfDifferentChannel(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cother", "blue jays", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
+	})
+
+	// Check that the messages are distincts and not a message update given they were on different channels
+	if assert.Equal(t, 2, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, "Cother", sentMsgs[1].channelID)
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+}
+
+func TestThreadedReplies(t *testing.T) {
+	v := config.NewViperWithDefaults()
+	// Enable threaded replies and disable broadcast
+	v.Set(config.ThreadedRepliesKey, true)
+	v.Set(config.BroadcastThreadedRepliesKey, false)
+
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, v, []slack.RTMEvent{
+		// Triggers a new message
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
+		// Triggers a message update
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		// We can't check for the exact options because they're functions on a non-public nlopes/slack structure but
+		// knowing we have 4 options instead of 3 gives some confidence
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
+	if assert.Equal(t, 1, len(updatedMsgs)) {
+		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+	}
+
+	assert.Equal(t, 0, len(deletedMsgs))
+}
+
+func TestThreadedRepliesWithBroadcast(t *testing.T) {
+	v := config.NewViperWithDefaults()
+	// Enable threaded replies and broadcast enabled
+	v.Set(config.ThreadedRepliesKey, true)
+	v.Set(config.BroadcastThreadedRepliesKey, true)
+
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, v, []slack.RTMEvent{
+		// Triggers a new message
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
+		// Triggers a message update
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		// We can't check for the exact options because they're functions on a non-public nlopes/slack structure but
+		// knowing we have 5 options instead of 3 gives some confidence that both threaded replies and broadcast are included
+		assert.Equal(t, 5, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
+	if assert.Equal(t, 1, len(updatedMsgs)) {
+		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
 }
 
 func TestIncomingMessageTriggeringNewResponse(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "nothing important", "Alphonse", timestamp1)),
 		// This message update should now trigger the hear action
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "nothing important", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
@@ -248,6 +329,7 @@ func TestIncomingMessageTriggeringNewResponse(t *testing.T) {
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -255,29 +337,32 @@ func TestIncomingMessageTriggeringNewResponse(t *testing.T) {
 }
 
 func TestIncomingTriggeringMessageUpdatedToNotTriggerAnymore(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp2, optionChangedMessage("never mind", "Alphonse", timestamp1))),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	if assert.Equal(t, 1, len(deletedMsgs)) {
 		assert.Equal(t, deletedMessage{channelID: "Cgeneral", timestamp: formatTimestamp(firstReplyTimestamp)}, deletedMsgs[0])
+		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
 }
 
 func TestDirectMessageMatchingCommand(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		// Trigger the command action
 		newRTMMessageEvent(newMessageEvent("DFromUser", "make me happy", "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "DFromUser", sentMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -285,13 +370,14 @@ func TestDirectMessageMatchingCommand(t *testing.T) {
 }
 
 func TestDirectMessageNotMatchingAnything(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		// Trigger the command action
 		newRTMMessageEvent(newMessageEvent("DFromUser", "hey you", "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "DFromUser", sentMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -299,13 +385,14 @@ func TestDirectMessageNotMatchingAnything(t *testing.T) {
 }
 
 func TestAtMessageNotMatchingAnything(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		// At Message but not matching the command
 		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> hey you", botUserID), "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -313,7 +400,7 @@ func TestAtMessageNotMatchingAnything(t *testing.T) {
 }
 
 func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		// Trigger the hear action
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 		// Update the message to now trigger the command instead of the hear action
@@ -322,50 +409,97 @@ func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) 
 
 	if assert.Equal(t, 2, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[1].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
 
 	if assert.Equal(t, 1, len(deletedMsgs)) {
 		assert.Equal(t, deletedMessage{channelID: "Cgeneral", timestamp: formatTimestamp(firstReplyTimestamp)}, deletedMsgs[0])
+		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
 }
 
+// TestHelpTriggeringNoUserInfoCache indirectly tests the user info caching (or absence of) by exercising the
+// help plugin which makes a call to it in order to find info about the user who requested help
+func TestHelpTriggeringWithUserInfoCache(t *testing.T) {
+	v := config.NewViperWithDefaults()
+	v.Set(config.UserInfoCacheSizeKey, 10)
+
+	testhelpTriggering(t, v)
+}
+
+func testhelpTriggering(t *testing.T, v *viper.Viper) {
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, v, []slack.RTMEvent{
+		// Trigger the help on a channel
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> help", botUserID), "Alphonse", timestamp1)),
+		// Trigger the help in a direct message
+		newRTMMessageEvent(newMessageEvent("DFromAlphonse", fmt.Sprintf("help"), "Alphonse", timestamp1)),
+	})
+
+	if assert.Equal(t, 2, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, "DFromAlphonse", sentMsgs[1].channelID)
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+}
+
+// TestHelpTriggeringNoUserInfoCache indirectly tests the user info caching (or absence of) by exercising the
+// help plugin which makes a call to it in order to find info about the user who requested help
+func TestHelpTriggeringNoUserInfoCache(t *testing.T) {
+	v := config.NewViperWithDefaults()
+	v.Set(config.UserInfoCacheSizeKey, 0)
+
+	testhelpTriggering(t, v)
+}
+
 func TestTriggeringMessageDeletion(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 
 	if assert.Equal(t, 1, len(updatedMsgs)) {
 		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
 }
 
 func TestIncomingMessageUpdateTriggeringResponseDeletion(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp2, optionDeletedMessage("Cgeneral", timestamp1))),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	if assert.Equal(t, 1, len(deletedMsgs)) {
 		assert.Equal(t, deletedMessage{channelID: "Cgeneral", timestamp: formatTimestamp(firstReplyTimestamp)}, deletedMsgs[0])
+		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
 }
 
 func TestIncomingMessageNotTriggeringResponse(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "bonjour", "Alphonse", timestamp1)),
 	})
 
@@ -375,7 +509,7 @@ func TestIncomingMessageNotTriggeringResponse(t *testing.T) {
 }
 
 func TestIncomingMessageFromOurselfIgnored(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays are cool", botUserID, timestamp1)),
 	})
 
@@ -414,21 +548,24 @@ func newMessageEvent(channel string, text string, fromUser string, timestamp str
 	return e
 }
 
-func runSlackscotWithIncomingEventsWithLogs(t *testing.T, events []slack.RTMEvent) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, logs []string) {
+func runSlackscotWithIncomingEventsWithLogs(t *testing.T, v *viper.Viper, events []slack.RTMEvent) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, logs []string) {
 	var logBuilder strings.Builder
 	logger := log.New(&logBuilder, "", 0)
 
-	sentMessages, updatedMsgs, deletedMsgs = runSlackscotWithIncomingEvents(t, events, OptionLog(logger))
+	sentMessages, updatedMsgs, deletedMsgs = runSlackscotWithIncomingEvents(t, v, events, OptionLog(logger))
 	return sentMessages, updatedMsgs, deletedMsgs, strings.Split(logBuilder.String(), "\n")
 }
 
-func runSlackscotWithIncomingEvents(t *testing.T, events []slack.RTMEvent, option Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage) {
-	v := config.NewViperWithDefaults()
+func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, events []slack.RTMEvent, options ...Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage) {
+	if v == nil {
+		v = config.NewViperWithDefaults()
+	}
 
 	inMemoryChatDriver := inMemoryChatDriver{timeCursor: firstReplyTimestamp - replyTimeIncrementInSeconds, sentMsgs: make([]sentMessage, 0), updatedMsgs: make([]updatedMessage, 0), deletedMsgs: make([]deletedMessage, 0)}
-	var infoFinder infoFinder
+	var selfFinder selfFinder
+	var userInfoFinder userInfoFinder
 
-	s, err := NewSlackscot("chickadee", v, option)
+	s, err := NewSlackscot("chickadee", v, options...)
 	tp := newTestPlugin()
 	s.RegisterPlugin(&tp.Plugin)
 
@@ -436,7 +573,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, events []slack.RTMEvent, optio
 
 	ec := make(chan slack.RTMEvent)
 	termination := make(chan bool)
-	go s.handleIncomingEvents(ec, termination, &inMemoryChatDriver, &infoFinder, false)
+	go s.runInternal(ec, termination, &inMemoryChatDriver, &userInfoFinder, &selfFinder, false)
 
 	go sendTestEventsForProcessing(ec, events)
 

@@ -104,16 +104,6 @@ type ActionDefinitionWithID struct {
 	id string
 }
 
-// String returns a friendly description of a ScheduledActionDefinition
-func (a ScheduledActionDefinition) String() string {
-	return fmt.Sprintf("`%s` - %s", a.Schedule, a.Description)
-}
-
-// String returns a friendly description of an ActionDefinition
-func (a ActionDefinition) String() string {
-	return fmt.Sprintf("`%s` - %s", a.Usage, a.Description)
-}
-
 // Answerer is what gets executed when an ActionDefinition is triggered
 type Answerer func(m *slack.Msg) string
 
@@ -196,22 +186,11 @@ func (s *Slackscot) RegisterPlugin(p *Plugin) {
 
 // Run starts the Slackscot and loops until the process is interrupted
 func (s *Slackscot) Run() (err error) {
-	// Start by adding the help command now that we know all plugins have been registered
-	helpPlugin := newHelpPlugin(s.name, VERSION, s.config, s.plugins)
-	s.RegisterPlugin(&helpPlugin.Plugin)
-
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
+		slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
 	)
-	//	slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
-	s.injectServicesToPlugins(sc, s.log)
-
-	// Load time zone location for the scheduler
-	timeLoc, err := config.GetTimeLocation(s.config)
-	if err != nil {
-		return err
-	}
 
 	// This will initiate the connection to the slack RTM and start the reception of messages
 	rtm := sc.NewRTM()
@@ -220,7 +199,15 @@ func (s *Slackscot) Run() (err error) {
 	// Wrap the slack API to expose access to it for advanced uses
 	slackRealTimeMsgSender := slackRealTimeMsgSender{rtm: rtm}
 
-	// Start scheduling of scheduled actions
+	// Load time zone location for the scheduler, we just log the error here since we fail to start
+	// but we're in a go routine. Hopefully, this should be sufficient for users to figure out the bad
+	// configuration
+	timeLoc, err := config.GetTimeLocation(s.config)
+	if err != nil {
+		return err
+	}
+
+	// Start scheduling of all plugins' scheduled actions
 	go s.startActionScheduler(timeLoc, &slackRealTimeMsgSender)
 
 	termination := make(chan bool)
@@ -231,7 +218,7 @@ func (s *Slackscot) Run() (err error) {
 
 	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
 	// in a production scenario is by receiving a termination signal which
-	go s.handleIncomingEvents(rtm.IncomingEvents, termination, sc, rtm, true)
+	go s.runInternal(rtm.IncomingEvents, termination, sc, sc, rtm, true)
 
 	// Wait for termination
 	<-termination
@@ -239,14 +226,22 @@ func (s *Slackscot) Run() (err error) {
 	return nil
 }
 
-// handleIncomingEvents handles all incoming events and acts as the main loop. It will essentially
+// runInternal handles all incoming events and acts as the main loop. It will essentially
 // always process events as long as the process isn't interrupted. Normally, this happens
 // by a kill signal being sent and slackscot gets notified and closes the events channel which
 // terminates this loop and shuts down gracefully
-func (s *Slackscot) handleIncomingEvents(events <-chan slack.RTMEvent, termination chan<- bool, driver chatDriver, selfInfoFinder selfInfoFinder, productionMode bool) {
+func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<- bool, driver chatDriver, userInfoFinder UserInfoFinder, selfInfoFinder selfInfoFinder, productionMode bool) {
+	// Ensure we send a termination signal on the channel to unblock the main thread and exit
 	defer func() {
 		termination <- true
 	}()
+
+	// Start by adding the help command now that we know all plugins have been registered
+	helpPlugin := newHelpPlugin(s.name, VERSION, s.config, s.plugins)
+	s.RegisterPlugin(&helpPlugin.Plugin)
+
+	// Inject services into plugins before starting to process events
+	s.injectServicesToPlugins(userInfoFinder, s.log)
 
 	for msg := range events {
 		switch e := msg.Data.(type) {
@@ -352,7 +347,7 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, sender RealTime
 					s.log.Debugf("Adding job [%v] to scheduler\n", j)
 					j.Do(sa.Action, sender)
 				} else {
-					s.log.Printf("Error: failed to schedule job for scheduled action [%s]: %v\n", sa, err)
+					s.log.Printf("Error: failed to schedule job for scheduled action ['%s' - %s]: %v\n", sa.Schedule, sa.Description, err)
 				}
 			}
 		}
