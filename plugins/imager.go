@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-var reUrl = regexp.MustCompile(`(?i).(png|jpe?g|gif)$`)
+var reURL = regexp.MustCompile(`(?i).(png|jpe?g|gif)$`)
 
 type giphyImageData struct {
 	URL      string `json:"url,omitempty"`
@@ -48,7 +48,7 @@ type giphyStatus struct {
 
 type giphyGif struct {
 	Type               string
-	Id                 string
+	ID                 string
 	URL                string
 	Tags               []string
 	BitlyGifURL        string `json:"bitly_gif_url"`
@@ -197,14 +197,14 @@ func imageSearch(expr string, animated bool, faces bool, count int) string {
 				}
 
 				element := image.(map[string]interface{})
-				imageUrl := element["unescapedUrl"].(string)
-				log.Printf("Result image : %v", imageUrl)
+				imageURL := element["unescapedUrl"].(string)
+				log.Printf("Result image : %v", imageURL)
 
-				if !reUrl.MatchString(imageUrl) {
-					imageUrl = imageUrl + ".png"
+				if !reURL.MatchString(imageURL) {
+					imageURL = imageURL + ".png"
 				}
 
-				selectedImages = append(selectedImages, imageUrl)
+				selectedImages = append(selectedImages, imageURL)
 			}
 		}
 

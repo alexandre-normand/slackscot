@@ -9,8 +9,8 @@ import (
 // tests more easily if all they do is send new messages on a channel. GetAPI leaks the slack.RTM
 // for more advanced uses.
 type RealTimeMessageSender interface {
-	// SendNewMessage is the function that sends a new message to the specified channelId
-	SendNewMessage(message string, channelId string) (err error)
+	// SendNewMessage is the function that sends a new message to the specified channelID
+	SendNewMessage(message string, channelID string) (err error)
 
 	// GetAPI is a function that returns the internal slack RTM
 	GetAPI() *slack.RTM
@@ -21,21 +21,21 @@ type RealTimeMessageSender interface {
 //
 // slack.Client implements this interface
 type messageSender interface {
-	SendMessage(channelId string, options ...slack.MsgOption) (rChannelId string, rTimestamp string, rText string, err error)
+	SendMessage(channelID string, options ...slack.MsgOption) (rChannelID string, rTimestamp string, rText string, err error)
 }
 
 // messageUpdater is implemented by any value that has the UpdateMessage method.
 //
 // slack.Client implements this interface
 type messageUpdater interface {
-	UpdateMessage(channelId, timestamp string, options ...slack.MsgOption) (rChannelId string, rTimestamp string, rText string, err error)
+	UpdateMessage(channelID, timestamp string, options ...slack.MsgOption) (rChannelID string, rTimestamp string, rText string, err error)
 }
 
 // messageDeleter is implemented by any value that has the DeleteMessage method.
 //
 // slack.Client implements this interface
 type messageDeleter interface {
-	DeleteMessage(channelId string, timestamp string) (rChannelId string, rTimestamp string, err error)
+	DeleteMessage(channelID string, timestamp string) (rChannelID string, rTimestamp string, err error)
 }
 
 // ChatDriver encompasses all MessageSender, MessageUpdater and MessageDeleter interfaces and is implemented by any values that
@@ -52,8 +52,8 @@ type slackRealTimeMsgSender struct {
 }
 
 // SendNewMessage sends a new message using the slack RTM api
-func (s *slackRealTimeMsgSender) SendNewMessage(message string, channelId string) (err error) {
-	m := s.rtm.NewOutgoingMessage(message, channelId)
+func (s *slackRealTimeMsgSender) SendNewMessage(message string, channelID string) (err error) {
+	m := s.rtm.NewOutgoingMessage(message, channelID)
 	s.rtm.SendMessage(m)
 
 	return nil

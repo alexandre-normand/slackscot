@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	channelIdsKey = "channelIds"
+	channelIDsKey = "channelIds"
 	frequencyKey  = "frequency"
 )
 
@@ -35,7 +35,7 @@ func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 	}
 
 	f = new(FingerQuoter)
-	channelValue := config.GetString(channelIdsKey)
+	channelValue := config.GetString(channelIDsKey)
 	f.channels = strings.Split(channelValue, ",")
 	f.frequency = config.GetInt(frequencyKey)
 	f.Name = FingerQuoterPluginName
@@ -112,14 +112,14 @@ func filterWordsLongerThan(words []string, minLen int) []string {
 	return candidates
 }
 
-func isChannelWhiteListed(channelId string, whitelist []string) bool {
+func isChannelWhiteListed(channelID string, whitelist []string) bool {
 	// Default to all channels whitelisted if none specified which is either that the element is missing or if the only element is empty string
 	if len(whitelist) == 0 {
 		return true
 	}
 
 	for _, c := range whitelist {
-		if c == channelId {
+		if c == channelID {
 			return true
 		}
 	}

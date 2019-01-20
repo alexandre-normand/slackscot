@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	figletFontUrlKey = "figletFontUrl" // Optional, string (url) to a figlet font. Default font is used if not set. Fonts can be found on http://www.figlet.org/fontdb.cgi and url should be for the raw .flf file like http://www.figlet.org/fonts/banner.flf
+	figletFontURLKey = "figletFontUrl" // Optional, string (url) to a figlet font. Default font is used if not set. Fonts can be found on http://www.figlet.org/fontdb.cgi and url should be for the raw .flf file like http://www.figlet.org/fonts/banner.flf
 )
 
 const (
@@ -54,9 +54,9 @@ func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, e
 	}()
 
 	// Download all fonts and write them in the fontPath
-	fontUrl := c.GetString(figletFontUrlKey)
-	if fontUrl != "" {
-		fontName, err := downloadFontToDir(fontUrl, tempDirFontPath)
+	fontURL := c.GetString(figletFontURLKey)
+	if fontURL != "" {
+		fontName, err := downloadFontToDir(fontURL, tempDirFontPath)
 		if err != nil {
 			return nil, err
 		}
@@ -86,20 +86,20 @@ func (e *EmojiBannerMaker) Close() {
 	os.RemoveAll(e.tempDirFontPath)
 }
 
-func downloadFontToDir(fontUrl string, fontPath string) (fontName string, err error) {
-	url, err := url.Parse(fontUrl)
+func downloadFontToDir(fontURL string, fontPath string) (fontName string, err error) {
+	url, err := url.Parse(fontURL)
 	if err != nil {
-		return "", errors.Wrapf(err, "Invalid font url [%s]", fontUrl)
+		return "", errors.Wrapf(err, "Invalid font url [%s]", fontURL)
 	}
 
-	resp, err := http.Get(fontUrl)
+	resp, err := http.Get(fontURL)
 	if err != nil {
-		return "", errors.Wrapf(err, "Error loading font url [%s]", fontUrl)
+		return "", errors.Wrapf(err, "Error loading font url [%s]", fontURL)
 	}
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", errors.Wrapf(err, "Error reading data from font url [%s]: %v", fontUrl, err)
+		return "", errors.Wrapf(err, "Error reading data from font url [%s]: %v", fontURL, err)
 	}
 
 	filename := path.Base(url.EscapedPath())
@@ -107,7 +107,7 @@ func downloadFontToDir(fontUrl string, fontPath string) (fontName string, err er
 	fullpath := filepath.Join(fontPath, filename)
 	err = ioutil.WriteFile(fullpath, b, 0644)
 	if err != nil {
-		return "", errors.Wrapf(err, "Error saving file [%s] from font url [%s]", fullpath, fontUrl)
+		return "", errors.Wrapf(err, "Error saving file [%s] from font url [%s]", fullpath, fontURL)
 	}
 
 	return strings.TrimSuffix(filename, ".flf"), nil
