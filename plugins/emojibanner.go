@@ -43,26 +43,22 @@ func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, e
 
 	tempDirFontPath, err := ioutil.TempDir("", EmojiBannerPluginName)
 	if err != nil {
+		os.RemoveAll(tempDirFontPath)
 		return nil, err
 	}
-
-	// Handle clean up of the temporary font directory only if the plugin instance failed creation
-	defer func() {
-		if err != nil {
-			os.RemoveAll(tempDirFontPath)
-		}
-	}()
 
 	// Download all fonts and write them in the fontPath
 	fontURL := c.GetString(figletFontURLKey)
 	if fontURL != "" {
 		fontName, err := downloadFontToDir(fontURL, tempDirFontPath)
 		if err != nil {
+			os.RemoveAll(tempDirFontPath)
 			return nil, err
 		}
 
 		err = renderer.LoadFont(tempDirFontPath)
 		if err != nil {
+			os.RemoveAll(tempDirFontPath)
 			return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", EmojiBannerPluginName, tempDirFontPath, err)
 		}
 

@@ -78,9 +78,14 @@ type ActionDefinition struct {
 	Answer Answerer
 }
 
-// Matcher is the function that determines whether or not an action should be triggered. Note that a match doesn't guarantee that the action should
+// Matcher is the function that determines whether or not an action should be triggered based on a slack.Msg and a
+// convenient normalized text content. Note that a match doesn't guarantee that the action should
 // actually respond with anything once invoked
-type Matcher func(t string, m *slack.Msg) bool
+//
+// Note: the normalized text is the Msg's text stripped out of the @Mention if this is a command and the message
+// is addressed to the bot. This is so the logic of commands doesn't have to know about the context of the
+// direct interaction (a Direct Message or an @Mention on a channel)
+type Matcher func(normalizedText string, m *slack.Msg) bool
 
 // ScheduledActionDefinition represents when a scheduled action is triggered as well
 // as what it does and how
