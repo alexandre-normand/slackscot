@@ -1,13 +1,16 @@
 language: go
 
 go:
-  - "1.12beta1"
+  - "1.12beta2"
 
 env:  
   - GO111MODULE=on
 
+# This should be github.com/codeclimate/test-reporter when https://github.com/codeclimate/test-reporter/issues/378 is resolved
+# Right now, this uses a hack in this fork to remove the first part of a path (in our case 'v2/' when failing). With proper
+# support for Go modules, this hack wouldn't be required
 install:
-  - GO111MODULE=off go get github.com/codeclimate/test-reporter
+  - GO111MODULE=off go get github.com/alexandre-normand/test-reporter
 
 before_script:
   - test-reporter before-build
@@ -16,4 +19,4 @@ script:
   - go test -coverprofile c.out ./...
 
 after_script:
-  - test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
+  - test-reporter after-build --debug --exit-code $TRAVIS_TEST_RESULT
