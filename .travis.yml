@@ -3,5 +3,17 @@ language: go
 go:
   - "1.12beta1"
 
-env:
+env:  
   - GO111MODULE=on
+
+install:
+  - go get -v github.com/codeclimate/test-reporter
+
+before_script:
+  - test-reporter before-build
+
+script:
+  - go test -coverprofile c.out ./...
+
+after_script:
+  - test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
