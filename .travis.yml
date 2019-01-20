@@ -7,7 +7,7 @@ env:
   - GO111MODULE=on
 
 install:
-  - mkdir -p $GOPATH/src/github.com/codeclimate && cd $GOPATH/src/github.com/codeclimate && git clone https://github.com/codeclimate/test-reporter.git && cd $GOPATH/src/github.com/codeclimate/test-reporter && go install
+  - mkdir -p $GOPATH/src/github.com/codeclimate && cd $GOPATH/src/github.com/codeclimate && git clone https://github.com/codeclimate/test-reporter.git && cd $GOPATH/src/github.com/codeclimate/test-reporter && go install && cd ${TRAVIS_HOME}/gopath/src/github.com/alexandre-normand/slackscot
 
 before_script:
   - test-reporter before-build
