@@ -2,12 +2,24 @@ package plugins_test
 
 import (
 	"fmt"
+	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/plugins"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"log"
+	"strings"
 	"testing"
 )
+
+func TestMissingFrequencyConfig(t *testing.T) {
+	pc := viper.New()
+
+	_, err := plugins.NewFingerQuoter(pc)
+	if assert.NotNil(t, err) {
+		assert.Contains(t, err.Error(), "Missing fingerQuoter config key: frequency")
+	}
+}
 
 func TestMatchFrequency(t *testing.T) {
 	pc := viper.New()
@@ -47,6 +59,22 @@ func TestChannelWhitelisting(t *testing.T) {
 	assert.False(t, h.Match("text", &slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}))
 }
 
+func TestDefaultWhitelistingEnablesForAll(t *testing.T) {
+	pc := viper.New()
+	// With a frequency of 1, every message should match if whitelist is on
+	pc.Set("frequency", 1)
+	pc.Set("channelIds", "")
+
+	f, err := plugins.NewFingerQuoter(pc)
+	assert.Nil(t, err)
+
+	h := f.HearActions[0]
+
+	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}))
+	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}))
+	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}))
+}
+
 func TestMatchConsistentWithSameTimestamp(t *testing.T) {
 	pc := viper.New()
 	pc.Set("frequency", 2)
@@ -60,6 +88,40 @@ func TestMatchConsistentWithSameTimestamp(t *testing.T) {
 		assert.True(t, h.Match("text", &slack.Msg{Timestamp: "1546833210.036903"}))
 		assert.False(t, h.Match("text", &slack.Msg{Timestamp: "1546833222.031904"}))
 	}
+}
+
+func TestMatchFalseWhenCorruptedTimestamp(t *testing.T) {
+	pc := viper.New()
+	pc.Set("frequency", 1)
+
+	f, err := plugins.NewFingerQuoter(pc)
+	assert.Nil(t, err)
+
+	// Set debug logger
+	var b strings.Builder
+	f.Logger = slackscot.NewSLogger(log.New(&b, "", 0), true)
+
+	h := f.HearActions[0]
+
+	assert.False(t, h.Match("text", &slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue"}))
+	assert.Contains(t, b.String(), "error converting timestamp to float")
+}
+
+func TestNoAnswerWhenCorruptedTimestamp(t *testing.T) {
+	pc := viper.New()
+	pc.Set("frequency", 1)
+
+	f, err := plugins.NewFingerQuoter(pc)
+	assert.Nil(t, err)
+
+	// Set debug logger
+	var b strings.Builder
+	f.Logger = slackscot.NewSLogger(log.New(&b, "", 0), true)
+
+	h := f.HearActions[0]
+
+	assert.Equal(t, "", h.Answer(&slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue", Text: "This is a text with longer and shorter words"}))
+	assert.Contains(t, b.String(), "error converting timestamp to float")
 }
 
 func TestQuotingOfSingleLongWord(t *testing.T) {
@@ -77,6 +139,7 @@ func TestQuotingOfSingleLongWord(t *testing.T) {
 func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
 	pc := viper.New()
 	pc.Set("frequency", 10)
+	pc.Set("channelIds", "")
 
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
