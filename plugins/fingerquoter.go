@@ -59,16 +59,16 @@ func (f *FingerQuoter) trigger(t string, m *slack.Msg) bool {
 	ts, err := strconv.ParseFloat(m.Timestamp, 64)
 	if err != nil {
 		f.Logger.Debugf("[%s] Skipping message [%v] because of error converting timestamp to float: %v\n", FingerQuoterPluginName, m, err)
-	} else {
-		fullTs := ts * 1000000.
-
-		// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
-		randomGen := rand.New(rand.NewSource(int64(fullTs)))
-
-		// Determine if we're going to react this time or not
-		return randomGen.Int31n(int32(f.frequency)) == 0
+		return false
 	}
-	return false
+
+	fullTs := ts * 1000000.
+
+	// Make the random generator use a seed based on the message id so that we preserve the same matches when messages get updated
+	randomGen := rand.New(rand.NewSource(int64(fullTs)))
+
+	// Determine if we're going to react this time or not
+	return randomGen.Int31n(int32(f.frequency)) == 0
 }
 
 func (f *FingerQuoter) fingerQuoteMsg(m *slack.Msg) string {
@@ -114,7 +114,7 @@ func filterWordsLongerThan(words []string, minLen int) []string {
 
 func isChannelWhiteListed(channelID string, whitelist []string) bool {
 	// Default to all channels whitelisted if none specified which is either that the element is missing or if the only element is empty string
-	if len(whitelist) == 0 {
+	if len(whitelist) == 0 || (len(whitelist) == 1 && whitelist[0] == "") {
 		return true
 	}
 
