@@ -23,6 +23,19 @@ func TestEmojiBannerTrigger(t *testing.T) {
 	assert.Equal(t, true, c.Match("emoji banner cats :cat:", &slack.Msg{}))
 }
 
+func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
+	pc := viper.New()
+
+	ebm, err := plugins.NewEmojiBannerMaker(pc)
+	assert.Nil(t, err)
+
+	defer ebm.Close()
+
+	c := ebm.Commands[0]
+
+	assert.Equal(t, "Wrong usage: emoji banner <word> <emoji>", c.Answer(&slack.Msg{Text: "emoji banner cats"}))
+}
+
 func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
 	pc := viper.New()
 

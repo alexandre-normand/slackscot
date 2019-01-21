@@ -115,11 +115,9 @@ func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figl
 	if len(commandParameters) > 0 {
 		parameters := strings.Split(commandParameters[2], " ")
 
-		if len(parameters) != 2 {
-			return "Wrong usage: emoji banner <word> <emoji>"
+		if len(parameters) == 2 {
+			return renderBanner(parameters[0], parameters[1], renderer, options)
 		}
-
-		return renderBanner(parameters[0], parameters[1], renderer, options)
 	}
 
 	return "Wrong usage: emoji banner <word> <emoji>"
