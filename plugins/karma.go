@@ -118,45 +118,33 @@ func (k *Karma) recordKarma(message *slack.Msg) string {
 }
 
 func (k *Karma) answerKarmaTop(message *slack.Msg) string {
-	match := topKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
-
-	rawCount := match[2]
-	count, _ := strconv.Atoi(rawCount)
-
-	values, err := k.karmaStore.Scan()
-	if err != nil {
-		return fmt.Sprintf("Sorry, I couldn't get the top [%d] things for you. If you must know, thing happened: %v", count, err)
-	}
-
-	pairs, err := getTopThings(values, count)
-	if err != nil {
-		return fmt.Sprintf("Sorry, I couldn't get the top [%d] things for you. If you must know, thing happened: %v", count, err)
-	}
-	var buffer bytes.Buffer
-
-	buffer.WriteString(fmt.Sprintf("Here are the top %d things: \n", count))
-	buffer.WriteString(formatList(pairs))
-	return buffer.String()
+	return k.answerKarmaRankList(topKarmaRegexp, message, "top", getTopThings)
 }
 
 func (k *Karma) answerKarmaWorst(message *slack.Msg) string {
-	match := worstKarmaRegexp.FindAllStringSubmatch(message.Text, -1)[0]
+	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", getWorstThings)
+}
+
+type extractRankedList func(rawData map[string]string, count int) (results pairList, err error)
+
+func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slack.Msg, rankingType string, getRankedItems extractRankedList) string {
+	match := regexp.FindAllStringSubmatch(message.Text, -1)[0]
 
 	rawCount := match[2]
 	count, _ := strconv.Atoi(rawCount)
 
 	values, err := k.karmaStore.Scan()
 	if err != nil {
-		return fmt.Sprintf("Sorry, I couldn't get the worst [%d] things for you. If you must know, thing happened: %v", count, err)
+		return fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)
 	}
 
-	pairs, err := getWorstThings(values, count)
+	pairs, err := getRankedItems(values, count)
 	if err != nil {
-		return fmt.Sprintf("Sorry, I couldn't get the worst [%d] things for you. If you must know, thing happened: %v", count, err)
+		return fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)
 	}
 	var buffer bytes.Buffer
 
-	buffer.WriteString(fmt.Sprintf("Here are the %d worst things: \n", count))
+	buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, count))
 	buffer.WriteString(formatList(pairs))
 	return buffer.String()
 }
