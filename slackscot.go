@@ -131,7 +131,7 @@ type OutgoingMessage struct {
 	*slack.OutgoingMessage
 
 	// The identifier of the source of the outgoing message. The format being: pluginName.c[commandIndex] (for a command) or pluginName.h[actionIndex] (for an hear action)
-	pluginIdentifier string
+	pluginActionID string
 }
 
 // terminationEvent is an empty struct that is only used for whitebox testing in order to signal slackscot to terminate
@@ -400,59 +400,64 @@ func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.Mes
 	combinedMessage := combineIncomingMessage(msgEvent)
 
 	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageID); exists {
-		responsesByAction := cachedResponses.(map[string]SlackMessageID)
-		newResponseByActionID := make(map[string]SlackMessageID)
-
-		outMsgs := s.routeMessage(combinedMessage)
-		s.log.Debugf("Detected %d existing responses to message [%s]\n", len(responsesByAction), editedSlackMessageID)
-
-		for _, o := range outMsgs {
-			// We had a previous response for that same plugin action so edit it instead of posting a new message
-			if r, ok := responsesByAction[o.pluginIdentifier]; ok {
-				s.log.Debugf("Trying to update response at [%s] with message [%s]\n", r, o.OutgoingMessage.Text)
-
-				rID, err := s.updateExistingMessage(driver, r, o)
-				if err != nil {
-					s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageID, err)
-				} else {
-					// Add the new updated message to the new responses
-					newResponseByActionID[o.pluginIdentifier] = rID
-
-					// Remove entries for plugin actions as we process them so that we can detect afterwards if a plugin isn't triggering
-					// anymore (to delete those responses).
-					delete(responsesByAction, o.pluginIdentifier)
-				}
-			} else {
-				s.log.Debugf("New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
-
-				// It's a new message for that action so post it as a new message
-				rID, err := s.sendNewMessage(driver, o, incomingMessageID.timestamp)
-				if err != nil {
-					s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
-				} else {
-					// Add the new updated message to the new responses
-					newResponseByActionID[o.pluginIdentifier] = rID
-				}
-			}
-		}
-
-		// Delete any previous triggered responses that aren't triggering anymore
-		for pa, r := range responsesByAction {
-			s.log.Debugf("Deleting previous response [%s] on a now non-triggered plugin action [%s]\n", r, pa)
-			driver.DeleteMessage(r.channelID, r.timestamp)
-		}
-
-		// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
-		if len(newResponseByActionID) > 0 {
-			s.log.Debugf("Updating responses to edited message [%s]\n", editedSlackMessageID)
-			s.triggeringMsgToResponse.Add(editedSlackMessageID, newResponseByActionID)
-		} else {
-			s.log.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageID)
-			s.triggeringMsgToResponse.Remove(editedSlackMessageID)
-		}
+		s.processUpdatedMessageWithCachedResponses(driver, combinedMessage, incomingMessageID, editedSlackMessageID, cachedResponses.(map[string]SlackMessageID))
 	} else {
 		outMsgs := s.routeMessage(combinedMessage)
 		s.sendOutgoingMessages(driver, incomingMessageID, outMsgs)
+	}
+}
+
+// processUpdatedMessageWithCachedResponses handles a message update for which we still have cached responses in cache. This is where we take care of deleting responses that are no longer
+// triggering the action they're coming from, updating the reactions for still triggering plugin actions as well as sending new reactions for plugin actions that are now triggering
+func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, combinedMessage *slack.Msg, incomingMessageID SlackMessageID, editedSlackMessageID SlackMessageID, cachedResponses map[string]SlackMessageID) {
+	newResponseByActionID := make(map[string]SlackMessageID)
+
+	outMsgs := s.routeMessage(combinedMessage)
+	s.log.Debugf("Detected %d existing responses to message [%s]\n", len(cachedResponses), editedSlackMessageID)
+
+	for _, o := range outMsgs {
+		// We had a previous response for that same plugin action so edit it instead of posting a new message
+		if r, ok := cachedResponses[o.pluginActionID]; ok {
+			s.log.Debugf("Trying to update response at [%s] with message [%s]\n", r, o.OutgoingMessage.Text)
+
+			rID, err := s.updateExistingMessage(driver, r, o)
+			if err != nil {
+				s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageID, err)
+			} else {
+				// Add the new updated message to the new responses
+				newResponseByActionID[o.pluginActionID] = rID
+
+				// Remove entries for plugin actions as we process them so that we can detect afterwards if a plugin isn't triggering
+				// anymore (to delete those responses).
+				delete(cachedResponses, o.pluginActionID)
+			}
+		} else {
+			s.log.Debugf("New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
+
+			// It's a new message for that action so post it as a new message
+			rID, err := s.sendNewMessage(driver, o, incomingMessageID.timestamp)
+			if err != nil {
+				s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
+			} else {
+				// Add the new updated message to the new responses
+				newResponseByActionID[o.pluginActionID] = rID
+			}
+		}
+	}
+
+	// Delete any previous triggered responses that aren't triggering anymore
+	for pa, r := range cachedResponses {
+		s.log.Debugf("Deleting previous response [%s] on a now non-triggered plugin action [%s]\n", r, pa)
+		driver.DeleteMessage(r.channelID, r.timestamp)
+	}
+
+	// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
+	if len(newResponseByActionID) > 0 {
+		s.log.Debugf("Updating responses to edited message [%s]\n", editedSlackMessageID)
+		s.triggeringMsgToResponse.Add(editedSlackMessageID, newResponseByActionID)
+	} else {
+		s.log.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageID)
+		s.triggeringMsgToResponse.Remove(editedSlackMessageID)
 	}
 }
 
@@ -496,7 +501,7 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 			s.log.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageID, err)
 		} else {
 			// Add the new updated message to the new responses
-			newResponseByActionID[o.pluginIdentifier] = rID
+			newResponseByActionID[o.pluginActionID] = rID
 		}
 	}
 
@@ -595,7 +600,7 @@ func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithID, con
 		response := defaultAnswer(m)
 
 		slackOutMsg := rs(m, response)
-		outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginIdentifier: "default"}
+		outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginActionID: "default"}
 		return []*OutgoingMessage{&outMsg}
 	}
 
@@ -615,7 +620,7 @@ func handleMessage(actions []ActionDefinitionWithID, t string, m *slack.Msg, rs 
 
 			if response != "" {
 				slackOutMsg := rs(m, response)
-				outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginIdentifier: action.id}
+				outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginActionID: action.id}
 
 				outMsgs = append(outMsgs, &outMsg)
 			}
