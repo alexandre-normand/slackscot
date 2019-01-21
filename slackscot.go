@@ -348,10 +348,12 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, sender RealTime
 		if p.ScheduledActions != nil {
 			for _, sa := range p.ScheduledActions {
 				j, err := schedule.NewJob(sc, sa.Schedule)
-				if err != nil {
+				if err == nil {
 					s.log.Debugf("Adding job [%v] to scheduler\n", j)
-					j.Do(sa.Action, sender)
-				} else {
+					err = j.Do(sa.Action, sender)
+				}
+
+				if err != nil {
 					s.log.Printf("Error: failed to schedule job for scheduled action ['%s' - %s]: %v\n", sa.Schedule, sa.Description, err)
 				}
 			}
