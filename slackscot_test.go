@@ -185,7 +185,7 @@ func TestLogfileOverrideUsed(t *testing.T) {
 
 func TestLatencyReport(t *testing.T) {
 	_, _, _, _, logs := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
-		slack.RTMEvent{Type: "latency_report", Data: &slack.LatencyReport{Value: 120}},
+		{Type: "latency_report", Data: &slack.LatencyReport{Value: 120}},
 	})
 
 	assert.Contains(t, logs, "Current latency: 120ns")
@@ -193,7 +193,7 @@ func TestLatencyReport(t *testing.T) {
 
 func TestRTMError(t *testing.T) {
 	_, _, _, _, logs := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
-		slack.RTMEvent{Type: "rtm_error", Data: &slack.RTMError{Code: 500, Msg: "test error"}},
+		{Type: "rtm_error", Data: &slack.RTMError{Code: 500, Msg: "test error"}},
 	})
 
 	assert.Contains(t, logs, "Error: Code 500 - test error")
@@ -201,7 +201,7 @@ func TestRTMError(t *testing.T) {
 
 func TestInvalidCredentialsShutsdownImmediately(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, logs := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
-		slack.RTMEvent{Type: "invalid_auth_event", Data: &slack.InvalidAuthEvent{}},
+		{Type: "invalid_auth_event", Data: &slack.InvalidAuthEvent{}},
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "Bonjour", "Alphonse", timestamp1)),
 	})
 
