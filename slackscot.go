@@ -217,10 +217,6 @@ func (s *Slackscot) Run() (err error) {
 
 	termination := make(chan bool)
 
-	// Register to receive a notification for a termination signal which will, in turn, send a termination message to the
-	// termination channel
-	go s.watchForTerminationSignalToAbort(rtm, termination)
-
 	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
 	// in a production scenario is by receiving a termination signal which
 	go s.runInternal(rtm.IncomingEvents, termination, sc, sc, rtm, true)
@@ -240,6 +236,10 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 	defer func() {
 		termination <- true
 	}()
+
+	// Register to receive a notification for a termination signal which will, in turn, send a termination message to the
+	// termination channel
+	go s.watchForTerminationSignalToAbort(termination)
 
 	// Start by adding the help command now that we know all plugins have been registered
 	helpPlugin := newHelpPlugin(s.name, VERSION, s.config, s.plugins)
@@ -294,9 +294,9 @@ func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder
 	return nil
 }
 
-// watchForTerminationSignalToAbort waits for a SIGTERM or SIGINT and closes the rtm's IncomingEvents channel to finish
+// watchForTerminationSignalToAbort waits for a SIGTERM or SIGINT and sends a termination signal on the termination channel to finish
 // the main Run() loop and terminate cleanly. Note that this is meant to run in a go routine given that this is blocking
-func (s *Slackscot) watchForTerminationSignalToAbort(rtm *slack.RTM, termination chan<- bool) {
+func (s *Slackscot) watchForTerminationSignalToAbort(termination chan<- bool) {
 	tSignals := make(chan os.Signal, 1)
 	// Register to be notified of termination signals so we can abort
 	signal.Notify(tSignals, syscall.SIGINT, syscall.SIGTERM)
