@@ -28,8 +28,24 @@ func TestNewStore(t *testing.T) {
 
 	ts, err := store.New("test", dir)
 	assert.Nil(t, err)
+	defer ts.Close()
 
 	assert.Equal(t, "test", ts.Name)
+}
+
+func TestGetAfterCloseShouldResultInError(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
+
+	defer os.RemoveAll(dir)
+
+	ts, err := store.New("test", dir)
+	assert.Nil(t, err)
+
+	ts.Close()
+	_, err = ts.Get("testKey")
+
+	assert.NotNil(t, err)
 }
 
 func TestPutGetScan(t *testing.T) {
@@ -39,6 +55,8 @@ func TestPutGetScan(t *testing.T) {
 
 	ts, err := store.New("test", dir)
 	assert.Nil(t, err)
+	defer ts.Close()
+
 	assert.Equal(t, "test", ts.Name)
 
 	err = ts.Put("testKey", "value1")
