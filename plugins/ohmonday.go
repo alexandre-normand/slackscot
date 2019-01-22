@@ -17,16 +17,23 @@ const (
 	channelIDKey = "channelId"
 )
 
-var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/giphy-downsized.gif",
-	"https://media.giphy.com/media/vguRpQzGag7M5h4UVt/giphy-downsized.gif",
-	"https://media.giphy.com/media/9GI7UlOQ6uU95v82q7/giphy-downsized.gif",
-	"https://media.giphy.com/media/hu3Z1fwuOZh3a/giphy-downsized.gif",
-	"https://media.giphy.com/media/5ZZSYqvcH6QppFQGI5/giphy-downsized.gif",
-	"https://media.giphy.com/media/7mMRX7gWzDVwA/giphy-downsized.gif",
+var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/giphy.gif",
+	"https://media.giphy.com/media/vguRpQzGag7M5h4UVt/giphy.gif",
+	"https://media.giphy.com/media/9GI7UlOQ6uU95v82q7/giphy.gif",
+	"https://media.giphy.com/media/hu3Z1fwuOZh3a/giphy.gif",
+	"https://media.giphy.com/media/5ZZSYqvcH6QppFQGI5/giphy.gif",
+	"https://media.giphy.com/media/7mMRX7gWzDVwA/giphy.gif",
 	"https://media.giphy.com/media/Mv6t9sASpgTEA/giphy.gif",
 	"https://media.giphy.com/media/GGFMa2baxgoLK/giphy.gif",
-	"https://media.giphy.com/media/WET6Ed65VUkuY/giphy-downsized.gif",
-	"https://media.giphy.com/media/26wkRxKJ9yUZzlorK/giphy-downsized.gif",
+	"https://media.giphy.com/media/WET6Ed65VUkuY/giphy.gif",
+	"https://media.giphy.com/media/26wkRxKJ9yUZzlorK/giphy.gif",
+	"https://media.giphy.com/media/l46Cbqvg6gxGvh2PS/giphy.gif",
+	"https://media.giphy.com/media/IlJ0FkaYggwkE/giphy.gif",
+	"https://media.giphy.com/media/13sz48R33vovLi/giphy.gif",
+	"https://media.giphy.com/media/Vj2fBk4JWGdxu/giphy.gif",
+	"https://media.giphy.com/media/ict1QSd2CrvFe/giphy.gif",
+	"https://media.giphy.com/media/3o752hpmTcQYvUsUmc/giphy.gif",
+	"https://media.giphy.com/media/5Szs80FJTKDHQmA1SD/giphy.gif",
 }
 
 const (
