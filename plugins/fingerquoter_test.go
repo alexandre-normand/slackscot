@@ -35,7 +35,7 @@ func TestMatchFrequency(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		msgt := fmt.Sprintf(ts, i)
-		if h.Match("text", &slack.Msg{Timestamp: msgt}) {
+		if h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Timestamp: msgt}}) {
 			matches = matches + 1
 		}
 	}
@@ -54,9 +54,9 @@ func TestChannelWhitelisting(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}))
-	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}))
-	assert.False(t, h.Match("text", &slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}))
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
+	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
 }
 
 func TestDefaultWhitelistingEnablesForAll(t *testing.T) {
@@ -70,9 +70,9 @@ func TestDefaultWhitelistingEnablesForAll(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}))
-	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}))
-	assert.True(t, h.Match("text", &slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}))
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
 }
 
 func TestMatchConsistentWithSameTimestamp(t *testing.T) {
@@ -85,8 +85,8 @@ func TestMatchConsistentWithSameTimestamp(t *testing.T) {
 	h := f.HearActions[0]
 
 	for i := 0; i < 100; i++ {
-		assert.True(t, h.Match("text", &slack.Msg{Timestamp: "1546833210.036903"}))
-		assert.False(t, h.Match("text", &slack.Msg{Timestamp: "1546833222.031904"}))
+		assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Timestamp: "1546833210.036903"}}))
+		assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Timestamp: "1546833222.031904"}}))
 	}
 }
 
@@ -103,7 +103,7 @@ func TestMatchFalseWhenCorruptedTimestamp(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.False(t, h.Match("text", &slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue"}))
+	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue"}}))
 	assert.Contains(t, b.String(), "error converting timestamp to float")
 }
 
@@ -120,7 +120,7 @@ func TestNoAnswerWhenCorruptedTimestamp(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.Equal(t, "", h.Answer(&slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue", Text: "This is a text with longer and shorter words"}))
+	assert.Equal(t, "", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue", Text: "This is a text with longer and shorter words"}}))
 	assert.Contains(t, b.String(), "error converting timestamp to float")
 }
 
@@ -133,7 +133,7 @@ func TestQuotingOfSingleLongWord(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.Equal(t, "\"belong\"", h.Answer(&slack.Msg{Text: "Do I belong or not?", Timestamp: "1546833210.036900"}))
+	assert.Equal(t, "\"belong\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "Do I belong or not?", Timestamp: "1546833210.036900"}}))
 }
 
 func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
@@ -147,22 +147,22 @@ func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
 	h := f.HearActions[0]
 
 	// Validate one pick with a different timestamp
-	assert.Equal(t, "\"screams\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+	assert.Equal(t, "\"screams\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
-			the street screams there's no science`, Timestamp: "1546833310.036900"}))
+			the street screams there's no science`, Timestamp: "1546833310.036900"}}))
 
 	// Validate that calling the answer function a hundred times with the same timestamp results in the same pick
 	for i := 0; i < 100; i++ {
-		assert.Equal(t, "\"Where\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+		assert.Equal(t, "\"Where\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
-			the street screams there's no science`, Timestamp: "1546833210.036900"}))
+			the street screams there's no science`, Timestamp: "1546833210.036900"}}))
 	}
 
 	// Validate that a timestamp *almost* equal to the prior one (except for decimals) results in something different to make sure
 	// we don't ignore those
-	assert.Equal(t, "\"Handing\"", h.Answer(&slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+	assert.Equal(t, "\"Handing\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
-			the street screams there's no science`, Timestamp: "1546833210.036907"}))
+			the street screams there's no science`, Timestamp: "1546833210.036907"}}))
 }
 
 func TestNoQuotingIfOnlySmallWords(t *testing.T) {
@@ -174,5 +174,5 @@ func TestNoQuotingIfOnlySmallWords(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.Equal(t, "", h.Answer(&slack.Msg{Text: "Do I or not?", Timestamp: "1546833210.036900"}))
+	assert.Equal(t, "", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "Do I or not?", Timestamp: "1546833210.036900"}}))
 }

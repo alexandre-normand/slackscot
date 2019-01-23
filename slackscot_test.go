@@ -136,23 +136,23 @@ func newTestPlugin() (tp *Plugin) {
 	tp = new(Plugin)
 	tp.Name = "noRules"
 	tp.Commands = []ActionDefinition{{
-		Match: func(t string, m *slack.Msg) bool {
-			return strings.HasPrefix(t, "make")
+		Match: func(m *IncomingMessage) bool {
+			return strings.HasPrefix(m.NormalizedText, "make")
 		},
 		Usage:       "make `<something>`",
 		Description: "Have the test bot make something for you",
-		Answer: func(m *slack.Msg) string {
+		Answer: func(m *IncomingMessage) string {
 			return fmt.Sprintf("Make it yourself, @%s", m.User)
 		},
 	}}
 	tp.HearActions = []ActionDefinition{{
 		Hidden: true,
-		Match: func(t string, m *slack.Msg) bool {
-			return strings.Contains(t, "blue jays")
+		Match: func(m *IncomingMessage) bool {
+			return strings.Contains(m.NormalizedText, "blue jays")
 		},
 		Usage:       "Talk about my secret topic",
 		Description: "Reply with usage instructions",
-		Answer: func(m *slack.Msg) string {
+		Answer: func(m *IncomingMessage) string {
 			return "I heard you say something about blue jays?"
 		},
 	}}

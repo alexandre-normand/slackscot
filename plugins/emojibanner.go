@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/figlet4go"
 	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/nlopes/slack"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"io/ioutil"
@@ -66,13 +65,13 @@ func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, e
 	}
 
 	return &EmojiBannerMaker{Plugin: slackscot.Plugin{Name: EmojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
-		Match: func(t string, m *slack.Msg) bool {
-			return strings.HasPrefix(t, "emoji banner")
+		Match: func(m *slackscot.IncomingMessage) bool {
+			return strings.HasPrefix(m.NormalizedText, "emoji banner")
 		},
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
-		Answer: func(message *slack.Msg) string {
-			return validateAndRenderEmoji(message.Text, emojiBannerRegex, renderer, options)
+		Answer: func(m *slackscot.IncomingMessage) string {
+			return validateAndRenderEmoji(m.Text, emojiBannerRegex, renderer, options)
 		},
 	}}, HearActions: nil}, tempDirFontPath: tempDirFontPath}, nil
 }

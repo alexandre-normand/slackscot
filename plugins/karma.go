@@ -7,7 +7,6 @@ import (
 	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/alexandre-normand/slackscot/v2/store"
-	"github.com/nlopes/slack"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"regexp"
@@ -49,8 +48,8 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 	hearActions := []slackscot.ActionDefinition{
 		{
 			Hidden: false,
-			Match: func(t string, m *slack.Msg) bool {
-				matches := karmaRegex.FindStringSubmatch(t)
+			Match: func(m *slackscot.IncomingMessage) bool {
+				matches := karmaRegex.FindStringSubmatch(m.NormalizedText)
 				return len(matches) > 0
 			},
 			Usage:       "thing++ or thing--",
@@ -61,8 +60,8 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 	commands := []slackscot.ActionDefinition{
 		{
 			Hidden: false,
-			Match: func(t string, m *slack.Msg) bool {
-				return strings.HasPrefix(t, "karma top")
+			Match: func(m *slackscot.IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "karma top")
 			},
 			Usage:       "karma top <howMany>",
 			Description: "Return the X top things ever",
@@ -70,8 +69,8 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 		},
 		{
 			Hidden: false,
-			Match: func(t string, m *slack.Msg) bool {
-				return strings.HasPrefix(t, "karma worst")
+			Match: func(m *slackscot.IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "karma worst")
 			},
 			Usage:       "karma worst <howMany>",
 			Description: "Return the X worst things ever",
@@ -85,7 +84,7 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 	return k, nil
 }
 
-func (k *Karma) recordKarma(message *slack.Msg) string {
+func (k *Karma) recordKarma(message *slackscot.IncomingMessage) string {
 	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
 	var format string
@@ -117,17 +116,17 @@ func (k *Karma) recordKarma(message *slack.Msg) string {
 
 }
 
-func (k *Karma) answerKarmaTop(message *slack.Msg) string {
+func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) string {
 	return k.answerKarmaRankList(topKarmaRegexp, message, "top", getTopThings)
 }
 
-func (k *Karma) answerKarmaWorst(message *slack.Msg) string {
+func (k *Karma) answerKarmaWorst(message *slackscot.IncomingMessage) string {
 	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", getWorstThings)
 }
 
 type extractRankedList func(rawData map[string]string, count int) (results pairList, err error)
 
-func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slack.Msg, rankingType string, getRankedItems extractRankedList) string {
+func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, getRankedItems extractRankedList) string {
 	match := regexp.FindAllStringSubmatch(message.Text, -1)[0]
 
 	rawCount := match[2]
