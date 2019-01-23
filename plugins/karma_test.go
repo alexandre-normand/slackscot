@@ -97,8 +97,8 @@ func drivePlugin(text string, k *plugins.Karma) (matches map[string]bool, answer
 	for i, h := range k.HearActions {
 		id := fmt.Sprintf("h[%d]", i)
 
-		msg := slack.Msg{Text: text}
-		m := h.Match(text, &msg)
+		msg := slackscot.IncomingMessage{NormalizedText: text, Msg: slack.Msg{Text: text}}
+		m := h.Match(&msg)
 		matches[id] = m
 
 		if m {
@@ -109,8 +109,8 @@ func drivePlugin(text string, k *plugins.Karma) (matches map[string]bool, answer
 	for i, c := range k.Commands {
 		id := fmt.Sprintf("c[%d]", i)
 
-		msg := slack.Msg{Text: text}
-		m := c.Match(text, &msg)
+		msg := slackscot.IncomingMessage{NormalizedText: text, Msg: slack.Msg{Text: text}}
+		m := c.Match(&msg)
 		matches[id] = m
 
 		if m {

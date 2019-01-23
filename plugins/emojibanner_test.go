@@ -1,6 +1,7 @@
 package plugins_test
 
 import (
+	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/plugins"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
@@ -18,9 +19,9 @@ func TestEmojiBannerTrigger(t *testing.T) {
 
 	c := ebm.Commands[0]
 
-	assert.Equal(t, false, c.Match("other", &slack.Msg{}))
-	assert.Equal(t, false, c.Match("emoji", &slack.Msg{}))
-	assert.Equal(t, true, c.Match("emoji banner cats :cat:", &slack.Msg{}))
+	assert.Equal(t, false, c.Match(&slackscot.IncomingMessage{NormalizedText: "other"}))
+	assert.Equal(t, false, c.Match(&slackscot.IncomingMessage{NormalizedText: "emoji"}))
+	assert.Equal(t, true, c.Match(&slackscot.IncomingMessage{NormalizedText: "emoji banner cats :cat:"}))
 }
 
 func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
@@ -33,7 +34,7 @@ func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
 
 	c := ebm.Commands[0]
 
-	assert.Equal(t, "Wrong usage: emoji banner <word> <emoji>", c.Answer(&slack.Msg{Text: "emoji banner cats"}))
+	assert.Equal(t, "Wrong usage: emoji banner <word> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats"}}))
 }
 
 func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
@@ -56,7 +57,7 @@ func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
 		"⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n⬜️:cat::cat::cat::cat:"+
 		":cat::cat::cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
 		":cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️"+
-		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slack.Msg{Text: "emoji banner cats :cat:"}))
+		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}))
 }
 
 func TestEmojiBannerGenerationWithBannerFont(t *testing.T) {
@@ -75,7 +76,7 @@ func TestEmojiBannerGenerationWithBannerFont(t *testing.T) {
 		"⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️\n⬜️:cat:"+
 		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:"+
 		"⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️\n⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
-		":cat:⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slack.Msg{Text: "emoji banner cats :cat:"}))
+		":cat:⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}))
 }
 
 func TestBadFontURLShouldFailPluginCreation(t *testing.T) {

@@ -3,7 +3,6 @@ package slackscot
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2/config"
-	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"strings"
 )
@@ -41,8 +40,8 @@ func newHelpPlugin(name string, version string, viper *viper.Viper, plugins []*P
 	helpPlugin.pluginScheduledActions = scheduledActions
 
 	helpPlugin.Plugin = Plugin{Name: helpPluginName, Commands: []ActionDefinition{{
-		Match: func(t string, m *slack.Msg) bool {
-			return strings.HasPrefix(t, "help")
+		Match: func(m *IncomingMessage) bool {
+			return strings.HasPrefix(m.NormalizedText, "help")
 		},
 		Usage:       helpPluginName,
 		Description: "Reply with usage instructions",
@@ -54,7 +53,7 @@ func newHelpPlugin(name string, version string, viper *viper.Viper, plugins []*P
 
 // showHelp generates a message providing a list of all of the slackscot commands and hear actions.
 // Note that ActionDefinitions with the flag Hidden set to true won't be included in the list
-func (h *helpPlugin) showHelp(m *slack.Msg) string {
+func (h *helpPlugin) showHelp(m *IncomingMessage) string {
 	var b strings.Builder
 
 	// Get the user's first name using the botservices

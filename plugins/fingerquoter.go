@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/config"
-	"github.com/nlopes/slack"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -51,7 +50,7 @@ func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 	return f, err
 }
 
-func (f *FingerQuoter) trigger(t string, m *slack.Msg) bool {
+func (f *FingerQuoter) trigger(m *slackscot.IncomingMessage) bool {
 	if !isChannelWhiteListed(m.Channel, f.channels) {
 		return false
 	}
@@ -71,7 +70,7 @@ func (f *FingerQuoter) trigger(t string, m *slack.Msg) bool {
 	return randomGen.Int31n(int32(f.frequency)) == 0
 }
 
-func (f *FingerQuoter) fingerQuoteMsg(m *slack.Msg) string {
+func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) string {
 	candidates := splitInputIntoWordsLongerThan(m.Text, 4)
 
 	if len(candidates) > 0 {
