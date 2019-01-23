@@ -98,7 +98,15 @@ func (rs *realTimeSender) GetAPI() (rtm *slack.RTM) {
 type selfFinder struct {
 }
 
+func (i *selfFinder) GetInfo() (user *slack.Info) {
+	return &slack.Info{User: &slack.UserDetails{ID: "BotUserID", Name: "Daniel Quinn"}}
+}
+
 type userInfoFinder struct {
+}
+
+func (u *userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error) {
+	return &slack.User{ID: botUserID, Name: "Daniel Quinn"}, nil
 }
 
 // Option type for building a message with additional options for specific test cases
@@ -159,14 +167,6 @@ func newTestPlugin() (tp *Plugin) {
 	tp.ScheduledActions = nil
 
 	return tp
-}
-
-func (i *selfFinder) GetInfo() (user *slack.Info) {
-	return &slack.Info{User: &slack.UserDetails{ID: "BotUserID", Name: "Daniel Quinn"}}
-}
-
-func (u *userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error) {
-	return &slack.User{ID: botUserID, Name: "Daniel Quinn"}, nil
 }
 
 func TestLogfileOverrideUsed(t *testing.T) {
