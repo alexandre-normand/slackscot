@@ -54,12 +54,7 @@ func NewCachingUserInfoFinder(v *viper.Viper, loader UserInfoFinder, logger SLog
 func (c cachingUserInfoFinder) GetUserInfo(userID string) (u *slack.User, err error) {
 	if c.userProfileCache == nil {
 		c.logger.Debugf("Cache disabled, loading user info for [%s] from slack instead\n", userID)
-		u, err := c.loader.GetUserInfo(userID)
-		if err != nil {
-			return nil, err
-		}
-
-		return u, nil
+		return c.loader.GetUserInfo(userID)
 	}
 
 	if userProfile, exists := c.userProfileCache.Get(userID); exists {
@@ -75,11 +70,11 @@ func (c cachingUserInfoFinder) GetUserInfo(userID string) (u *slack.User, err er
 
 	c.logger.Debugf("User info for [%s] not found in cache, retrieving from slack and saving\n", userID)
 	u, err = c.loader.GetUserInfo(userID)
-	if err != nil {
-		return nil, err
+
+	// Add the user to cache if it was loaded without error
+	if u != nil {
+		c.userProfileCache.Add(userID, *u)
 	}
 
-	c.userProfileCache.Add(userID, *u)
-
-	return u, nil
+	return u, err
 }

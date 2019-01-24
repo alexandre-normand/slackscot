@@ -47,11 +47,8 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 
 	hearActions := []slackscot.ActionDefinition{
 		{
-			Hidden: false,
-			Match: func(m *slackscot.IncomingMessage) bool {
-				matches := karmaRegex.FindStringSubmatch(m.NormalizedText)
-				return len(matches) > 0
-			},
+			Hidden:      false,
+			Match:       matchKarmaRecord,
 			Usage:       "thing++ or thing--",
 			Description: "Keep track of karma",
 			Answer:      k.recordKarma,
@@ -59,19 +56,15 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 
 	commands := []slackscot.ActionDefinition{
 		{
-			Hidden: false,
-			Match: func(m *slackscot.IncomingMessage) bool {
-				return strings.HasPrefix(m.NormalizedText, "karma top")
-			},
+			Hidden:      false,
+			Match:       matchKarmaTopReport,
 			Usage:       "karma top <howMany>",
 			Description: "Return the X top things ever",
 			Answer:      k.answerKarmaTop,
 		},
 		{
-			Hidden: false,
-			Match: func(m *slackscot.IncomingMessage) bool {
-				return strings.HasPrefix(m.NormalizedText, "karma worst")
-			},
+			Hidden:      false,
+			Match:       matchKarmaWorstReport,
 			Usage:       "karma worst <howMany>",
 			Description: "Return the X worst things ever",
 			Answer:      k.answerKarmaWorst,
@@ -84,6 +77,26 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 	return k, nil
 }
 
+// matchKarmaRecord returns true if the message matches karma++ or karma-- (karma being any word)
+func matchKarmaRecord(m *slackscot.IncomingMessage) bool {
+	matches := karmaRegex.FindStringSubmatch(m.NormalizedText)
+	return len(matches) > 0
+}
+
+// matchKarmaTopReport returns true if the message matches a request for top karma with
+// a message such as "karma top <count>""
+func matchKarmaTopReport(m *slackscot.IncomingMessage) bool {
+	return strings.HasPrefix(m.NormalizedText, "karma top")
+}
+
+// matchKarmaWorstReport returns true if the message matches a request for the worst karma with
+// a message such as "karma worst <count>""
+func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
+	return strings.HasPrefix(m.NormalizedText, "karma worst")
+}
+
+// recordKarma records a karma increase or decrease and answers with a message including
+// the recorded word with its associated karma value
 func (k *Karma) recordKarma(message *slackscot.IncomingMessage) string {
 	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
