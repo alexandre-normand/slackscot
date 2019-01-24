@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/spf13/viper"
+	"io"
 	"strings"
 )
 
@@ -70,34 +71,40 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) string {
 	if len(h.commands) > 0 {
 		fmt.Fprintf(&b, "\nI currently support the following commands:\n")
 
-		for _, value := range h.commands {
-			if value.Usage != "" && !value.Hidden {
-				fmt.Fprintf(&b, "\t• `%s` - %s\n", value.Usage, value.Description)
-			}
-		}
+		appendActions(&b, h.commands)
 	}
 
 	if len(h.hearActions) > 0 {
 		fmt.Fprintf(&b, "\nAnd listen for the following:\n")
 
-		for _, value := range h.hearActions {
-			if value.Usage != "" && !value.Hidden {
-				fmt.Fprintf(&b, "\t• `%s` - %s\n", value.Usage, value.Description)
-			}
-		}
+		appendActions(&b, h.hearActions)
 	}
 
 	if len(h.pluginScheduledActions) > 0 {
 		fmt.Fprintf(&b, "\nAnd do those things periodically:\n")
 
-		for _, value := range h.pluginScheduledActions {
-			if !value.ScheduledActionDefinition.Hidden {
-				fmt.Fprintf(&b, "\t• [`%s`] `%s` (`%s`) - %s\n", value.plugin, value.ScheduledActionDefinition.Schedule, h.v.GetString(config.TimeLocationKey), value.ScheduledActionDefinition.Description)
-			}
-		}
+		appendScheduledActions(&b, h.v.GetString(config.TimeLocationKey), h.pluginScheduledActions)
 	}
 
 	return b.String()
+}
+
+func appendActions(w io.Writer, actions []ActionDefinition) {
+	fmt.Fprintf(w, "\nAnd listen for the following:\n")
+
+	for _, value := range actions {
+		if value.Usage != "" && !value.Hidden {
+			fmt.Fprintf(w, "\t• `%s` - %s\n", value.Usage, value.Description)
+		}
+	}
+}
+
+func appendScheduledActions(w io.Writer, timeLocationName string, scheduledActions []pluginScheduledAction) {
+	for _, value := range scheduledActions {
+		if !value.ScheduledActionDefinition.Hidden {
+			fmt.Fprintf(w, "\t• [`%s`] `%s` (`%s`) - %s\n", value.plugin, value.ScheduledActionDefinition.Schedule, timeLocationName, value.ScheduledActionDefinition.Description)
+		}
+	}
 }
 
 func findAllActions(plugins []*Plugin) (commands []ActionDefinition, hearActions []ActionDefinition, pluginScheduledActions []pluginScheduledAction) {

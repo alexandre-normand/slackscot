@@ -82,17 +82,7 @@ func (e *EmojiBannerMaker) Close() {
 }
 
 func downloadFontToDir(fontURL string, fontPath string) (fontName string, err error) {
-	url, err := url.Parse(fontURL)
-	if err != nil {
-		return "", errors.Wrapf(err, "Invalid font url [%s]", fontURL)
-	}
-
-	resp, err := http.Get(fontURL)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error loading font url [%s]", fontURL)
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
+	url, b, err := downloadURL(fontURL)
 	if err != nil {
 		return "", errors.Wrapf(err, "Error reading data from font url [%s]: %v", fontURL, err)
 	}
@@ -106,6 +96,22 @@ func downloadFontToDir(fontURL string, fontPath string) (fontName string, err er
 	}
 
 	return strings.TrimSuffix(filename, ".flf"), nil
+}
+
+func downloadURL(fontURL string) (parsedURL *url.URL, content []byte, err error) {
+	url, err := url.Parse(fontURL)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "Invalid font url [%s]", fontURL)
+	}
+
+	resp, err := http.Get(fontURL)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "Error loading font url [%s]", fontURL)
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+
+	return url, b, err
 }
 
 func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {
