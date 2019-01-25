@@ -54,7 +54,7 @@ func newHelpPlugin(name string, version string, viper *viper.Viper, plugins []*P
 
 // showHelp generates a message providing a list of all of the slackscot commands and hear actions.
 // Note that ActionDefinitions with the flag Hidden set to true won't be included in the list
-func (h *helpPlugin) showHelp(m *IncomingMessage) string {
+func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 	var b strings.Builder
 
 	// Get the user's first name using the botservices
@@ -86,7 +86,7 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) string {
 		appendScheduledActions(&b, h.v.GetString(config.TimeLocationKey), h.pluginScheduledActions)
 	}
 
-	return b.String()
+	return &Answer{Text: b.String()}
 }
 
 func appendActions(w io.Writer, actions []ActionDefinition) {

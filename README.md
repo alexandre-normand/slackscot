@@ -156,16 +156,17 @@ new implementation of the [storer interfaces](https://godoc.org/github.com/alexa
 ## Assembling the Parts and Bringing Your `slackscot` to Life
 
 Here's an example of how [youppi](https://github.com/alexandre-normand/youppi) 
-does it (apologies for the verbose and repetitive error handling when 
+[does it](https://github.com/alexandre-normand/youppi/blob/master/youppi.go) 
+(apologies for the verbose and repetitive error handling when 
 creating instances of plugins but it looks worse than it is):
 
 ```go
 package main
 
 import (
-	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/config"
-	"github.com/alexandre-normand/slackscot/plugins"
+	"github.com/alexandre-normand/slackscot/v2"
+	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/v2/plugins"
 	"github.com/spf13/viper"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
@@ -177,11 +178,21 @@ var (
 	logfile           = kingpin.Flag("log", "The path to the log file").OpenFile(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 )
 
+const (
+	storagePathKey = "storagePath" // Root directory for the file-based leveldb storage
+	name           = "youppi"
+)
+
 func main() {
 	kingpin.Version(VERSION)
 	kingpin.Parse()
 
 	v := config.NewViperWithDefaults()
+	// Enable getting configuration from the environment, especially useful for the slack token
+	v.AutomaticEnv()
+	// Bind the token key config to the env variable SLACK_TOKEN (case sensitive)
+	v.BindEnv(config.TokenKey, "SLACK_TOKEN")
+
 	v.SetConfigFile(*configurationPath)
 	err := v.ReadInConfig()
 	if err != nil {
@@ -201,11 +212,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	karma, err := plugins.NewKarma(v)
-	if err != nil {
-		log.Fatalf("Error initializing karma plugin: %v", err)
+	if !v.IsSet(config.StoragePathKey) {
+		return nil, fmt.Errorf("Missing [%s] configuration key in the top value configuration", config.StoragePathKey)
 	}
-	defer karma.Close()
+
+	storagePath := v.GetString(storagePathKey)
+	strStorer, err := store.NewLevelDB(name, storagePath)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", name, storagePath))
+	}
+	defer strStorer.Close()
+
+	karma, err := plugins.NewKarma(strStorer)
 	youppi.RegisterPlugin(&karma.Plugin)
 
 	fingerQuoterConf, err := config.GetPluginConfig(v, plugins.FingerQuoterPluginName)
@@ -217,9 +235,6 @@ func main() {
 		log.Fatalf("Error initializing finger quoter plugin: %v", err)
 	}
 	youppi.RegisterPlugin(&fingerQuoter.Plugin)
-
-	imager := plugins.NewImager()
-	youppi.RegisterPlugin(&imager.Plugin)
 
 	emojiBannerConf, err := config.GetPluginConfig(v, plugins.EmojiBannerPluginName)
 	if err != nil {

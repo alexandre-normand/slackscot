@@ -77,7 +77,7 @@ func drivePlugin(text string, k *plugins.Karma) (matches map[string]bool, answer
 		matches[id] = m
 
 		if m {
-			answers[id] = h.Answer(&msg)
+			answers[id] = h.Answer(&msg).Text
 		}
 	}
 
@@ -89,7 +89,7 @@ func drivePlugin(text string, k *plugins.Karma) (matches map[string]bool, answer
 		matches[id] = m
 
 		if m {
-			answers[id] = c.Answer(&msg)
+			answers[id] = c.Answer(&msg).Text
 		}
 	}
 
