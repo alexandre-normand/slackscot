@@ -149,8 +149,8 @@ func newTestPlugin() (tp *Plugin) {
 		},
 		Usage:       "make `<something>`",
 		Description: "Have the test bot make something for you",
-		Answer: func(m *IncomingMessage) string {
-			return fmt.Sprintf("Make it yourself, @%s", m.User)
+		Answer: func(m *IncomingMessage) *Answer {
+			return &Answer{Text: fmt.Sprintf("Make it yourself, @%s", m.User)}
 		},
 	}}
 	tp.HearActions = []ActionDefinition{{
@@ -160,8 +160,8 @@ func newTestPlugin() (tp *Plugin) {
 		},
 		Usage:       "Talk about my secret topic",
 		Description: "Reply with usage instructions",
-		Answer: func(m *IncomingMessage) string {
-			return "I heard you say something about blue jays?"
+		Answer: func(m *IncomingMessage) *Answer {
+			return &Answer{Text: "I heard you say something about blue jays?"}
 		},
 	}}
 	tp.ScheduledActions = nil

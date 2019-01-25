@@ -84,7 +84,14 @@ type ActionDefinition struct {
 type Matcher func(m *IncomingMessage) bool
 
 // Answerer is what gets executed when an ActionDefinition is triggered
-type Answerer func(m *IncomingMessage) string
+type Answerer func(m *IncomingMessage) *Answer
+
+// Answer currently only wraps the text of the answer but it is there
+// to allow features such as plugin/implementation specific message
+// sending options (such as threaded replying) to be added later
+type Answer struct {
+	Text string
+}
 
 // ActionDefinitionWithID holds an action definition along with its identifier string
 type ActionDefinitionWithID struct {
@@ -119,8 +126,8 @@ type SlackMessageID struct {
 	timestamp string
 }
 
-// responseStrategy defines how a slack.OutgoingMessage is generated from a response
-type responseStrategy func(m *IncomingMessage, response string) *slack.OutgoingMessage
+// responseStrategy defines how a slack.OutgoingMessage is generated from an Answer
+type responseStrategy func(m *IncomingMessage, answer *Answer) *slack.OutgoingMessage
 
 // IncomingMessage holds data for an incoming slack message. In addition to a slack.Msg, it also has
 // a normalized text that is the original text stripped from the "<@Mention>" prefix when a message
@@ -174,8 +181,8 @@ func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot,
 
 	s.name = name
 	s.config = v
-	s.defaultAction = func(m *IncomingMessage) string {
-		return fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)
+	s.defaultAction = func(m *IncomingMessage) *Answer {
+		return &Answer{Text: fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
 
@@ -608,9 +615,9 @@ func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
 func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithID, m *IncomingMessage, rs responseStrategy) (outMsgs []*OutgoingMessage) {
 	outMsgs = handleMessage(actions, m, rs)
 	if len(outMsgs) == 0 {
-		response := defaultAnswer(m)
+		answer := defaultAnswer(m)
 
-		slackOutMsg := rs(m, response)
+		slackOutMsg := rs(m, answer)
 		outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginActionID: "default"}
 		return []*OutgoingMessage{&outMsg}
 	}
@@ -627,10 +634,10 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 		matches := action.Match(m)
 
 		if matches {
-			response := action.Answer(m)
+			answer := action.Answer(m)
 
-			if response != "" {
-				slackOutMsg := rs(m, response)
+			if answer != nil {
+				slackOutMsg := rs(m, answer)
 				outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginActionID: action.id}
 
 				outMsgs = append(outMsgs, &outMsg)
@@ -653,18 +660,18 @@ func newOutgoingMessage(channelID string, text string) *slack.OutgoingMessage {
 }
 
 // reply sends a reply to the user (using @user) who sent the message on the channel it was sent on
-func reply(replyToMsg *IncomingMessage, response string) *slack.OutgoingMessage {
-	return newOutgoingMessage(replyToMsg.Channel, fmt.Sprintf("<@%s>: %s", replyToMsg.User, response))
+func reply(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
+	return newOutgoingMessage(replyToMsg.Channel, fmt.Sprintf("<@%s>: %s", replyToMsg.User, answer.Text))
 }
 
 // directReply sends a reply to a direct message (which is internally a channel id for slack). It is essentially
 // the same as send but it's kept separate for clarity
-func directReply(replyToMsg *IncomingMessage, response string) *slack.OutgoingMessage {
-	return send(replyToMsg, response)
+func directReply(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
+	return send(replyToMsg, answer)
 }
 
 // send creates a message to be sent on the same channel as received (which can be a direct message since
 // slack internally uses a channel id for private conversations)
-func send(replyToMsg *IncomingMessage, response string) *slack.OutgoingMessage {
-	return newOutgoingMessage(replyToMsg.Channel, response)
+func send(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
+	return newOutgoingMessage(replyToMsg.Channel, answer.Text)
 }

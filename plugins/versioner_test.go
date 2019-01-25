@@ -13,8 +13,8 @@ func TestSendValidVersionMessage(t *testing.T) {
 
 	vc := v.Commands[0]
 
-	msg := vc.Answer(&slackscot.IncomingMessage{})
-	assert.Equal(t, "I'm `little-red`, version `1.0.0`", msg)
+	answer := vc.Answer(&slackscot.IncomingMessage{})
+	assert.Equal(t, "I'm `little-red`, version `1.0.0`", answer.Text)
 }
 
 func TestMatchOnVersionCommand(t *testing.T) {

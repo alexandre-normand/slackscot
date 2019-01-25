@@ -34,7 +34,7 @@ func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
 
 	c := ebm.Commands[0]
 
-	assert.Equal(t, "Wrong usage: emoji banner <word> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats"}}))
+	assert.Equal(t, "Wrong usage: emoji banner <word> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats"}}).Text)
 }
 
 func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
@@ -57,7 +57,7 @@ func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
 		"⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n⬜️:cat::cat::cat::cat:"+
 		":cat::cat::cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
 		":cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️"+
-		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}))
+		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}).Text)
 }
 
 func TestEmojiBannerGenerationWithBannerFont(t *testing.T) {
@@ -76,7 +76,7 @@ func TestEmojiBannerGenerationWithBannerFont(t *testing.T) {
 		"⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️\n⬜️:cat:"+
 		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:"+
 		"⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️\n⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
-		":cat:⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}))
+		":cat:⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}).Text)
 }
 
 func TestBadFontURLShouldFailPluginCreation(t *testing.T) {

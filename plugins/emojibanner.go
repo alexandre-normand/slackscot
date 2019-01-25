@@ -70,7 +70,7 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (emojiBannerPlugin *EmojiBanner
 		},
 		Usage:       "emoji banner <word> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
-		Answer: func(m *slackscot.IncomingMessage) string {
+		Answer: func(m *slackscot.IncomingMessage) *slackscot.Answer {
 			return validateAndRenderEmoji(m.Text, emojiBannerRegex, renderer, options)
 		},
 	}}, HearActions: nil}, tempDirFontPath: tempDirFontPath}, nil
@@ -114,7 +114,7 @@ func downloadURL(fontURL string) (parsedURL *url.URL, content []byte, err error)
 	return url, b, err
 }
 
-func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {
+func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) *slackscot.Answer {
 	commandParameters := regex.FindStringSubmatch(message)
 
 	if len(commandParameters) > 0 {
@@ -125,25 +125,26 @@ func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figl
 		}
 	}
 
-	return "Wrong usage: emoji banner <word> <emoji>"
+	return &slackscot.Answer{Text: "Wrong usage: emoji banner <word> <emoji>"}
 }
 
-func renderBanner(word, emoji string, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) string {
+func renderBanner(word, emoji string, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) *slackscot.Answer {
 	rendered, err := renderer.RenderOpts(word, options)
 	if err != nil {
-		return fmt.Sprintf("Error generating: %v", err)
+		return &slackscot.Answer{Text: fmt.Sprintf("Error generating: %v", err)}
 	}
 
-	var result string
+	var result strings.Builder
+	result.WriteString("\r\n")
 	for _, character := range rendered {
 		if unicode.IsPrint(character) && character != ' ' {
-			result = result + emoji
+			result.WriteString(emoji)
 		} else if character == ' ' {
-			result = result + "⬜️"
+			result.WriteString("⬜️")
 		} else {
-			result = result + string(character)
+			result.WriteString(string(character))
 		}
 	}
 
-	return "\r\n" + result
+	return &slackscot.Answer{Text: result.String()}
 }

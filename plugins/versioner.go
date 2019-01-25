@@ -25,7 +25,7 @@ func NewVersioner(name string, version string) *Versioner {
 		},
 		Usage:       "version",
 		Description: fmt.Sprintf("Reply with `%s`'s `version` number", name),
-		Answer: func(m *slackscot.IncomingMessage) string {
-			return fmt.Sprintf("I'm `%s`, version `%s`", name, version)
+		Answer: func(m *slackscot.IncomingMessage) *slackscot.Answer {
+			return &slackscot.Answer{Text: fmt.Sprintf("I'm `%s`, version `%s`", name, version)}
 		}}}, HearActions: nil}}
 }

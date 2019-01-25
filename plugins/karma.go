@@ -84,7 +84,7 @@ func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 
 // recordKarma records a karma increase or decrease and answers with a message including
 // the recorded word with its associated karma value
-func (k *Karma) recordKarma(message *slackscot.IncomingMessage) string {
+func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answer {
 	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
 	var format string
@@ -112,21 +112,21 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) string {
 	if err != nil {
 		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
 	}
-	return fmt.Sprintf(format, thing, thing, karma)
+	return &slackscot.Answer{Text: fmt.Sprintf(format, thing, thing, karma)}
 
 }
 
-func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) string {
+func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
 	return k.answerKarmaRankList(topKarmaRegexp, message, "top", getTopThings)
 }
 
-func (k *Karma) answerKarmaWorst(message *slackscot.IncomingMessage) string {
+func (k *Karma) answerKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
 	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", getWorstThings)
 }
 
 type extractRankedList func(rawData map[string]string, count int) (results pairList, err error)
 
-func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, getRankedItems extractRankedList) string {
+func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, getRankedItems extractRankedList) *slackscot.Answer {
 	match := regexp.FindAllStringSubmatch(message.Text, -1)[0]
 
 	rawCount := match[2]
@@ -134,18 +134,18 @@ func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.In
 
 	values, err := k.karmaStorer.Scan()
 	if err != nil {
-		return fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)}
 	}
 
 	pairs, err := getRankedItems(values, count)
 	if err != nil {
-		return fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)}
 	}
 	var buffer bytes.Buffer
 
 	buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, count))
 	buffer.WriteString(formatList(pairs))
-	return buffer.String()
+	return &slackscot.Answer{Text: buffer.String()}
 }
 
 func formatList(pl pairList) string {

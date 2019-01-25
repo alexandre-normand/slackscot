@@ -70,7 +70,7 @@ func (f *FingerQuoter) trigger(m *slackscot.IncomingMessage) bool {
 	return randomGen.Int31n(int32(f.frequency)) == 0
 }
 
-func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) string {
+func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) *slackscot.Answer {
 	candidates := splitInputIntoWordsLongerThan(m.Text, 4)
 
 	if len(candidates) > 0 {
@@ -84,12 +84,12 @@ func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) string {
 			randomGen := rand.New(rand.NewSource(int64(fullTs)))
 
 			i := randomGen.Int31n(int32(len(candidates)))
-			return fmt.Sprintf("\"%s\"", candidates[i])
+			return &slackscot.Answer{Text: fmt.Sprintf("\"%s\"", candidates[i])}
 		}
 	}
 
 	// Not this time, skip
-	return ""
+	return &slackscot.Answer{Text: ""}
 }
 
 func splitInputIntoWordsLongerThan(t string, minLen int) []string {
