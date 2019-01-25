@@ -167,6 +167,7 @@ import (
 	"github.com/alexandre-normand/slackscot/v2"
 	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/alexandre-normand/slackscot/v2/plugins"
+	"github.com/alexandre-normand/slackscot/v2/store"
 	"github.com/spf13/viper"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
@@ -212,18 +213,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if !v.IsSet(config.StoragePathKey) {
-		return nil, fmt.Errorf("Missing [%s] configuration key in the top value configuration", config.StoragePathKey)
+	if !v.IsSet(storagePathKey) {
+		log.Fatalf("Missing [%s] configuration key in the top value configuration", storagePathKey)
 	}
 
 	storagePath := v.GetString(storagePathKey)
 	strStorer, err := store.NewLevelDB(name, storagePath)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", name, storagePath))
+		log.Fatalf("Opening [%s] db failed with path [%s]", name, storagePath)
 	}
 	defer strStorer.Close()
 
-	karma, err := plugins.NewKarma(strStorer)
+	karma := plugins.NewKarma(strStorer)
 	youppi.RegisterPlugin(&karma.Plugin)
 
 	fingerQuoterConf, err := config.GetPluginConfig(v, plugins.FingerQuoterPluginName)
