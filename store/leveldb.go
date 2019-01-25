@@ -15,7 +15,7 @@ type LevelDB struct {
 	database *leveldb.DB
 }
 
-// New instantiates and open a new LevelDB instance backed by a leveldb database. If the
+// NewLevelDB instantiates and open a new LevelDB instance backed by a leveldb database. If the
 // leveldb database doesn't exist, one is created
 func NewLevelDB(name string, storagePath string) (ldb *LevelDB, err error) {
 	// Expand '~' as the full home directory path if appropriate
