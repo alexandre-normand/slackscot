@@ -16,8 +16,8 @@
 - [Demo](#demo)
 - [The Name](#the-name)
 - [Concepts](#concepts)
-- [How to Use](#how-to-use)
-	- [Integration and bringing your `slackscot` to life](#integration-and-bringing-your-slackscot-to-life)
+- [Create Your Own Slackscot](#create-your-own-slackscot)
+	- [Assembling the Parts and Bringing Your `slackscot` to Life](#assembling-the-parts-and-bringing-your-slackscot-to-life)
 	- [Configuration Example](#configuration-example)
 	- [Creating Your Own Plugins](#creating-your-own-plugins)
 - [Contributing](#contributing)
@@ -62,8 +62,10 @@ your ambitious dreams (if you dreams include this sort of thing).
     See [configuration example](#configuration-example) below where 
     both are enabled. 
 
-*   Simple storage `API` for persistence. It's a basic `key:value` map backed
-    by a filed-based [leveldb](https://github.com/syndtr/goleveldb)
+*   Simple extensible storage `API` for persistence in two flavors: 
+    `StringStorer` and `BytesStorer`. Both are basic `key:value` maps. 
+    A default file-based implementation is provided backed by
+    [leveldb](https://github.com/syndtr/goleveldb)
 
 *   Support for various configuration sources/formats via 
     [viper](https://github.com/spf13/viper)
@@ -139,13 +141,19 @@ You know, a friendly company *mascot* that hangs out on your `slack`.
     the message triggering the response (although an implementation is 
     free to use the user id of the triggering message if desired). 
 
-# How to Use
+# Create Your Own Slackscot
 
 `Slackscot` provides the pieces to make your mascot but you'll have to 
 assemble them for him/her to come alive. The easiest to get started is
 to look at a real example: [youppi](https://github.com/alexandre-normand/youppi).
 
-## Integration and bringing your `slackscot` to life
+![youppi running](https://media.giphy.com/media/4K1HwWtmvT07sW7enp/giphy.gif)
+
+The [godoc](https://godoc.org/github.com/alexandre-normand/slackscot) is also a 
+good reference especially if you're looking to implement something like a 
+new implementation of the [storer interfaces](https://godoc.org/github.com/alexandre-normand/slackscot/store).
+
+## Assembling the Parts and Bringing Your `slackscot` to Life
 
 Here's an example of how [youppi](https://github.com/alexandre-normand/youppi) 
 does it (apologies for the verbose and repetitive error handling when 

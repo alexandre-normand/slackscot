@@ -3,10 +3,9 @@ package plugins_test
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/alexandre-normand/slackscot/v2/plugins"
+	"github.com/alexandre-normand/slackscot/v2/store"
 	"github.com/nlopes/slack"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
@@ -14,28 +13,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func TestNewKarmaWithMissingStoragePathConfig(t *testing.T) {
-	pc := viper.New()
-
-	_, err := plugins.NewKarma(pc)
-	assert.NotNil(t, err)
-}
-
-func TestNewKarmaWithInvalidStoragePath(t *testing.T) {
-	// Create a temp file that will serve as an invalid storage path
-	tmpfile, err := ioutil.TempFile("", "test")
-	assert.Nil(t, err)
-	defer os.Remove(tmpfile.Name()) // clean up
-
-	pc := viper.New()
-	pc.Set(config.StoragePathKey, tmpfile.Name())
-
-	_, err = plugins.NewKarma(pc)
-	if assert.NotNil(t, err) {
-		assert.Contains(t, err.Error(), "Opening [karma] db failed")
-	}
-}
 
 func TestKarmaMatchesAndAnswers(t *testing.T) {
 	testCases := []struct {
@@ -67,18 +44,16 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 	assert.Nil(t, err)
 	defer os.RemoveAll(tmpdir) // clean up
 
-	pc := viper.New()
-	pc.Set(config.StoragePathKey, tmpdir)
-
-	k, err := plugins.NewKarma(pc)
+	storer, err := store.NewLevelDB("karmaTest", tmpdir)
 	assert.Nil(t, err)
+	defer storer.Close()
 
-	// Attach the logger
-	var b strings.Builder
-	k.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	k := plugins.NewKarma(storer)
 
 	if assert.NotNil(t, k) {
-		defer k.Close()
+		// Attach the logger
+		var b strings.Builder
+		k.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
 
 		for _, tc := range testCases {
 			t.Run(tc.text, func(t *testing.T) {

@@ -16,7 +16,6 @@ const (
 	TimeLocationKey             = "timeLocation"                           // Time Location as understood by time.LoadLocation
 	ThreadedRepliesKey          = "replyBehavior.threadedReplies"          // Threaded replies mode (slackscot will respond to all triggering messages using threads), boolean
 	BroadcastThreadedRepliesKey = "replyBehavior.broadcastThreadedReplies" // Broadcast threaded replies (slackscot will set broadcast on threaded replies, only applies if threaded replies are enabled), boolean
-	StoragePathKey              = "storagePath"                            // Base file location for leveldb storage
 	PluginsKey                  = "plugins"                                // Root element of the map of string key/values for plugins string
 	UserInfoCacheSizeKey        = "userInfoCacheSize"                      // The number of entries to keep in the user info cache, int value. Defaults to no caching (value of 0)
 )
