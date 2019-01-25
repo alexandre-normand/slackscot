@@ -201,7 +201,13 @@ func (s *Slackscot) Run() (err error) {
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
 		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
-		slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
+		// TODO: For now, the slackscot logger is propagated to slack for its own logging. This means that the prefix is the same for both. With
+		// https://github.com/golang/go/commit/51104cd4d2dab6bdd8bda694c0a9a5613cec3b84 (to be released in 1.12),
+		// we should be able to create a new logger to the same file but using a different prefix
+		// This is the line to use when 1.12 is officially out:
+		//
+		// slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
+		slack.OptionLog(s.log.logger),
 	)
 
 	// This will initiate the connection to the slack RTM and start the reception of messages

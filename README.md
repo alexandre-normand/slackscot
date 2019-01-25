@@ -9,6 +9,7 @@
 ![name.svg](name.svg)
 
 <!-- MarkdownTOC -->
+
 - [Overview](#overview)
 - [Requirements](#requirements)
 - [Features](#features)
@@ -21,6 +22,7 @@
 	- [Creating Your Own Plugins](#creating-your-own-plugins)
 - [Contributing](#contributing)
 - [Some Credits](#some-credits)
+
 <!-- /MarkdownTOC -->
 
 # Overview 
@@ -32,7 +34,7 @@ your ambitious dreams (if you dreams include this sort of thing).
 
 # Requirements
 
-`Go 1.12` or above, mostly for [go module support](https://github.com/golang/go/wiki/Modules). 
+`Go 1.11` or above is required, mostly for [go module support](https://github.com/golang/go/wiki/Modules). 
 
 # Features 
 
@@ -107,6 +109,10 @@ your ambitious dreams (if you dreams include this sort of thing).
     deleted
 
 ![reaction-deletion-on-message-delete](https://www.dropbox.com/s/bwhq20m1b2obvx6/slackscot-delete-message-delete-answers.gif?raw=1)
+
+*   `slackscot` threaded replies enabled (with `broadcast => on`)
+
+![threaded-reply-with-broadcast](https://www.dropbox.com/s/yfinvpbrla9pth8/slackscot-threaded-replies-with-broadcast.gif?raw=1)
 
 # The Name
 
