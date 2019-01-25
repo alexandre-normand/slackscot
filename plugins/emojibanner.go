@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/figlet4go"
 	"github.com/alexandre-normand/slackscot/v2"
+	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -34,7 +34,7 @@ type EmojiBannerMaker struct {
 
 // NewEmojiBannerMaker creates a new instance of the plugin. Note that since it creates a temporary
 // directory to store fonts, the caller should make sure to defer Close on shutdown
-func NewEmojiBannerMaker(c *viper.Viper) (emojiBannerPlugin *EmojiBannerMaker, err error) {
+func NewEmojiBannerMaker(c *config.PluginConfig) (emojiBannerPlugin *EmojiBannerMaker, err error) {
 	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
 
 	options := figlet4go.NewRenderOptions()

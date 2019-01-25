@@ -1,75 +1,39 @@
-// Package store provides a simple and convenient data store service available for plugins to persist
-// data
+// Package store provides a simple and convenient data store interface for plugins to persist
+// data along with a default filed-based leveldb implementation.
 package store
 
 import (
-	"fmt"
-	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
-	"github.com/syndtr/goleveldb/leveldb"
-	leveldberrors "github.com/syndtr/goleveldb/leveldb/errors"
-	"path/filepath"
+	"io"
 )
 
-// Store holds a datastore name and its leveldb instance
-type Store struct {
-	Name     string
-	database *leveldb.DB
+// StringStorer is implemented by any value that has the Get/Put/Scan and Closer methods
+// on string keys/values.
+type StringStorer interface {
+	io.Closer
+	Scanner
+
+	GetString(key string) (value string, err error)
+	PutString(key string, value string) (err error)
 }
 
-// New instantiates and open a new Store instance backed by a leveldb database. If the
-// leveldb database doesn't exist, one is created
-func New(name string, storagePath string) (store *Store, err error) {
-	// Expand '~' as the full home directory path if appropriate
-	path, err := homedir.Expand(storagePath)
-	if err != nil {
-		return nil, err
-	}
+// BytesStorer is implemented by any value that has the Get/Put/Scan and Closer methods
+// on byte arrays for keys/values.
+type BytesStorer interface {
+	io.Closer
+	Scanner
 
-	fullPath := filepath.Join(path, name)
-	db, err := leveldb.OpenFile(fullPath, nil)
-
-	if _, ok := err.(*leveldberrors.ErrCorrupted); ok {
-		return nil, errors.Wrap(err, fmt.Sprintf("leveldb corrupted. Consider deleting [%s] and restarting if you don't mind losing data", fullPath))
-	} else if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to open file with path [%s]", fullPath))
-	}
-
-	return &Store{name, db}, nil
+	Get(key []byte) (value []byte, err error)
+	Put(key []byte, value []byte) (err error)
 }
 
-// Close closes the Store
-func (store *Store) Close() {
-	store.database.Close()
-}
-
-// Get retrieves a value associated to the key
-func (store *Store) Get(key string) (value string, err error) {
-	data, err := store.database.Get([]byte(key), nil)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
-}
-
-// Put adds or updates a value associated to the key
-func (store *Store) Put(key string, value string) (err error) {
-	return store.database.Put([]byte(key), []byte(value), nil)
-}
-
-// Scan returns the complete set of key/values from the database
-func (store *Store) Scan() (entries map[string]string, err error) {
-	entries = map[string]string{}
-	iter := store.database.NewIterator(nil, nil)
-	for iter.Next() {
-		key := string(iter.Key())
-		value := string(iter.Value())
-		entries[key] = value
-	}
-
-	iter.Release()
-	err = iter.Error()
-
-	return entries, err
+// Scanner is implemented by any value that has the Scan method returning
+// all key/values as strings.
+//
+// Since []byte aren't allowed as map keys, we use don't have an equivalent
+// Scanner interface returning the data as bytes.
+// For implementers, it should be easy to convert the []byte values
+// to string with a simple string(value) conversion as strings
+// are immutable arrays of bytes
+type Scanner interface {
+	Scan() (entries map[string]string, err error)
 }

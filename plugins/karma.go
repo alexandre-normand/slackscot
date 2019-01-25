@@ -5,10 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/alexandre-normand/slackscot/v2/config"
 	"github.com/alexandre-normand/slackscot/v2/store"
-	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"regexp"
 	"sort"
 	"strconv"
@@ -19,7 +16,7 @@ import (
 // Karma holds the plugin data for the karma plugin
 type Karma struct {
 	slackscot.Plugin
-	karmaStore *store.Store
+	karmaStorer store.StringStorer
 }
 
 const (
@@ -32,17 +29,7 @@ var topKarmaRegexp = regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
 var worstKarmaRegexp = regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
 
 // NewKarma creates a new instance of the Karma plugin
-func NewKarma(v *viper.Viper) (karma *Karma, err error) {
-	if !v.IsSet(config.StoragePathKey) {
-		return nil, fmt.Errorf("Missing [%s] configuration key in the top value configuration", config.StoragePathKey)
-	}
-
-	storagePath := v.GetString(config.StoragePathKey)
-	storage, err := store.New(KarmaPluginName, storagePath)
-	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("Opening [%s] db failed with path [%s]", KarmaPluginName, storagePath))
-	}
-
+func NewKarma(strStorer store.StringStorer) (karma *Karma) {
 	k := new(Karma)
 
 	hearActions := []slackscot.ActionDefinition{
@@ -72,9 +59,9 @@ func NewKarma(v *viper.Viper) (karma *Karma, err error) {
 	}
 
 	k.Plugin = slackscot.Plugin{Name: KarmaPluginName, Commands: commands, HearActions: hearActions}
-	k.karmaStore = storage
+	k.karmaStorer = strStorer
 
-	return k, nil
+	return k
 }
 
 // matchKarmaRecord returns true if the message matches karma++ or karma-- (karma being any word)
@@ -102,7 +89,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) string {
 
 	var format string
 	thing := match[1]
-	rawValue, err := k.karmaStore.Get(thing)
+	rawValue, err := k.karmaStorer.GetString(thing)
 	if err != nil {
 		rawValue = "0"
 	}
@@ -121,7 +108,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) string {
 	}
 
 	// Store new value
-	err = k.karmaStore.Put(thing, strconv.Itoa(karma))
+	err = k.karmaStorer.PutString(thing, strconv.Itoa(karma))
 	if err != nil {
 		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
 	}
@@ -145,7 +132,7 @@ func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.In
 	rawCount := match[2]
 	count, _ := strconv.Atoi(rawCount)
 
-	values, err := k.karmaStore.Scan()
+	values, err := k.karmaStorer.Scan()
 	if err != nil {
 		return fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)
 	}
@@ -246,11 +233,4 @@ func convertMapValues(rawData map[string]string) (result map[string]int, err err
 	}
 
 	return result, nil
-}
-
-// Close closes the plugin and its underlying database
-func (k *Karma) Close() {
-	if k.karmaStore != nil {
-		k.karmaStore.Close()
-	}
 }
