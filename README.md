@@ -81,7 +81,7 @@ your ambitious dreams (if you dreams include this sort of thing).
     3.  `hear actions` (aka "listeners"): actions that evaluated for a match
         on every message that `slackscot` hears. You'll want to make sure
         your `Match` function isn't too heavy. An example is the "famous" 
-        [finger quoter plugin](plugin/fingerquoter.go)
+        [finger quoter plugin](plugins/fingerquoter.go)
 
 *   Built-in `help` plugin supporting a decently formatted help message
     as a command listing all plugins' actions. If you'd like some actions 
