@@ -90,8 +90,6 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 }
 
 func appendActions(w io.Writer, actions []ActionDefinition) {
-	fmt.Fprintf(w, "\nAnd listen for the following:\n")
-
 	for _, value := range actions {
 		if value.Usage != "" && !value.Hidden {
 			fmt.Fprintf(w, "\t• `%s` - %s\n", value.Usage, value.Description)
