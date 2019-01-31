@@ -1,7 +1,7 @@
 package config_test
 
 import (
-	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/config"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"testing"

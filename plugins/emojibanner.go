@@ -3,8 +3,8 @@ package plugins
 import (
 	"fmt"
 	"github.com/alexandre-normand/figlet4go"
-	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/config"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"

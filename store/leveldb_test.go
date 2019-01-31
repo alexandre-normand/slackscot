@@ -1,7 +1,7 @@
 package store_test
 
 import (
-	"github.com/alexandre-normand/slackscot/v2/store"
+	"github.com/alexandre-normand/slackscot/store"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"

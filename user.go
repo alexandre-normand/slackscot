@@ -2,7 +2,7 @@ package slackscot
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/config"
 	"github.com/hashicorp/golang-lru"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"

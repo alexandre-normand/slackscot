@@ -1,7 +1,7 @@
 package schedule_test
 
 import (
-	"github.com/alexandre-normand/slackscot/v2/schedule"
+	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/marcsantiago/gocron"
 	"github.com/stretchr/testify/assert"
 	"testing"

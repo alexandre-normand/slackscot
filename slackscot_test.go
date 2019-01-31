@@ -2,8 +2,8 @@ package slackscot
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2/config"
-	"github.com/alexandre-normand/slackscot/v2/schedule"
+	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"

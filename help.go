@@ -2,7 +2,7 @@ package slackscot
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot/config"
 	"github.com/spf13/viper"
 	"io"
 	"strings"

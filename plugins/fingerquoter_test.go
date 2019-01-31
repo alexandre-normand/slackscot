@@ -2,8 +2,8 @@ package plugins_test
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/alexandre-normand/slackscot/v2/plugins"
+	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"

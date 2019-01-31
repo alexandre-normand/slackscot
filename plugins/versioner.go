@@ -4,7 +4,7 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2"
+	"github.com/alexandre-normand/slackscot"
 	"strings"
 )
 

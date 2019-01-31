@@ -2,8 +2,8 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/alexandre-normand/slackscot/v2/config"
+	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/config"
 	"math/rand"
 	"strconv"
 	"strings"

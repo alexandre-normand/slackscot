@@ -1,8 +1,8 @@
 package plugins_test
 
 import (
-	"github.com/alexandre-normand/slackscot/v2"
-	"github.com/alexandre-normand/slackscot/v2/plugins"
+	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

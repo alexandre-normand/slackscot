@@ -1,7 +1,7 @@
 package slackscot_test
 
 import (
-	"github.com/alexandre-normand/slackscot/v2"
+	"github.com/alexandre-normand/slackscot"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"strings"
