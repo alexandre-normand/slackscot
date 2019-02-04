@@ -460,10 +460,10 @@ func TestHelpTriggeringWithUserInfoCache(t *testing.T) {
 	v := config.NewViperWithDefaults()
 	v.Set(config.UserInfoCacheSizeKey, 10)
 
-	testhelpTriggering(t, v)
+	testHelpTriggering(t, v)
 }
 
-func testhelpTriggering(t *testing.T, v *viper.Viper) {
+func testHelpTriggering(t *testing.T, v *viper.Viper) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, v, newTestPlugin(), []slack.RTMEvent{
 		// Trigger the help on a channel
 		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> help", botUserID), "Alphonse", timestamp1)),
@@ -472,10 +472,10 @@ func testhelpTriggering(t *testing.T, v *viper.Viper) {
 	})
 
 	if assert.Equal(t, 2, len(sentMsgs)) {
-		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, 5, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 
-		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, 5, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "DFromAlphonse", sentMsgs[1].channelID)
 	}
 
@@ -490,7 +490,7 @@ func TestHelpTriggeringNoUserInfoCache(t *testing.T) {
 	v := config.NewViperWithDefaults()
 	v.Set(config.UserInfoCacheSizeKey, 0)
 
-	testhelpTriggering(t, v)
+	testHelpTriggering(t, v)
 }
 
 func TestTriggeringMessageDeletion(t *testing.T) {
@@ -570,10 +570,7 @@ func TestScheduledAction(t *testing.T) {
 		assert.Equal(t, rtmMessage{channelID: "Cstatus", message: "beat"}, rtmSender.rtmMsgs[0])
 	}
 
-	if assert.Equal(t, 1, len(sentMsgs)) {
-		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
-	}
-
+	assert.Equal(t, 1, len(sentMsgs))
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
 }

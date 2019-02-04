@@ -61,6 +61,8 @@ your ambitious dreams (if you dreams include this sort of thing).
     `broadcast` on channels (disabled by `default`). 
     See [configuration example](#configuration-example) below where 
     both are enabled. 
+    *   Plugin actions may also explicitely reply in threads with/without
+        broadcasting via [AnswerOption](answer.go)
 
 *   Simple extensible storage `API` for persistence in two flavors: 
     `StringStorer` and `BytesStorer`. Both are basic `key:value` maps. 

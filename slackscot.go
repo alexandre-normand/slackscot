@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"github.com/marcsantiago/gocron"
 	"github.com/nlopes/slack"
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"log"
 	"os"
@@ -86,11 +87,13 @@ type Matcher func(m *IncomingMessage) bool
 // Answerer is what gets executed when an ActionDefinition is triggered
 type Answerer func(m *IncomingMessage) *Answer
 
-// Answer currently only wraps the text of the answer but it is there
-// to allow features such as plugin/implementation specific message
-// sending options (such as threaded replying) to be added later
+// Answer holds data of an Action's Answer: namely, its text and options
+// to use when delivering it
 type Answer struct {
 	Text string
+
+	// Options to apply when sending a message
+	Options []AnswerOption
 }
 
 // ActionDefinitionWithID holds an action definition along with its identifier string
@@ -143,6 +146,9 @@ type IncomingMessage struct {
 // OutgoingMessage holds a plugin generated slack outgoing message along with the plugin identifier
 type OutgoingMessage struct {
 	*slack.OutgoingMessage
+
+	// sendOpts for the outgoing message. Those are set by applying AnswerOptions
+	sendOpts map[string]string
 
 	// The identifier of the source of the outgoing message. The format being: pluginName.c[commandIndex] (for a command) or pluginName.h[actionIndex] (for an hear action)
 	pluginActionID string
@@ -538,10 +544,10 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 // sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
 func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, threadTS string) (rID SlackMessageID, err error) {
 	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
-	if s.config.GetBool(config.ThreadedRepliesKey) {
+	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(o.sendOpts[ThreadedReplyOpt]) {
 		options = append(options, slack.MsgOptionTS(threadTS))
 
-		if s.config.GetBool(config.BroadcastThreadedRepliesKey) {
+		if s.config.GetBool(config.BroadcastThreadedRepliesKey) || cast.ToBool(o.sendOpts[BroadcastOpt]) {
 			options = append(options, slack.MsgOptionBroadcast())
 		}
 	}
@@ -618,8 +624,8 @@ func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithID, m *
 		answer := defaultAnswer(m)
 
 		slackOutMsg := rs(m, answer)
-		outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginActionID: "default"}
-		return []*OutgoingMessage{&outMsg}
+		outMsg := newOutMessageWithOptions(slackOutMsg, "default")
+		return []*OutgoingMessage{outMsg}
 	}
 
 	return outMsgs
@@ -638,9 +644,9 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 
 			if answer != nil {
 				slackOutMsg := rs(m, answer)
-				outMsg := OutgoingMessage{OutgoingMessage: slackOutMsg, pluginActionID: action.id}
+				outMsg := newOutMessageWithOptions(slackOutMsg, action.id, answer.Options...)
 
-				outMsgs = append(outMsgs, &outMsg)
+				outMsgs = append(outMsgs, outMsg)
 			}
 		}
 	}
@@ -648,8 +654,18 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 	return outMsgs
 }
 
-// newOutgoingMessage creates a new slack.OutgoingMessage for a given channelID and text content
-func newOutgoingMessage(channelID string, text string) *slack.OutgoingMessage {
+// newOutMessageWithOptions creates a new internal OutgoingMessage and applies AnswerOptions, if any provided
+func newOutMessageWithOptions(o *slack.OutgoingMessage, id string, opts ...AnswerOption) (om *OutgoingMessage) {
+	om = new(OutgoingMessage)
+	om.OutgoingMessage = o
+	om.pluginActionID = id
+	om.sendOpts = ApplyAnswerOpts(opts...)
+
+	return om
+}
+
+// newSlackOutgoingMessage creates a new slack.OutgoingMessage for a given channelID and text content
+func newSlackOutgoingMessage(channelID string, text string) *slack.OutgoingMessage {
 	om := slack.OutgoingMessage{
 		Type:    "message",
 		Channel: channelID,
@@ -661,7 +677,7 @@ func newOutgoingMessage(channelID string, text string) *slack.OutgoingMessage {
 
 // reply sends a reply to the user (using @user) who sent the message on the channel it was sent on
 func reply(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
-	return newOutgoingMessage(replyToMsg.Channel, fmt.Sprintf("<@%s>: %s", replyToMsg.User, answer.Text))
+	return newSlackOutgoingMessage(replyToMsg.Channel, fmt.Sprintf("<@%s>: %s", replyToMsg.User, answer.Text))
 }
 
 // directReply sends a reply to a direct message (which is internally a channel id for slack). It is essentially
@@ -673,5 +689,5 @@ func directReply(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMes
 // send creates a message to be sent on the same channel as received (which can be a direct message since
 // slack internally uses a channel id for private conversations)
 func send(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
-	return newOutgoingMessage(replyToMsg.Channel, answer.Text)
+	return newSlackOutgoingMessage(replyToMsg.Channel, answer.Text)
 }
