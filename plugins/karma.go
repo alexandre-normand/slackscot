@@ -121,7 +121,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 // and returns that instead (if found a match)
 func (k *Karma) renderThing(thing string) (renderedThing string) {
 	if strings.HasPrefix(thing, "@") {
-		u, _ := k.UserInfoFinder.GetUserInfo(thing)
+		u, _ := k.UserInfoFinder.GetUserInfo(strings.TrimPrefix(thing, "@"))
 
 		if u != nil {
 			return u.RealName
