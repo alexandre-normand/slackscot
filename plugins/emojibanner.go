@@ -68,7 +68,7 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (emojiBannerPlugin *EmojiBanner
 		Match: func(m *slackscot.IncomingMessage) bool {
 			return strings.HasPrefix(m.NormalizedText, "emoji banner")
 		},
-		Usage:       "emoji banner <word> <emoji>",
+		Usage:       "emoji banner <word of 5 characters or less> <emoji>",
 		Description: "Renders a single-word banner with the provided emoji",
 		Answer: func(m *slackscot.IncomingMessage) *slackscot.Answer {
 			return validateAndRenderEmoji(m.Text, emojiBannerRegex, renderer, options)
@@ -121,11 +121,18 @@ func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figl
 		parameters := strings.Split(commandParameters[2], " ")
 
 		if len(parameters) == 2 {
-			return renderBanner(parameters[0], parameters[1], renderer, options)
+			word := parameters[0]
+			emoji := parameters[1]
+
+			if len(word) < 5 {
+				return renderBanner(word, emoji, renderer, options)
+			} else {
+				return &slackscot.Answer{Text: "Wrong usage (word longer than 5 characters): emoji banner <word of 5 characters or less> <emoji>"}
+			}
 		}
 	}
 
-	return &slackscot.Answer{Text: "Wrong usage: emoji banner <word> <emoji>"}
+	return &slackscot.Answer{Text: "Wrong usage: emoji banner <word of 5 characters or less> <emoji>"}
 }
 
 func renderBanner(word, emoji string, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) *slackscot.Answer {
