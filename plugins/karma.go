@@ -24,7 +24,7 @@ const (
 	KarmaPluginName = "karma"
 )
 
-var karmaRegex = regexp.MustCompile("\\s*(\\w+)(\\+\\+|\\-\\-).*")
+var karmaRegex = regexp.MustCompile("\\s*(@?[\\w-']+)(\\+\\+|\\-\\-).*")
 var topKarmaRegexp = regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
 var worstKarmaRegexp = regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
 
@@ -112,8 +112,23 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 	if err != nil {
 		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
 	}
-	return &slackscot.Answer{Text: fmt.Sprintf(format, thing, thing, karma)}
+	return &slackscot.Answer{Text: fmt.Sprintf(format, k.renderThing(thing), k.renderThing(thing), karma)}
 
+}
+
+// renderThing renders the thing value. In most cases, it should just return the value
+// untouched but if it starts with '@', it tries to find the user info matching the value
+// and returns that instead (if found a match)
+func (k *Karma) renderThing(thing string) (renderedThing string) {
+	if strings.HasPrefix(thing, "@") {
+		u, _ := k.UserInfoFinder.GetUserInfo(thing)
+
+		if u != nil {
+			return u.RealName
+		}
+	}
+
+	return thing
 }
 
 func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
@@ -144,18 +159,18 @@ func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.In
 	var buffer bytes.Buffer
 
 	buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, count))
-	buffer.WriteString(formatList(pairs))
+	buffer.WriteString(k.formatList(pairs))
 	return &slackscot.Answer{Text: buffer.String()}
 }
 
-func formatList(pl pairList) string {
+func (k *Karma) formatList(pl pairList) string {
 	var b bytes.Buffer
 	b.WriteString("```")
 	w := new(tabwriter.Writer)
 	bufw := bufio.NewWriter(&b)
 	w.Init(bufw, 5, 0, 1, ' ', 0)
 	for _, pair := range pl {
-		fmt.Fprintf(w, "%d\t%s\n", pair.Value, pair.Key)
+		fmt.Fprintf(w, "%d\t%s\n", pair.Value, k.renderThing(pair.Key))
 	}
 	fmt.Fprintf(w, "```\n")
 
