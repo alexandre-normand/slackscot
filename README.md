@@ -292,11 +292,11 @@ which means that you are free to use a different file format
    },
    "plugins": {
       "ohMonday": {
-   	     "channelId": "slackChannelId"
+   	     "channelIDs": ["slackChannelId"]
       },
       "fingerQuoter": {
          "frequency": "100",
-         "channelIds": ""
+         "channelIDs": []
       },
       "emojiBanner": {
          "figletFontUrl": "http://www.figlet.org/fonts/banner.flf"

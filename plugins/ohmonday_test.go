@@ -14,13 +14,11 @@ import (
 )
 
 type FakeSender struct {
-	message string
-	channel string
+	msgs map[string]string
 }
 
-func (f *FakeSender) SendNewMessage(message string, channelId string) (err error) {
-	f.message = message
-	f.channel = channelId
+func (f *FakeSender) SendNewMessage(message string, channelID string) (err error) {
+	f.msgs[channelID] = message
 
 	return nil
 }
@@ -31,7 +29,7 @@ func (f *FakeSender) GetAPI() (rtm *slack.RTM) {
 
 func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	pc := viper.New()
-	pc.Set("channelId", "testChannel")
+	pc.Set("channelIDs", []string{"channel1", "channel2"})
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.Nil(t, err)
@@ -40,19 +38,24 @@ func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	var b strings.Builder
 	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
 
-	sender := FakeSender{}
+	sender := FakeSender{msgs: make(map[string]string)}
 
 	for i := 0; i < 100; i++ {
 		sa.Action(&sender)
 
-		assert.Contains(t, sender.message, "https://")
-		assert.Contains(t, sender.channel, "testChannel")
+		if assert.Contains(t, sender.msgs, "channel1") {
+			assert.Contains(t, sender.msgs["channel1"], "https://")
+		}
+
+		if assert.Contains(t, sender.msgs, "channel2") {
+			assert.Contains(t, sender.msgs["channel2"], "https://")
+		}
 	}
 }
 
 func TestDefaultAtTime(t *testing.T) {
 	pc := viper.New()
-	pc.Set("channelId", "testChannel")
+	pc.Set("channelIDs", "testChannel")
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.Nil(t, err)
@@ -61,18 +64,42 @@ func TestDefaultAtTime(t *testing.T) {
 	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, sa.Schedule)
 }
 
-func TestMissingChannelId(t *testing.T) {
+func TestMissingChannelIDs(t *testing.T) {
 	pc := viper.New()
 
-	_, err := plugins.NewOhMonday(pc)
-	if assert.NotNil(t, err) {
-		assert.Contains(t, err.Error(), "Missing [channelId] configuration key")
-	}
+	o, err := plugins.NewOhMonday(pc)
+	assert.Nil(t, err)
+
+	sa := o.ScheduledActions[0]
+	var b strings.Builder
+	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	sender := FakeSender{msgs: make(map[string]string)}
+
+	sa.Action(&sender)
+
+	assert.Empty(t, sender.msgs)
+}
+
+func TestEmptyChannels(t *testing.T) {
+	pc := viper.New()
+	pc.Set("channelIDs", "")
+
+	o, err := plugins.NewOhMonday(pc)
+	assert.Nil(t, err)
+
+	sa := o.ScheduledActions[0]
+	var b strings.Builder
+	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	sender := FakeSender{msgs: make(map[string]string)}
+
+	sa.Action(&sender)
+
+	assert.Empty(t, sender.msgs)
 }
 
 func TestAtTimeOverride(t *testing.T) {
 	pc := viper.New()
-	pc.Set("channelId", "testChannel")
+	pc.Set("channelIDs", "testChannel")
 	pc.Set("atTime", "11:00")
 
 	o, err := plugins.NewOhMonday(pc)
