@@ -14,6 +14,13 @@ import (
 	"testing"
 )
 
+type userInfoFinder struct {
+}
+
+func (u userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error) {
+	return &slack.User{ID: userID, RealName: "Bernard Tremblay"}, nil
+}
+
 func TestKarmaMatchesAndAnswers(t *testing.T) {
 	testCases := []struct {
 		text            string
@@ -37,6 +44,15 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"karma", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, make(map[string]string)},
 		{"karma top 2", map[string]bool{"h[0]": false, "c[0]": true, "c[1]": false}, map[string]string{"c[0]": "Here are the top 2 things: \n```4    salmon\n3    creek\n```\n"}},
 		{"karma worst 2", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": true}, map[string]string{"c[1]": "Here are the worst 2 things: \n```-2   dams\n1    nettle\n```\n"}},
+		{"@U21355++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 1)"}},
+		{"@U21355++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 2)"}},
+		{"@U21355++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 3)"}},
+		{"@U21355++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 4)"}},
+		{"@U21355++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 5)"}},
+		{"@U21355++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"}},
+		{"karma top 1", map[string]bool{"h[0]": false, "c[0]": true, "c[1]": false}, map[string]string{"c[0]": "Here are the top 1 things: \n```6    Bernard Tremblay\n```\n"}},
+		{"don't++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`don't` just gained a level (`don't`: 1)"}},
+		{"under-the-bridge++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`under-the-bridge` just gained a level (`under-the-bridge`: 1)"}},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
@@ -48,7 +64,9 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 	assert.Nil(t, err)
 	defer storer.Close()
 
+	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(storer)
+	k.UserInfoFinder = userInfoFinder
 
 	if assert.NotNil(t, k) {
 		// Attach the logger
