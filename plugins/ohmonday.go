@@ -3,7 +3,6 @@
 package plugins
 
 import (
-	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
@@ -13,8 +12,8 @@ import (
 
 // Configuration keys
 const (
-	atTimeKey    = "atTime"
-	channelIDKey = "channelId"
+	atTimeKey             = "atTime"
+	ohMondayChannelIDsKey = "channelIDs"
 )
 
 var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/giphy.gif",
@@ -50,7 +49,7 @@ var selectionRandom = rand.New(rand.NewSource(time.Now().Unix()))
 // OhMonday holds the plugin data for the Oh Monday plugin
 type OhMonday struct {
 	slackscot.Plugin
-	channelID string
+	channels []string
 }
 
 // NewOhMonday creates a new instance of the OhMonday plugin
@@ -59,21 +58,19 @@ func NewOhMonday(c *config.PluginConfig) (o *OhMonday, err error) {
 
 	scheduleDefinition := schedule.Definition{Interval: 1, Unit: schedule.Weeks, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
 
-	if ok := c.IsSet(channelIDKey); !ok {
-		return nil, fmt.Errorf("Missing [%s] configuration key for plugin [%s]", channelIDKey, OhMondayPluginName)
-	}
-
 	o = new(OhMonday)
 	o.Name = OhMondayPluginName
-	o.channelID = c.GetString(channelIDKey)
+	o.channels = c.GetStringSlice(ohMondayChannelIDsKey)
 	o.ScheduledActions = []slackscot.ScheduledActionDefinition{{Schedule: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: o.sendGreeting}}
 
 	return o, nil
 }
 
 func (o *OhMonday) sendGreeting(sender slackscot.RealTimeMessageSender) {
-	message := mondayPictures[selectionRandom.Intn(len(mondayPictures))]
-	o.Logger.Debugf("[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, o.channelID)
+	for _, c := range o.channels {
+		message := mondayPictures[selectionRandom.Intn(len(mondayPictures))]
+		o.Logger.Debugf("[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, c)
 
-	sender.SendNewMessage(message, o.channelID)
+		sender.SendNewMessage(message, c)
+	}
 }

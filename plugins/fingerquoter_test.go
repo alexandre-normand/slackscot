@@ -47,7 +47,7 @@ func TestChannelWhitelisting(t *testing.T) {
 	pc := viper.New()
 	// With a frequency of 1, every message should match if whitelist is on
 	pc.Set("frequency", 1)
-	pc.Set("channelIds", "channel1,channel2")
+	pc.Set("channelIds", []string{"channel1", "channel2"})
 
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
