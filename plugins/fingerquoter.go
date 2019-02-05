@@ -35,7 +35,6 @@ func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 
 	f = new(FingerQuoter)
 	f.channels = config.GetStringSlice(channelIDsKey)
-	fmt.Printf("CHannels (%d)\n", len(f.channels))
 	f.frequency = config.GetInt(frequencyKey)
 	f.Name = FingerQuoterPluginName
 	f.HearActions = []slackscot.ActionDefinition{{

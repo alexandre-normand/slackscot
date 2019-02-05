@@ -34,7 +34,20 @@ func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
 
 	c := ebm.Commands[0]
 
-	assert.Equal(t, "Wrong usage: emoji banner <word> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats"}}).Text)
+	assert.Equal(t, "Wrong usage: emoji banner <word of 5 characters or less> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats"}}).Text)
+}
+
+func TestEmojiBannerGenerationWithLongWord(t *testing.T) {
+	pc := viper.New()
+
+	ebm, err := plugins.NewEmojiBannerMaker(pc)
+	assert.Nil(t, err)
+
+	defer ebm.Close()
+
+	c := ebm.Commands[0]
+
+	assert.Equal(t, "Wrong usage (word longer than 5 characters): emoji banner <word of 5 characters or less> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner testing :bug:"}}).Text)
 }
 
 func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
