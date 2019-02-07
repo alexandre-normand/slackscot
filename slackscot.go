@@ -463,7 +463,7 @@ func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, 
 			s.log.Debugf("New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
 
 			// It's a new message for that action so post it as a new message
-			rID, err := s.sendNewMessage(driver, o, incomingMessageID.timestamp)
+			rID, err := s.sendNewMessage(driver, o, editedSlackMessageID.timestamp)
 			if err != nil {
 				s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
 			} else {
