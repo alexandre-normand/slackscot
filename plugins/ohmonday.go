@@ -16,11 +16,11 @@ const (
 	ohMondayChannelIDsKey = "channelIDs"
 )
 
-var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/giphy.gif",
+var mondayPictures = []string{"https://media.giphy.com/media/3og0IHx11gZBccA98c/giphy-downsized-large.gif",
 	"https://media.giphy.com/media/vguRpQzGag7M5h4UVt/giphy.gif",
-	"https://media.giphy.com/media/9GI7UlOQ6uU95v82q7/giphy.gif",
+	"https://media.giphy.com/media/9GI7UlOQ6uU95v82q7/giphy-downsized-large.gif",
 	"https://media.giphy.com/media/hu3Z1fwuOZh3a/giphy.gif",
-	"https://media.giphy.com/media/5ZZSYqvcH6QppFQGI5/giphy.gif",
+	"https://media.giphy.com/media/5ZZSYqvcH6QppFQGI5/giphy-downsized-large.gif",
 	"https://media.giphy.com/media/7mMRX7gWzDVwA/giphy.gif",
 	"https://media.giphy.com/media/Mv6t9sASpgTEA/giphy.gif",
 	"https://media.giphy.com/media/GGFMa2baxgoLK/giphy.gif",
