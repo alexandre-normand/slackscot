@@ -47,7 +47,7 @@ func TestChannelWhitelisting(t *testing.T) {
 	pc := viper.New()
 	// With a frequency of 1, every message should match if whitelist is on
 	pc.Set("frequency", 1)
-	pc.Set("channelIds", []string{"channel1", "channel2"})
+	pc.Set("channelIDs", []string{"channel1", "channel2"})
 
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
@@ -59,11 +59,45 @@ func TestChannelWhitelisting(t *testing.T) {
 	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
 }
 
+func TestChannelIgnoring(t *testing.T) {
+	pc := viper.New()
+	// With a frequency of 1, every message should match if whitelist is on
+	pc.Set("frequency", 1)
+	pc.Set("channelIDs", []string{"channel1", "channel2"})
+	pc.Set("ignoredChannelIDs", []string{"channel2"})
+
+	f, err := plugins.NewFingerQuoter(pc)
+	assert.Nil(t, err)
+
+	h := f.HearActions[0]
+
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
+	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
+	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
+}
+
+func TestChannelIgnoredWithDefaultWhitelisting(t *testing.T) {
+	pc := viper.New()
+	// With a frequency of 1, every message should match if whitelist is on
+	pc.Set("frequency", 1)
+	pc.Set("channelIDs", "")
+	pc.Set("ignoredChannelIDs", []string{"channel2"})
+
+	f, err := plugins.NewFingerQuoter(pc)
+	assert.Nil(t, err)
+
+	h := f.HearActions[0]
+
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
+	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
+	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
+}
+
 func TestDefaultWhitelistingEnablesForAll(t *testing.T) {
 	pc := viper.New()
 	// With a frequency of 1, every message should match if whitelist is on
 	pc.Set("frequency", 1)
-	pc.Set("channelIds", "")
+	pc.Set("channelIDs", "")
 
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
@@ -139,7 +173,7 @@ func TestQuotingOfSingleLongWord(t *testing.T) {
 func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
 	pc := viper.New()
 	pc.Set("frequency", 10)
-	pc.Set("channelIds", "")
+	pc.Set("channelIDs", "")
 
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
