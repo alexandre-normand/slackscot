@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	channelIDsKey = "channelIDs"
-	frequencyKey  = "frequency"
+	channelIDsKey        = "channelIDs"
+	ignoredChannelIDsKey = "ignoredChannelIDs"
+	frequencyKey         = "frequency"
 )
 
 const (
@@ -23,8 +24,9 @@ const (
 // FingerQuoter holds the plugin data for the finger quoter plugin
 type FingerQuoter struct {
 	slackscot.Plugin
-	channels  []string
-	frequency int
+	channels        []string
+	ignoredChannels []string
+	frequency       int
 }
 
 // NewFingerQuoter creates a new instance of the plugin
@@ -35,6 +37,7 @@ func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 
 	f = new(FingerQuoter)
 	f.channels = config.GetStringSlice(channelIDsKey)
+	f.ignoredChannels = config.GetStringSlice(ignoredChannelIDsKey)
 	f.frequency = config.GetInt(frequencyKey)
 	f.Name = FingerQuoterPluginName
 	f.HearActions = []slackscot.ActionDefinition{{
@@ -50,7 +53,7 @@ func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
 }
 
 func (f *FingerQuoter) trigger(m *slackscot.IncomingMessage) bool {
-	if !isChannelWhiteListed(m.Channel, f.channels) {
+	if !isChannelEnabled(m.Channel, f.channels, f.ignoredChannels) {
 		return false
 	}
 
@@ -108,6 +111,24 @@ func filterWordsLongerThan(words []string, minLen int) []string {
 	}
 
 	return candidates
+}
+
+func isChannelEnabled(channelID string, whitelist []string, ignoredChannels []string) bool {
+	if isChannelWhiteListed(channelID, whitelist) && !isChannelIgnored(channelID, ignoredChannels) {
+		return true
+	}
+
+	return false
+}
+
+func isChannelIgnored(channelID string, ignoredChannels []string) bool {
+	for _, c := range ignoredChannels {
+		if c == channelID {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isChannelWhiteListed(channelID string, whitelist []string) bool {
