@@ -45,7 +45,7 @@ func TestGetAfterCloseShouldResultInError(t *testing.T) {
 	ldb.Close()
 	_, err = ldb.Get([]byte("testKey"))
 
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestPutGetScanAsBytes(t *testing.T) {
@@ -71,6 +71,62 @@ func TestPutGetScanAsBytes(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, map[string]string{"testKey": "value1"}, m)
+}
+
+func TestDeleteString(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
+	defer os.RemoveAll(dir)
+
+	var bs store.StringStorer
+
+	bs, err = store.NewLevelDB("test", dir)
+	assert.Nil(t, err)
+	defer bs.Close()
+
+	err = bs.PutString("testKey", "value1")
+	assert.Nil(t, err)
+
+	v, err := bs.GetString("testKey")
+	assert.Nil(t, err)
+
+	assert.Equal(t, "value1", v)
+
+	err = bs.DeleteString("testKey")
+	assert.Nil(t, err)
+
+	v, err = bs.GetString("testKey")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "not found")
+	}
+}
+
+func TestDeleteAsBytes(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
+	defer os.RemoveAll(dir)
+
+	var bs store.BytesStorer
+
+	bs, err = store.NewLevelDB("test", dir)
+	assert.Nil(t, err)
+	defer bs.Close()
+
+	err = bs.Put([]byte("testKey"), []byte("value1"))
+	assert.Nil(t, err)
+
+	v, err := bs.Get([]byte("testKey"))
+	assert.Nil(t, err)
+
+	assert.Equal(t, []byte("value1"), v)
+
+	err = bs.Delete([]byte("testKey"))
+	assert.Nil(t, err)
+
+	v, err = bs.Get([]byte("testKey"))
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(), "not found")
+	}
 }
 
 func TestPutGetScanAsString(t *testing.T) {

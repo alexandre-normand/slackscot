@@ -85,6 +85,11 @@ your ambitious dreams (if you dreams include this sort of thing).
         your `Match` function isn't too heavy. An example is the "famous" 
         [finger quoter plugin](plugins/fingerquoter.go)
 
+*   Testing functions to help validate plugin action behavior (see example in 
+    [triggerer_test.go](plugins/triggerer_test.go)). Testing functions
+    are found in [assertaction](test/assertaction) and 
+    [assertanswer](test/assertanswer)
+
 *   Built-in `help` plugin supporting a decently formatted help message
     as a command listing all plugins' actions. If you'd like some actions 
     to not be shown in the help, you can set `Hidden` to `true` in 
