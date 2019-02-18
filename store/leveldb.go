@@ -60,12 +60,22 @@ func (ldb *LevelDB) Get(key []byte) (value []byte, err error) {
 
 // PutString adds or updates a value associated to the key
 func (ldb *LevelDB) PutString(key string, value string) (err error) {
-	return ldb.database.Put([]byte(key), []byte(value), nil)
+	return ldb.Put([]byte(key), []byte(value))
 }
 
 // Put adds or updates a value associated to the key
 func (ldb *LevelDB) Put(key []byte, value []byte) (err error) {
 	return ldb.database.Put(key, value, nil)
+}
+
+// DeleteString deletes an entry for a given key string
+func (ldb *LevelDB) DeleteString(key string) (err error) {
+	return ldb.Delete([]byte(key))
+}
+
+// Delete deletes an entry for a given key
+func (ldb *LevelDB) Delete(key []byte) (err error) {
+	return ldb.database.Delete(key, nil)
 }
 
 // Scan returns the complete set of key/values from the database

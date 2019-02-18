@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// StringStorer is implemented by any value that has the Get/Put/Scan and Closer methods
+// StringStorer is implemented by any value that has the Get/Put/Delete/Scan and Closer methods
 // on string keys/values.
 type StringStorer interface {
 	io.Closer
@@ -14,9 +14,10 @@ type StringStorer interface {
 
 	GetString(key string) (value string, err error)
 	PutString(key string, value string) (err error)
+	DeleteString(key string) (err error)
 }
 
-// BytesStorer is implemented by any value that has the Get/Put/Scan and Closer methods
+// BytesStorer is implemented by any value that has the Get/Put/Delete/Scan and Closer methods
 // on byte arrays for keys/values.
 type BytesStorer interface {
 	io.Closer
@@ -24,6 +25,7 @@ type BytesStorer interface {
 
 	Get(key []byte) (value []byte, err error)
 	Put(key []byte, value []byte) (err error)
+	Delete(key []byte) (err error)
 }
 
 // Scanner is implemented by any value that has the Scan method returning
