@@ -154,7 +154,7 @@ func TestNoAnswerWhenCorruptedTimestamp(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.Equal(t, "", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue", Text: "This is a text with longer and shorter words"}}).Text)
+	assert.Nil(t, h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue", Text: "This is a text with longer and shorter words"}}))
 	assert.Contains(t, b.String(), "error converting timestamp to float")
 }
 
@@ -208,5 +208,5 @@ func TestNoQuotingIfOnlySmallWords(t *testing.T) {
 
 	h := f.HearActions[0]
 
-	assert.Equal(t, "", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "Do I or not?", Timestamp: "1546833210.036900"}}).Text)
+	assert.Nil(t, h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "Do I or not?", Timestamp: "1546833210.036900"}}))
 }

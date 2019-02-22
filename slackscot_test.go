@@ -109,6 +109,13 @@ func (u *userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error
 	return &slack.User{ID: botUserID, Name: "Daniel Quinn"}, nil
 }
 
+type emojiReactor struct {
+}
+
+func (e *emojiReactor) AddReaction(name string, item slack.ItemRef) error {
+	return nil
+}
+
 // Option type for building a message with additional options for specific test cases
 type testMsgOption func(e *slack.MessageEvent)
 
@@ -624,6 +631,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 
 	var selfFinder selfFinder
 	var userInfoFinder userInfoFinder
+	var emojiReactor emojiReactor
 
 	s, err := NewSlackscot("chickadee", v, options...)
 	s.RegisterPlugin(plugin)
@@ -638,7 +646,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 
 	ec := make(chan slack.RTMEvent)
 	termination := make(chan bool)
-	go s.runInternal(ec, termination, &inMemoryChatDriver, &userInfoFinder, &selfFinder, false)
+	go s.runInternal(ec, termination, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder}, false)
 
 	go sendTestEventsForProcessing(ec, events)
 
