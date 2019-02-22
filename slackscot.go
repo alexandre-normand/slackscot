@@ -58,6 +58,7 @@ type Plugin struct {
 	// A plugin shouldn't rely on those being available during creation
 	UserInfoFinder UserInfoFinder
 	Logger         SLogger
+	EmojiReactor   EmojiReactor
 }
 
 // ActionDefinition represents how an action is triggered, published, used and described
@@ -84,7 +85,8 @@ type ActionDefinition struct {
 // actually respond with anything once invoked
 type Matcher func(m *IncomingMessage) bool
 
-// Answerer is what gets executed when an ActionDefinition is triggered
+// Answerer is what gets executed when an ActionDefinition is triggered. To signal the absence of an answer, an action
+// should return nil
 type Answerer func(m *IncomingMessage) *Answer
 
 // Answer holds data of an Action's Answer: namely, its text and options
@@ -157,6 +159,15 @@ type OutgoingMessage struct {
 // terminationEvent is an empty struct that is only used for whitebox testing in order to signal slackscot to terminate
 // Any such events when executed as part of the normal API would be ignored
 type terminationEvent struct {
+}
+
+// runDependencies represents all runtime dependencies. Note that they're mostly satisfied by slack.RTM or slack.Client
+// but having dependencies used as the smaller interfaces keeps the rest of the code cleaner and easier to test
+type runDependencies struct {
+	chatDriver     chatDriver
+	userInfoFinder UserInfoFinder
+	emojiReactor   EmojiReactor
+	selfInfoFinder selfInfoFinder
 }
 
 // Option defines an option for a Slackscot
@@ -245,7 +256,7 @@ func (s *Slackscot) Run() (err error) {
 
 	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
 	// in a production scenario is by receiving a termination signal which
-	go s.runInternal(rtm.IncomingEvents, termination, sc, sc, rtm, true)
+	go s.runInternal(rtm.IncomingEvents, termination, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, selfInfoFinder: rtm}, true)
 
 	// Wait for termination
 	<-termination
@@ -257,7 +268,7 @@ func (s *Slackscot) Run() (err error) {
 // always process events as long as the process isn't interrupted. Normally, this happens
 // by a kill signal being sent and slackscot gets notified and closes the events channel which
 // terminates this loop and shuts down gracefully
-func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<- bool, driver chatDriver, userInfoFinder UserInfoFinder, selfInfoFinder selfInfoFinder, productionMode bool) {
+func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<- bool, deps *runDependencies, productionMode bool) {
 	// Ensure we send a termination signal on the channel to unblock the main thread and exit
 	defer func() {
 		termination <- true
@@ -272,17 +283,17 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 	s.RegisterPlugin(&helpPlugin.Plugin)
 
 	// Inject services into plugins before starting to process events
-	s.injectServicesToPlugins(userInfoFinder, s.log)
+	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor)
 
 	for msg := range events {
 		switch e := msg.Data.(type) {
 		case *slack.ConnectedEvent:
 			s.log.Printf("Infos: %v\n", e.Info)
 			s.log.Printf("Connection counter: %d\n", e.ConnectionCount)
-			s.cacheSelfIdentity(selfInfoFinder)
+			s.cacheSelfIdentity(deps.selfInfoFinder)
 
 		case *slack.MessageEvent:
-			s.processMessageEvent(driver, e)
+			s.processMessageEvent(deps.chatDriver, e)
 
 		case *slack.LatencyReport:
 			s.log.Printf("Current latency: %v\n", e.Value)
@@ -306,7 +317,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 }
 
 // injectServicesToPlugins assembles/creates the services and injects them in all plugins
-func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, l SLogger) (err error) {
+func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, l SLogger, er EmojiReactor) (err error) {
 	uf, err := NewCachingUserInfoFinder(s.config, loadingUserInfoFinder, l)
 	if err != nil {
 		return err
@@ -315,6 +326,7 @@ func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder
 	for _, p := range s.plugins {
 		p.Logger = l
 		p.UserInfoFinder = uf
+		p.EmojiReactor = er
 	}
 
 	return nil

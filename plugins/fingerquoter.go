@@ -90,8 +90,8 @@ func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) *slackscot.A
 		}
 	}
 
-	// Not this time, skip
-	return &slackscot.Answer{Text: ""}
+	// Not this time friends, skip it
+	return nil
 }
 
 func splitInputIntoWordsLongerThan(t string, minLen int) []string {

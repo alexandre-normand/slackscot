@@ -3,6 +3,7 @@ package assertaction
 
 import (
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -19,6 +20,25 @@ func MatchesAndAnswers(t *testing.T, action slackscot.ActionDefinition, m *slack
 		a := action.Answer(m)
 
 		return validateAnswer(t, a)
+	} else {
+		return false
+	}
+}
+
+// MatchesAndEmojiReacts asserts that the action.Match is true and validates that expected emojis reactions are added to the message
+func MatchesAndEmojiReacts(t *testing.T, plugin *slackscot.Plugin, action slackscot.ActionDefinition, m *slackscot.IncomingMessage, expectedEmojis ...string) bool {
+	isMatch := action.Match(m)
+
+	if assert.Equalf(t, true, isMatch, "Message [%s] expected to match but action.Match returned false", m.NormalizedText) {
+		// Register a new emoji reactor with the plugin
+		ec := test.NewEmojiReactionCaptor()
+		plugin.EmojiReactor = ec
+
+		action.Answer(m)
+
+		return assert.Equalf(t, m.Channel, ec.Channel, "Expected emoji reactions on the same channel as the triggering message [%s] but was [%s]", m.Channel, ec.Channel) &&
+			assert.Equalf(t, m.Timestamp, ec.Timestamp, "Expected emoji reactions on the same timestamp as the triggering message [%s] but was [%s]", m.Timestamp, ec.Timestamp) &&
+			assert.ElementsMatchf(t, expectedEmojis, ec.Emojis, "Expected emoji reactions [%s] but got [%s]", expectedEmojis, ec.Emojis)
 	} else {
 		return false
 	}

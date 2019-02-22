@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
-	"github.com/alexandre-normand/slackscot/test/assertaction"
 	"github.com/alexandre-normand/slackscot/test/assertanswer"
+	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"strings"
 	"testing"
@@ -64,26 +65,41 @@ func TestRegisterNewTrigger(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
 
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
-		// Validate trigger reaction
-		hearAction := triggerer.HearActions[0]
-		assertaction.NotMatch(t, hearAction, &slackscot.IncomingMessage{NormalizedText: "deal with nothing", Msg: slack.Msg{Text: "deal with nothing"}})
-		assertaction.MatchesAndAnswers(t, hearAction, &slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "http://dealwithit.gif") &&
-				assertanswer.HasOptions(t, a)
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, answers) && assert.Empty(t, emojis)
 		})
 
-		assertaction.MatchesAndAnswers(t, hearAction, &slackscot.IncomingMessage{NormalizedText: "don't tell me to deal with it, I've already had enough", Msg: slack.Msg{Text: "don't tell me to deal with it, I've already had enough"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "http://dealwithit.gif") &&
-				assertanswer.HasOptions(t, a)
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://dealwithit.gif") && assertanswer.HasOptions(t, answers[0])
+		})
+
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "don't tell me to deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://dealwithit.gif") && assertanswer.HasOptions(t, answers[0])
+		})
+
+	}
+}
+
+func TestRegisterNewEmojiTrigger(t *testing.T) {
+	storer := newInMemoryStorer()
+	triggerer := plugins.NewTriggerer(storer)
+
+	assertplugin := assertplugin.New("bot")
+
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> emoji trigger on deal with it with :boom::cat:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`deal with it` => :boom:, :cat:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) {
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Empty(t, answers)
+		})
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, answers) && assert.Contains(t, emojis, "boom", "cat")
 		})
 	}
 }
@@ -92,20 +108,18 @@ func TestErrorGettingTriggersWhenReacting(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
 
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		storer.returnErrorOnReads = true
 
 		// Validate trigger reaction is absent because of the error listing triggers
-		hearAction := triggerer.HearActions[0]
-		assertaction.NotMatch(t, hearAction, &slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}})
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, answers) && assert.Empty(t, emojis)
+		})
 	}
 }
 
@@ -114,79 +128,93 @@ func TestErrorGettingTriggersWhenReacting(t *testing.T) {
 func TestErrorGettingTriggersWhenAnswering(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		storer.returnErrorOnReads = true
 
 		// Validate answer is empty because of the error listing triggers
 		hearAction := triggerer.HearActions[0]
-		assertanswer.HasText(t, hearAction.Answer(&slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}}), "")
+		assert.Nil(t, hearAction.Answer(&slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}}))
 	}
 }
 
 // This case interacts directly with the hear action since it's a little harder to simulate a case of Answer getting called without a matching trigger.
 // But since it can still happen (a race condition and a trigger being deleted between Match and Answer being called), we want to test it
-func TestNoMoreTriggersWhenAnswering(t *testing.T) {
+func TestNoReactionWhenNoTriggers(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
 
 	var b strings.Builder
 	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
 
-	// Validate answer is empty because of the error listing triggers
 	hearAction := triggerer.HearActions[0]
-	assertanswer.HasText(t, hearAction.Answer(&slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}}), "")
+	assert.Nil(t, hearAction.Answer(&slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}}))
+}
+
+func TestNoAnswersAndNoEmojisWhenNoTriggers(t *testing.T) {
+	storer := newInMemoryStorer()
+	triggerer := plugins.NewTriggerer(storer)
+	assertplugin := assertplugin.New("bot")
+
+	assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers) && assert.Empty(t, emojis)
+	})
 }
 
 func TestErrorOnRegisterNewTrigger(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Have the storer return an error on write
 	storer.returnErrorOnWrites = true
 
-	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Error persisting trigger `[deal with it => http://dealwithit.gif]`: `Mock error`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	// Register new trigger and get an error persisting it
+	assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error persisting standard trigger [`deal with it` => `http://dealwithit.gif`]: `Mock error`") &&
+			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
 }
 
 func TestUpdateTrigger(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
-		// Update trigger
-		if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://betterdealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://betterdealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "Replaced trigger reaction for [`deal with it`] with [`http://betterdealwithit.gif`] (was [`http://dealwithit.gif`] previously)") &&
-				assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://betterdealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Replaced standard trigger reaction for [`deal with it`] with [`http://betterdealwithit.gif`] (was [`http://dealwithit.gif`] previously)") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		}) {
-			// Validate trigger reaction
-			hearAction := triggerer.HearActions[0]
-			assertaction.MatchesAndAnswers(t, hearAction, &slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}}, func(t *testing.T, a *slackscot.Answer) bool {
-				return assertanswer.HasText(t, a, "http://betterdealwithit.gif") &&
-					assertanswer.HasOptions(t, a)
+			// Validate updated trigger reaction
+			assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+				return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://betterdealwithit.gif") && assertanswer.HasOptions(t, answers[0])
+			})
+		}
+	}
+}
+
+func TestUpdateEmojiTrigger(t *testing.T) {
+	storer := newInMemoryStorer()
+	triggerer := plugins.NewTriggerer(storer)
+	assertplugin := assertplugin.New("bot")
+
+	// Register new trigger
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> emoji trigger on deal with it with :man-in-suit:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`deal with it` => :man-in-suit:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) {
+		if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> emoji trigger on deal with it with :boom:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Replaced emoji trigger reaction for [`deal with it`] with [:boom:] (was [:man-in-suit:] previously)") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		}) {
+			// Validate updated trigger reaction
+			assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+				return assert.Empty(t, answers) && assert.Contains(t, emojis, "boom")
 			})
 		}
 	}
@@ -195,23 +223,19 @@ func TestUpdateTrigger(t *testing.T) {
 func TestErrorOnUpdateTrigger(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// Have the storer return an error on write
 		storer.returnErrorOnWrites = true
 
-		// Attempt to update trigger
-		assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "Error persisting trigger `[deal with it => http://dealwithit.gif]`: `Mock error`") &&
-				assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		// Attempt to update trigger and expect error message
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://betterdealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error persisting standard trigger [`deal with it` => `http://betterdealwithit.gif`]: `Mock error`") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
 }
@@ -220,24 +244,41 @@ func TestDeleteTrigger(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
 
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
-		// Delete trigger
-		deleteCommand := triggerer.Commands[1]
-		if assertaction.MatchesAndAnswers(t, deleteCommand, &slackscot.IncomingMessage{NormalizedText: "forget trigger on deal with it", Msg: slack.Msg{Text: "@bot forget trigger on deal with it"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "Deleted trigger [`deal with it => http://dealwithit.gif`]") &&
-				assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Deleted standard trigger [`deal with it` => `http://dealwithit.gif`]") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		}) {
 			// Validate no reaction
-			hearAction := triggerer.HearActions[0]
-			assertaction.NotMatch(t, hearAction, &slackscot.IncomingMessage{NormalizedText: "deal with it", Msg: slack.Msg{Text: "deal with it"}})
+			assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+				return assert.Empty(t, emojis) && assert.Empty(t, answers)
+			})
+		}
+	}
+}
+
+func TestDeleteEmojiTrigger(t *testing.T) {
+	storer := newInMemoryStorer()
+	triggerer := plugins.NewTriggerer(storer)
+	assertplugin := assertplugin.New("bot")
+
+	// Register new trigger
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> emoji trigger on deal with it with :boom:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`deal with it` => :boom:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) {
+		if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> forget emoji trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Deleted emoji trigger [`deal with it` => :boom:]") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		}) {
+			// Validate no reaction
+			assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+				return assert.Empty(t, emojis) && assert.Empty(t, answers)
+			})
 		}
 	}
 }
@@ -246,51 +287,30 @@ func TestDeleteTriggerNotFound(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
 
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Delete trigger
-	deleteCommand := triggerer.Commands[1]
-	assertaction.MatchesAndAnswers(t, deleteCommand, &slackscot.IncomingMessage{NormalizedText: "forget trigger on deal with it", Msg: slack.Msg{Text: "@bot forget trigger on deal with it"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "No trigger found on `deal with it`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "No standard trigger found on `deal with it`") &&
+			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
-}
-
-// TestAmbiguousDeleteTriggerNotTriggerNewOne validates a scenario where the delete could cause a new trigger to be registered "forget trigger on “Yeah. I agree with that also”"
-func TestAmbiguousDeleteTriggerNotTriggerNewOne(t *testing.T) {
-	storer := newInMemoryStorer()
-	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
-
-	// Check that the register command doesn't trigger on a delete trigger message
-	registerCommand := triggerer.Commands[0]
-	assertaction.NotMatch(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "forget trigger on “Yeah. I agree with that also”", Msg: slack.Msg{Text: "@bot forget trigger on “Yeah. I agree with that also”"}})
 }
 
 func TestErrorOnDeleteTrigger(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// Have the storer return an error on writes
 		storer.returnErrorOnWrites = true
 
-		// Delete trigger
-		deleteCommand := triggerer.Commands[1]
-		assertaction.MatchesAndAnswers(t, deleteCommand, &slackscot.IncomingMessage{NormalizedText: "forget trigger on deal with it", Msg: slack.Msg{Text: "@bot forget trigger on deal with it"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "Error removing trigger `[deal with it => http://dealwithit.gif]`: `Mock error`") &&
-				assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error removing standard trigger [`deal with it` => `http://dealwithit.gif`]: `Mock error`") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
 }
@@ -298,24 +318,37 @@ func TestErrorOnDeleteTrigger(t *testing.T) {
 func TestListTriggers(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register triggers
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
-	}) && assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on suddenly with https://suddenly.gif", Msg: slack.Msg{Text: "@bot trigger on suddenly with https://suddenly.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[suddenly => https://suddenly.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) && assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on suddenly with https://suddenly.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`suddenly` => `https://suddenly.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// List triggers
-		listCommand := triggerer.Commands[2]
-		assertaction.MatchesAndAnswers(t, listCommand, &slackscot.IncomingMessage{NormalizedText: "list triggers", Msg: slack.Msg{Text: "@bot list triggers"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "Here are the current triggers: \n```deal with it => http://dealwithit.gif\nsuddenly     => https://suddenly.gif\n```\n") &&
-				assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current triggers: \n     ∙ `deal with it` => `http://dealwithit.gif`\n     ∙ `suddenly`     => `https://suddenly.gif`\n\n") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		})
+	}
+}
+
+func TestListEmojiTriggers(t *testing.T) {
+	storer := newInMemoryStorer()
+	triggerer := plugins.NewTriggerer(storer)
+	assertplugin := assertplugin.New("bot")
+
+	// Register triggers
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> emoji trigger on deal with it with :sunglasses:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`deal with it` => :sunglasses:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) && assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> emoji trigger on suddenly with :scream::ghost:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`suddenly` => :scream:, :ghost:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) {
+		// List triggers
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> list emoji triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current emoji triggers: \n     ∙ `deal with it` => :sunglasses:\n     ∙ `suddenly`     => :scream:, :ghost:\n\n") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
 }
@@ -323,24 +356,19 @@ func TestListTriggers(t *testing.T) {
 func TestErrorOnListTriggers(t *testing.T) {
 	storer := newInMemoryStorer()
 	triggerer := plugins.NewTriggerer(storer)
-
-	var b strings.Builder
-	triggerer.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	registerCommand := triggerer.Commands[0]
-	if assertaction.MatchesAndAnswers(t, registerCommand, &slackscot.IncomingMessage{NormalizedText: "trigger on deal with it with http://dealwithit.gif", Msg: slack.Msg{Text: "@bot trigger on deal with it with http://dealwithit.gif"}}, func(t *testing.T, a *slackscot.Answer) bool {
-		return assertanswer.HasText(t, a, "Registered new trigger `[deal with it => http://dealwithit.gif]`") &&
-			assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// Have the storer return an error on reads
 		storer.returnErrorOnReads = true
 
 		// List triggers
-		listCommand := triggerer.Commands[2]
-		assertaction.MatchesAndAnswers(t, listCommand, &slackscot.IncomingMessage{NormalizedText: "list triggers", Msg: slack.Msg{Text: "@bot list triggers"}}, func(t *testing.T, a *slackscot.Answer) bool {
-			return assertanswer.HasText(t, a, "Error loading triggers:\n```Mock error```") &&
-				assertanswer.HasOptions(t, a, assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error loading triggers:\n```Mock error```") &&
+				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
 }
