@@ -16,7 +16,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -595,9 +594,9 @@ func combineIncomingMessage(messageEvent *slack.MessageEvent) (combinedMessage *
 // 	2. If the message is a direct message to us, we route to commands
 // 	3. If the message is on a channel without mention (regular conversation), we route to hear actions
 func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
-	// Built regex to detect if message was directed at "us"
-	r, _ := regexp.Compile("^(<@" + s.selfID + ">|@?" + s.selfName + "):? (.+)")
-	matches := r.FindStringSubmatch(m.Text)
+	// Check if message is directed at "us"
+	selfMessagePrefix := fmt.Sprintf("<@%s> ", s.selfID)
+	isDirectedMessage := strings.HasPrefix(m.Text, selfMessagePrefix)
 
 	responses = make([]*OutgoingMessage, 0)
 
@@ -608,8 +607,8 @@ func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
 		return responses
 	}
 
-	if len(matches) == 3 {
-		inMsg := IncomingMessage{NormalizedText: matches[2], Msg: *m}
+	if isDirectedMessage {
+		inMsg := IncomingMessage{NormalizedText: strings.TrimPrefix(m.Text, selfMessagePrefix), Msg: *m}
 
 		outMsgs := handleCommand(s.defaultAction, s.commandsWithID, &inMsg, reply)
 		responses = append(responses, outMsgs...)
