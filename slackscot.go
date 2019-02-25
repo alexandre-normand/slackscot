@@ -579,12 +579,16 @@ func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessage
 
 // combineIncomingMessageForHandling combines a main message and its sub message to form what would be an intuitive message to process for
 // a bot. That is, a message with the new updated text (since we're talking about a changed message) along with the channel being the one where the message
-// is visible and with the user correctly set to the person who updated/sent the message. Essentially, take everything from the main message except
-// for the text and user that is set on the SubMessage
+// is visible and with the user correctly set to the person who updated/sent the message. We also take the timestamp of the original message to make
+// it convenient for plugins using the timestamp to know that they're looking at the same one they've seen before. Regarding this timestamp, we sort of treat
+// is like the identifier that it is which would be initialized when first posted.
+//
+// Essentially, take everything from the main message except for the text, user and timestamp that is set on the SubMessage
 func combineIncomingMessage(messageEvent *slack.MessageEvent) (combinedMessage *slack.Msg) {
 	combined := messageEvent.Msg
 	combined.Text = messageEvent.SubMessage.Text
 	combined.User = messageEvent.SubMessage.User
+	combined.Timestamp = messageEvent.SubMessage.Timestamp
 	return &combined
 }
 
