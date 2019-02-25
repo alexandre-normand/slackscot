@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
+	"github.com/alexandre-normand/slackscot/test/assertanswer"
+	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -148,14 +150,15 @@ func TestNoAnswerWhenCorruptedTimestamp(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	// Set debug logger
+	// Attach logger to plugin
 	var b strings.Builder
-	f.Logger = slackscot.NewSLogger(log.New(&b, "", 0), true)
+	logger := log.New(&b, "", 0)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New("bot", assertplugin.OptionLog(logger))
 
-	assert.Nil(t, h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue", Text: "This is a text with longer and shorter words"}}))
-	assert.Contains(t, b.String(), "error converting timestamp to float")
+	assertplugin.AnswersAndReacts(t, &f.Plugin, &slack.Msg{Text: "This is a text with longer and shorter words", Timestamp: "NotAFloatValue"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers) && assert.Contains(t, b.String(), "error converting timestamp to float")
+	})
 }
 
 func TestQuotingOfSingleLongWord(t *testing.T) {
@@ -165,38 +168,62 @@ func TestQuotingOfSingleLongWord(t *testing.T) {
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New("bot")
 
-	assert.Equal(t, "\"belong\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "Do I belong or not?", Timestamp: "1546833210.036900"}}).Text)
+	assertplugin.AnswersAndReacts(t, &f.Plugin, &slack.Msg{Text: "Do I belong or not?", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"belong\"")
+	})
+}
+
+func TestNotQuotingPartsOfURLs(t *testing.T) {
+	pc := viper.New()
+	pc.Set("frequency", 1)
+
+	f, err := plugins.NewFingerQuoter(pc)
+	assert.Nil(t, err)
+
+	assertplugin := assertplugin.New("bot")
+
+	assertplugin.AnswersAndReacts(t, &f.Plugin, &slack.Msg{Text: "https://google.com/query?bigfoot=friend", Timestamp: "1546833310.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
 }
 
 func TestConsistentWordQuotingWithSameTimestamp(t *testing.T) {
 	pc := viper.New()
-	pc.Set("frequency", 10)
+	pc.Set("frequency", 1)
 	pc.Set("channelIDs", "")
 
 	f, err := plugins.NewFingerQuoter(pc)
 	assert.Nil(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New("bot")
 
 	// Validate one pick with a different timestamp
-	assert.Equal(t, "\"screams\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+	assertplugin.AnswersAndReacts(t, &f.Plugin, &slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
-			the street screams there's no science`, Timestamp: "1546833310.036900"}}).Text)
+			the street screams there's no science`, Timestamp: "1546833315.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"breath\"")
+	})
 
 	// Validate that calling the answer function a hundred times with the same timestamp results in the same pick
 	for i := 0; i < 100; i++ {
-		assert.Equal(t, "\"Where\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+		if !assertplugin.AnswersAndReacts(t, &f.Plugin, &slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
-			the street screams there's no science`, Timestamp: "1546833210.036900"}}).Text)
+			the street screams there's no science`, Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"street\"")
+		}) {
+			break
+		}
 	}
 
 	// Validate that a timestamp *almost* equal to the prior one (except for decimals) results in something different to make sure
 	// we don't ignore those
-	assert.Equal(t, "\"Handing\"", h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
+	assertplugin.AnswersAndReacts(t, &f.Plugin, &slack.Msg{Text: `It's just a bad movie, where there's no crying. Handing the keys to me in this Red Lion. 
 			Where the lock that you locked in the suite says there's no prying. When the breath that you breathed in 
-			the street screams there's no science`, Timestamp: "1546833210.036907"}}).Text)
+			the street screams there's no science`, Timestamp: "1546833210.036907"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"Where\"")
+	})
 }
 
 func TestNoQuotingIfOnlySmallWords(t *testing.T) {

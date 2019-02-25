@@ -6,6 +6,7 @@ import (
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
 	"github.com/stretchr/testify/assert"
+	"log"
 	"strings"
 	"testing"
 )
@@ -25,7 +26,7 @@ func newLittleTester() (mlt *myLittleTester) {
 		},
 		Usage:       "",
 		Description: "",
-		Answer:      findChicakee,
+		Answer:      mlt.findChicakee,
 	}}
 
 	mlt.HearActions = []slackscot.ActionDefinition{
@@ -62,7 +63,8 @@ func newLittleTester() (mlt *myLittleTester) {
 	return mlt
 }
 
-func findChicakee(m *slackscot.IncomingMessage) *slackscot.Answer {
+func (mlt *myLittleTester) findChicakee(m *slackscot.IncomingMessage) *slackscot.Answer {
+	mlt.Logger.Debugf("a debug statement")
 	return &slackscot.Answer{Text: "👀 in the 🌲"}
 }
 
@@ -97,6 +99,19 @@ func TestCommandResultValid(t *testing.T) {
 
 	assert.Equal(t, true, assertplugin.AnswersAndReacts(mockT, &myLittleTester.Plugin, &slack.Msg{Text: "<@bot> tell me where the black-capped chickadee is"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "👀 in the 🌲")
+	}))
+}
+
+func TestLoggerAttached(t *testing.T) {
+	mockT := new(testing.T)
+
+	var b strings.Builder
+	logger := log.New(&b, "", 0)
+	assertplugin := assertplugin.New("bot", assertplugin.OptionLog(logger))
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, true, assertplugin.AnswersAndReacts(mockT, &myLittleTester.Plugin, &slack.Msg{Text: "<@bot> tell me where the black-capped chickadee is"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "👀 in the 🌲") && assert.Equal(t, "a debug statement\n", b.String())
 	}))
 }
 

@@ -14,17 +14,32 @@ import (
 // sending test messages for processing
 type Asserter struct {
 	botUserID string
+	logger    *log.Logger
 }
 
 // New creates a new asserter with the given botUserId
 // (only include the id without the '@' prefix).
 // The botUserId is used in order to detect commands formed with
 // <@botUserId>
-func New(botUserID string) (a *Asserter) {
+func New(botUserID string, options ...Option) (a *Asserter) {
 	a = new(Asserter)
 	a.botUserID = botUserID
 
+	for _, option := range options {
+		option(a)
+	}
+
 	return a
+}
+
+type Option func(*Asserter)
+
+// OptionLog sets a logger for the asserter such that this logger is attached to the plugin when driven by
+// the asserter
+func OptionLog(logger *log.Logger) func(*Asserter) {
+	return func(a *Asserter) {
+		a.logger = logger
+	}
 }
 
 // ResultValidator is a function to do further validation of the answers and emoji reactions resulting from
@@ -45,8 +60,13 @@ func (a *Asserter) AnswersAndReacts(t *testing.T, p *slackscot.Plugin, m *slack.
 	ec := test.NewEmojiReactionCaptor()
 	p.EmojiReactor = ec
 
-	var b strings.Builder
-	p.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
+	// Attach asserter logger or use a default one that logs to a string builder
+	if a.logger != nil {
+		p.Logger = slackscot.NewSLogger(a.logger, true)
+	} else {
+		var b strings.Builder
+		p.Logger = slackscot.NewSLogger(log.New(&b, "", 0), true)
+	}
 
 	answers := a.driveActions(p, m)
 
