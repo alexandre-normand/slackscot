@@ -163,7 +163,9 @@ func newTestPlugin() (tp *Plugin) {
 	tp.HearActions = []ActionDefinition{{
 		Hidden: true,
 		Match: func(m *IncomingMessage) bool {
-			return strings.Contains(m.NormalizedText, "blue jays")
+			// Only match if the message timestamp matches timestamp1 (the original time). We use this to make sure
+			// that slackscot preserves the original message's timestamp when processing message updates
+			return m.Msg.Timestamp == timestamp1 && strings.Contains(m.NormalizedText, "blue jays")
 		},
 		Usage:       "Talk about my secret topic",
 		Description: "Reply with usage instructions",
