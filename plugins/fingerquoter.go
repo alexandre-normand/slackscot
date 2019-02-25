@@ -5,9 +5,8 @@ import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
 	"math/rand"
+	"regexp"
 	"strconv"
-	"strings"
-	"unicode"
 )
 
 const (
@@ -28,6 +27,11 @@ type FingerQuoter struct {
 	ignoredChannels []string
 	frequency       int
 }
+
+// Regular expressions to find candidate words. They must be at least 5 characters long
+// and can include any word character (include hyphen and underscore)
+var candidateWordsStarting = regexp.MustCompile("(?:^|\\s)([\\w-]{5,})")
+var candidateWordsEnding = regexp.MustCompile("([\\w-]{5,})(?:$|\\s)")
 
 // NewFingerQuoter creates a new instance of the plugin
 func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
@@ -73,7 +77,7 @@ func (f *FingerQuoter) trigger(m *slackscot.IncomingMessage) bool {
 }
 
 func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) *slackscot.Answer {
-	candidates := splitInputIntoWordsLongerThan(m.Text, 4)
+	candidates := findCandidateWords(m.NormalizedText)
 
 	if len(candidates) > 0 {
 		ts, err := strconv.ParseFloat(m.Timestamp, 64)
@@ -94,23 +98,41 @@ func (f *FingerQuoter) fingerQuoteMsg(m *slackscot.IncomingMessage) *slackscot.A
 	return nil
 }
 
-func splitInputIntoWordsLongerThan(t string, minLen int) []string {
-	words := strings.FieldsFunc(t, func(c rune) bool {
-		return !unicode.IsLetter(c) && c != '-'
-	})
+// findCandidateWords looks at an input string and finds acceptable candidates for finger quoting
+func findCandidateWords(t string) (candidates []string) {
+	matchesStarting := candidateWordsStarting.FindAllStringSubmatch(t, -1)
+	matchesEnding := candidateWordsEnding.FindAllStringSubmatch(t, -1)
+	candidatesStarting := getWordMatches(matchesStarting)
+	candidatesEnding := getWordMatches(matchesEnding)
 
-	return filterWordsLongerThan(words, minLen)
+	return intersection(candidatesStarting, candidatesEnding)
 }
 
-func filterWordsLongerThan(words []string, minLen int) []string {
-	candidates := make([]string, 0)
-	for _, w := range words {
-		if len(w) > minLen {
-			candidates = append(candidates, w)
+// getWordMatches returns an array of matching words given a raw array of matches
+func getWordMatches(m [][]string) (words []string) {
+	for _, match := range m {
+		candidate := match[1]
+		words = append(words, candidate)
+	}
+
+	return words
+}
+
+// intersection returns the common elements present in both a and b
+func intersection(a []string, b []string) (intersection []string) {
+	m := make(map[string]bool)
+
+	for _, item := range a {
+		m[item] = true
+	}
+
+	for _, item := range b {
+		if _, ok := m[item]; ok {
+			intersection = append(intersection, item)
 		}
 	}
 
-	return candidates
+	return intersection
 }
 
 func isChannelEnabled(channelID string, whitelist []string, ignoredChannels []string) bool {
