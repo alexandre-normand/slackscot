@@ -32,6 +32,7 @@ func New(botUserID string, options ...Option) (a *Asserter) {
 	return a
 }
 
+// Option defines an option for the Asserter
 type Option func(*Asserter)
 
 // OptionLog sets a logger for the asserter such that this logger is attached to the plugin when driven by
@@ -83,15 +84,15 @@ func (a *Asserter) driveActions(p *slackscot.Plugin, m *slack.Msg) (answers []*s
 		inMsg := slackscot.IncomingMessage{NormalizedText: normalizedText, Msg: *m}
 
 		return runActions(p.Commands, &inMsg)
-	} else {
-		inMsg := slackscot.IncomingMessage{NormalizedText: m.Text, Msg: *m}
-
-		if strings.HasPrefix(m.Channel, "D") {
-			return runActions(p.Commands, &inMsg)
-		} else {
-			return runActions(p.HearActions, &inMsg)
-		}
 	}
+
+	inMsg := slackscot.IncomingMessage{NormalizedText: m.Text, Msg: *m}
+
+	if strings.HasPrefix(m.Channel, "D") {
+		return runActions(p.Commands, &inMsg)
+	}
+
+	return runActions(p.HearActions, &inMsg)
 }
 
 func runActions(actions []slackscot.ActionDefinition, m *slackscot.IncomingMessage) (answers []*slackscot.Answer) {
