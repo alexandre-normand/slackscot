@@ -141,7 +141,7 @@ func pluginCommands(t *Triggerer) []slackscot.ActionDefinition {
 			Answer:      t.deleteStandardTrigger,
 		},
 		{
-			Hidden: true,
+			Hidden: false,
 			Match: func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "list triggers")
 			},
@@ -164,7 +164,7 @@ func pluginCommands(t *Triggerer) []slackscot.ActionDefinition {
 			Answer:      t.deleteEmojiTrigger,
 		},
 		{
-			Hidden: true,
+			Hidden: false,
 			Match: func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "list emoji triggers")
 			},
