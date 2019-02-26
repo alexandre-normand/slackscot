@@ -126,6 +126,12 @@ func optionChangedMessage(text string, user string, originalTs string) func(e *s
 	}
 }
 
+func optionMessageReplied() func(e *slack.MessageEvent) {
+	return func(e *slack.MessageEvent) {
+		e.SubType = "message_replied"
+	}
+}
+
 func optionDeletedMessage(channelID string, timestamp string) func(e *slack.MessageEvent) {
 	return func(e *slack.MessageEvent) {
 		e.SubType = "message_deleted"
@@ -234,6 +240,17 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
 	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+}
+
+func TestIgnoreIncomingMessageReplied(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1, optionMessageReplied())),
+	})
+
+	assert.Empty(t, sentMsgs)
+	assert.Empty(t, updatedMsgs)
+	assert.Empty(t, deletedMsgs)
+	assert.Empty(t, rtmSender.rtmMsgs)
 }
 
 func TestIgnoreReplyToMessage(t *testing.T) {

@@ -420,7 +420,7 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.Messa
 		} else {
 			if msgEvent.SubType == "message_changed" {
 				s.processUpdatedMessage(driver, msgEvent, slackMessageID)
-			} else {
+			} else if msgEvent.SubType != "message_replied" {
 				s.processNewMessage(driver, msgEvent, slackMessageID)
 			}
 		}
@@ -604,7 +604,7 @@ func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
 
 	responses = make([]*OutgoingMessage, 0)
 
-	// Ignore messages send by "us"
+	// Ignore messages_replied and messages send by "us"
 	if m.User == s.selfID || m.BotID == s.selfID {
 		s.log.Debugf("Ignoring message from user [%s] because that's \"us\" [%s]", m.User, s.selfID)
 
