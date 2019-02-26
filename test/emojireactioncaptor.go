@@ -14,6 +14,7 @@ type EmojiReactionCaptor struct {
 	Emojis    []string
 }
 
+// AddReaction adds an emoji reaction with the given named emoji to the given item
 func (e *EmojiReactionCaptor) AddReaction(name string, item slack.ItemRef) error {
 	if e.Channel == "" {
 		e.Channel = item.Channel

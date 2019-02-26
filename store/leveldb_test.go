@@ -95,7 +95,7 @@ func TestDeleteString(t *testing.T) {
 	err = bs.DeleteString("testKey")
 	assert.Nil(t, err)
 
-	v, err = bs.GetString("testKey")
+	_, err = bs.GetString("testKey")
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "not found")
 	}
@@ -123,7 +123,7 @@ func TestDeleteAsBytes(t *testing.T) {
 	err = bs.Delete([]byte("testKey"))
 	assert.Nil(t, err)
 
-	v, err = bs.Get([]byte("testKey"))
+	_, err = bs.Get([]byte("testKey"))
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "not found")
 	}

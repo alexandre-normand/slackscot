@@ -214,7 +214,7 @@ func (t *Triggerer) matchTriggers(m *slackscot.IncomingMessage) bool {
 	}
 
 	for _, triggers := range triggersByType {
-		for trigger, _ := range triggers {
+		for trigger := range triggers {
 			if strings.Contains(m.NormalizedText, trigger) {
 				return true
 			}
@@ -443,7 +443,7 @@ func (t *Triggerer) getTriggersByType() (byType map[rune]map[string]string, err 
 
 	byType = make(map[rune]map[string]string)
 	// Initialize maps for all trigger types
-	for triggerTypeID, _ := range triggerTypes {
+	for triggerTypeID := range triggerTypes {
 		byType[triggerTypeID] = make(map[string]string)
 	}
 

@@ -1,8 +1,10 @@
 package slackscot
 
 const (
+	// ThreadedReplyOpt is the name of the option indicating a threaded-reply answer
 	ThreadedReplyOpt = "threadedReply"
-	BroadcastOpt     = "broadcast"
+	// BroadcastOpt is the name of the option indicating a broadcast answer
+	BroadcastOpt = "broadcast"
 )
 
 // AnswerOption defines a function applied to Answers

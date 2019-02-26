@@ -126,9 +126,9 @@ func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figl
 
 			if len(word) < 5 {
 				return renderBanner(word, emoji, renderer, options)
-			} else {
-				return &slackscot.Answer{Text: "Wrong usage (word longer than 5 characters): emoji banner <word of 5 characters or less> <emoji>"}
 			}
+
+			return &slackscot.Answer{Text: "Wrong usage (word longer than 5 characters): emoji banner <word of 5 characters or less> <emoji>"}
 		}
 	}
 
