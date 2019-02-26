@@ -328,7 +328,7 @@ func TestListTriggers(t *testing.T) {
 	}) {
 		// List triggers
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current triggers: \n     ∙ `deal with it` => `http://dealwithit.gif`\n     ∙ `suddenly`     => `https://suddenly.gif`\n\n") &&
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current triggers: \n     • `deal with it` => `http://dealwithit.gif`\n     • `suddenly`     => `https://suddenly.gif`\n\n") &&
 				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
@@ -347,7 +347,7 @@ func TestListEmojiTriggers(t *testing.T) {
 	}) {
 		// List triggers
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> list emoji triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current emoji triggers: \n     ∙ `deal with it` => :sunglasses:\n     ∙ `suddenly`     => :scream:, :ghost:\n\n") &&
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current emoji triggers: \n     • `deal with it` => :sunglasses:\n     • `suddenly`     => :scream:, :ghost:\n\n") &&
 				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
