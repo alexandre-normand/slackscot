@@ -17,18 +17,16 @@ type ResolvedAnswerOption struct {
 func HasText(t *testing.T, answer *slackscot.Answer, text string) bool {
 	if assert.NotNil(t, answer) {
 		return assert.Equalf(t, text, answer.Text, "Answer text expected to be [%s] but was [%s]", text, answer.Text)
-	} else {
-		return false
 	}
+	return false
 }
 
 // HasText asserts that the answer's text contains the expected subString
 func HasTextContaining(t *testing.T, answer *slackscot.Answer, subString string) bool {
 	if assert.NotNil(t, answer) {
 		return assert.Containsf(t, answer.Text, subString, "Answer expected to have text containing [%s] but its text [%s] didn't", subString, answer.Text)
-	} else {
-		return false
 	}
+	return false
 }
 
 // HasOptions asserts that the answer's options contains the expected configuration key/values
@@ -36,9 +34,8 @@ func HasOptions(t *testing.T, answer *slackscot.Answer, options ...ResolvedAnswe
 	if assert.NotNil(t, answer) {
 		ropts := convertConfigsToResolvedAnswerOptions(slackscot.ApplyAnswerOpts(answer.Options...))
 		return assert.ElementsMatchf(t, options, ropts, "Answer options expected %s but were %s", options, ropts)
-	} else {
-		return false
 	}
+	return false
 }
 
 // convertConfigsToResolvedAnswerOptions converts a map[string]string of answer options to an array

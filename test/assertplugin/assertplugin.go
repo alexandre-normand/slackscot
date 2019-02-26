@@ -59,18 +59,20 @@ type ResultValidator func(t *testing.T, answers []*slackscot.Answer, emojis []st
 func (a *Asserter) AnswersAndReacts(t *testing.T, p *slackscot.Plugin, m *slack.Msg, validate ResultValidator) (valid bool) {
 	ec := test.NewEmojiReactionCaptor()
 	p.EmojiReactor = ec
-
-	// Attach asserter logger or use a default one that logs to a string builder
-	if a.logger != nil {
-		p.Logger = slackscot.NewSLogger(a.logger, true)
-	} else {
-		var b strings.Builder
-		p.Logger = slackscot.NewSLogger(log.New(&b, "", 0), true)
-	}
+	p.Logger = slackscot.NewSLogger(getLogger(a), true)
 
 	answers := a.driveActions(p, m)
 
 	return validate(t, answers, ec.Emojis)
+}
+
+func getLogger(a *Asserter) (logger *log.Logger) {
+	if a.logger != nil {
+		return a.logger
+	}
+
+	var b strings.Builder
+	return log.New(&b, "", 0)
 }
 
 func (a *Asserter) driveActions(p *slackscot.Plugin, m *slack.Msg) (answers []*slackscot.Answer) {
