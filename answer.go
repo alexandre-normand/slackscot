@@ -33,7 +33,7 @@ func AnswerInThreadWithoutBroadcast() func(sendOpts map[string]string) {
 	}
 }
 
-// AnswerWithoutThreading
+// AnswerWithoutThreading sets an answer to threading (and implicitly, broadcast) disabled
 func AnswerWithoutThreading() func(sendOpts map[string]string) {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "false"

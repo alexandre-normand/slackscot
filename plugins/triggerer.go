@@ -392,10 +392,10 @@ func (t *Triggerer) deleteTrigger(m *slackscot.IncomingMessage, triggerTypeID ru
 		t.Logger.Debugf("[%s] %s", triggererPluginName, answerMsg)
 
 		return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
-	} else {
-		answerMsg := fmt.Sprintf("No %s trigger found on `%s`", triggerType.Name, trigger)
-		return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 	}
+
+	answerMsg := fmt.Sprintf("No %s trigger found on `%s`", triggerType.Name, trigger)
+	return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 }
 
 // deleteEmojiTrigger deletes an emoji trigger

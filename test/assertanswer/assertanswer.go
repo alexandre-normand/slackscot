@@ -21,7 +21,7 @@ func HasText(t *testing.T, answer *slackscot.Answer, text string) bool {
 	return false
 }
 
-// HasText asserts that the answer's text contains the expected subString
+// HasTextContaining asserts that the answer's text contains the expected subString
 func HasTextContaining(t *testing.T, answer *slackscot.Answer, subString string) bool {
 	if assert.NotNil(t, answer) {
 		return assert.Containsf(t, answer.Text, subString, "Answer expected to have text containing [%s] but its text [%s] didn't", subString, answer.Text)
