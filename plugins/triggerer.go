@@ -472,7 +472,7 @@ func formatTriggers(triggers map[string]string, render elementRenderer) string {
 	bufw := bufio.NewWriter(&b)
 	w.Init(bufw, 5, 0, 1, ' ', 0)
 	for _, trigger := range keys {
-		fmt.Fprintf(w, "\t∙ %s\n", render(trigger, triggers[trigger]))
+		fmt.Fprintf(w, "\t• %s\n", render(trigger, triggers[trigger]))
 	}
 	fmt.Fprintf(w, "\n")
 
