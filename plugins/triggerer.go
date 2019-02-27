@@ -215,7 +215,7 @@ func (t *Triggerer) matchTriggers(m *slackscot.IncomingMessage) bool {
 
 	for _, triggers := range triggersByType {
 		for trigger := range triggers {
-			if strings.Contains(m.NormalizedText, trigger) {
+			if strings.Contains(strings.ToUpper(m.NormalizedText), strings.ToUpper(trigger)) {
 				return true
 			}
 		}
@@ -240,7 +240,7 @@ func (t *Triggerer) reactOnTriggers(m *slackscot.IncomingMessage) *slackscot.Ans
 // reactOnStandardTriggers returns a reaction string if it finds a trigger match. Note that only at most one standard trigger can match
 func (t *Triggerer) reactOnStandardTriggers(m *slackscot.IncomingMessage, standardTriggers map[string]string) *slackscot.Answer {
 	for trigger, reaction := range standardTriggers {
-		if strings.Contains(m.NormalizedText, trigger) {
+		if strings.Contains(strings.ToUpper(m.NormalizedText), strings.ToUpper(trigger)) {
 			return &slackscot.Answer{Text: reaction}
 		}
 	}
@@ -251,7 +251,7 @@ func (t *Triggerer) reactOnStandardTriggers(m *slackscot.IncomingMessage, standa
 // reactOnEmojiTriggers adds emoji reactions matching emoji triggers, as appropriate
 func (t *Triggerer) reactOnEmojiTriggers(m *slackscot.IncomingMessage, emojiTriggers map[string]string) {
 	for trigger, reaction := range emojiTriggers {
-		if strings.Contains(m.NormalizedText, trigger) {
+		if strings.Contains(strings.ToUpper(m.NormalizedText), strings.ToUpper(trigger)) {
 			for _, emoji := range parseEmojiList(reaction) {
 				t.EmojiReactor.AddReaction(emoji, slack.NewRefToMessage(m.Channel, m.Timestamp))
 			}
