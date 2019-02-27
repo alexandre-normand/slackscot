@@ -71,6 +71,11 @@ your ambitious dreams (if you dreams include this sort of thing).
     A default file-based implementation is provided backed by
     [leveldb](https://github.com/syndtr/goleveldb)
 
+*   Implementation of `StringStorer` backed by
+    [Google Cloud Datastore](https://cloud.google.com/datastore/docs/reference/libraries).
+    See [datastoredb](https://godoc.org/github.com/alexandre-normand/slackscot/store/datastoredb) 
+    for documentation, usage and example.
+
 *   Support for various configuration sources/formats via 
     [viper](https://github.com/spf13/viper)
 
@@ -90,9 +95,10 @@ your ambitious dreams (if you dreams include this sort of thing).
 *   *Experimental and subject to change*: 
     Testing functions to help validate plugin action behavior (see example in 
     [triggerer_test.go](plugins/triggerer_test.go)). Testing functions
-    are found in [assertplugin](test/assertplugin), 
-    [assertaction](test/assertaction) and 
-    [assertanswer](test/assertanswer)
+    are found in 
+    [assertplugin](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertplugin), 
+    [assertaction](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertaction) and 
+    [assertanswer](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertanswer)
 
 *   Built-in `help` plugin supporting a decently formatted help message
     as a command listing all plugins' actions. If you'd like some actions 
