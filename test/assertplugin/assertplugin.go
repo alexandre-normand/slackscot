@@ -1,3 +1,6 @@
+// Package assertplugin provides testing functions to validate a plugin's overall functionality.
+// This package is designed to play well but not require the assertanswer package for validation
+// of answers
 package assertplugin
 
 import (
