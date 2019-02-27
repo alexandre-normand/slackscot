@@ -52,7 +52,11 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"<@U21355>++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"}},
 		{"karma top 1", map[string]bool{"h[0]": false, "c[0]": true, "c[1]": false}, map[string]string{"c[0]": "Here are the top 1 things: \n```6    Bernard Tremblay\n```\n"}},
 		{"don't++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`don't` just gained a level (`don't`: 1)"}},
-		{"under-the-bridge++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`under-the-bridge` just gained a level (`under-the-bridge`: 1)"}},
+		{"under-the-bridge++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`the-bridge` just gained a level (`the-bridge`: 1)"}},
+		{"Jean-Michel++", map[string]bool{"h[0]": true, "c[0]": false, "c[1]": false}, map[string]string{"h[0]": "`Jean-Michel` just gained a level (`Jean-Michel`: 1)"}},
+		{"+----------+", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
+		{"---", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
+		{"+++", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
