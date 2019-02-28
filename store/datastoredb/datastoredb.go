@@ -19,9 +19,9 @@ type EntryValue struct {
 	Value string `datastore:",noindex"`
 }
 
-// NewDatastoreDB returns a new instance of DatastoreDB for the given name (which maps to the datastore entity "Kind" and can
+// New returns a new instance of DatastoreDB for the given name (which maps to the datastore entity "Kind" and can
 // be thought of as the namespace). This function also requires a gcloudProjectID as well as at least one option to provide gcloud client credentials
-func NewDatastoreDB(name string, gcloudProjectID string, gcloudClientOpts ...option.ClientOption) (dsdb *DatastoreDB, err error) {
+func New(name string, gcloudProjectID string, gcloudClientOpts ...option.ClientOption) (dsdb *DatastoreDB, err error) {
 	ctx := context.Background()
 	client, err := datastore.NewClient(ctx, gcloudProjectID, gcloudClientOpts...)
 	if err != nil {
