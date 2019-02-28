@@ -73,7 +73,14 @@ your ambitious dreams (if you dreams include this sort of thing).
 
 *   Implementation of `StringStorer` backed by
     [Google Cloud Datastore](https://cloud.google.com/datastore/docs/reference/libraries).
-    See [datastoredb](https://godoc.org/github.com/alexandre-normand/slackscot/store/datastoredb) 
+    See [datastoredb's godoc](https://godoc.org/github.com/alexandre-normand/slackscot/store/datastoredb) 
+    for documentation, usage and example.
+
+*   In-memory implementation of `StringStorer` wrapping any `StringStorer` implementation
+    to offer low-latency and potentially cost-saving storage implementation well-suited for
+    small datasets. Plays well with cloud storage like the 
+    [datastoredb]((https://godoc.org/github.com/alexandre-normand/slackscot/store/datastoredb) 
+    See [inmemorydb's godoc](https://godoc.org/github.com/alexandre-normand/slackscot/store/inmemorydb) 
     for documentation, usage and example.
 
 *   Support for various configuration sources/formats via 

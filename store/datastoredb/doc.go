@@ -5,7 +5,8 @@ backed by the Google Cloud Datastore.
 
 Requirements for the Google Cloud Datastore integration:
   - A valid project id with datastore mode enabled
-  - Google Cloud Credentials (typically in the form of a json file with credentials from https://console.cloud.google.com/apis/credentials/serviceaccountkey)
+  - Google Cloud Credentials (typically in the form of a json file
+    with credentials from https://console.cloud.google.com/apis/credentials/serviceaccountkey)
 
 Example code:
 
