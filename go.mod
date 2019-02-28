@@ -1,7 +1,7 @@
 module github.com/alexandre-normand/slackscot
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
+	cloud.google.com/go v0.36.0
 	github.com/alexandre-normand/figlet4go v1.0.0
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
@@ -18,4 +18,5 @@ require (
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.2.2
 	github.com/syndtr/goleveldb v0.0.0-20190203031304-2f17a3356c66
+	google.golang.org/api v0.1.0
 )
