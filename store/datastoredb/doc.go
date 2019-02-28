@@ -32,4 +32,4 @@ Example code:
 		...
 	}
 */
-package datastoredb // import "github.com/alexandre-normand/datastoredb"
+package datastoredb
