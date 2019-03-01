@@ -60,24 +60,35 @@ func renderStandardTrigger(trigger string, reaction string) (rendered string) {
 }
 
 // reactionEncoder is a function that takes in a raw reaction string and encodes it as a string to be persisted
-type reactionEncoder func(rawReaction string) (encodedReaction string)
+type reactionEncoder func(rawReaction string) (encodedReaction string, err error)
 
 // encodeStandardReaction encodes the rawReaction by just returning the value unchanged (no extra processing necessary)
-func encodeStandardReaction(rawReaction string) (encodedReaction string) {
-	return rawReaction
+func encodeStandardReaction(rawReaction string) (encodedReaction string, err error) {
+	return rawReaction, nil
 }
 
-// encodeEmojiReaction encodes the rawReaction for an emoji trigger by parsing out emoji names and rendering them as a comma-delimited list
-func encodeEmojiReaction(rawReaction string) (encodedReaction string) {
+// encodeEmojiReaction encodes the rawReaction for an emoji trigger by parsing out emoji names and
+// rendering them as a comma-delimited list. If no emojis are found in the rawReaction, an error is returned
+func encodeEmojiReaction(rawReaction string) (encodedReaction string, err error) {
 	emojis := parseAllEmojis(rawReaction)
-	return encodeEmojis(emojis)
+
+	if len(emojis) == 0 {
+		return "", fmt.Errorf("`<reaction emojis>` doesn't include any emojis")
+	}
+
+	return encodeEmojis(emojis), nil
 }
 
 // reactionRenderer is a function that takes in an encoded reaction and renders it for slack output
 type reactionRenderer func(encodedReaction string) (slackRender string)
 
-// encodeStandardReaction encodes the standard encodedReaction by wrapping it with backticks
+// encodeStandardReaction encodes the standard encodedReaction by wrapping it with backticks except
+// when the reaction already includes at least one. In which case, the reaction is returned as-is
 func renderStandardReaction(encodedReaction string) (slackRender string) {
+	if strings.Contains(encodedReaction, "`") {
+		return encodedReaction
+	}
+
 	return fmt.Sprintf("`%s`", encodedReaction)
 }
 
@@ -91,7 +102,7 @@ var triggerTypes map[rune]triggerType
 var emojiRegex = regexp.MustCompile(":([\\w_-]+):")
 
 func init() {
-	registerTriggerRegex := regexp.MustCompile("(?i)\\Atrigger on (.+) with (.+)")
+	registerTriggerRegex := regexp.MustCompile("(?msi)\\Atrigger on (.+) with (.+)")
 	deleteTriggerRegex := regexp.MustCompile("(?i)\\Aforget trigger on (.+)")
 
 	registerEmojiTriggerRegex := regexp.MustCompile("(?i)\\Aemoji trigger on (.+) with (.+)")
@@ -264,9 +275,12 @@ func (t *Triggerer) registerTrigger(m *slackscot.IncomingMessage, triggerTypeID 
 	triggerType := triggerTypes[triggerTypeID]
 	trigger, rawReaction := parseRegisterCommand(m.NormalizedText, triggerType.RegisterRegex)
 	encodedTrigger := encodeTriggerWithTypeID(trigger, triggerTypeID)
-	encodedReaction := triggerType.ReactionEncoder(rawReaction)
-	renderedReaction := triggerType.ReactionRenderer(encodedReaction)
+	encodedReaction, err := triggerType.ReactionEncoder(rawReaction)
+	if err != nil {
+		return &slackscot.Answer{Text: fmt.Sprintf("Invalid reaction for %s trigger: %s", triggerType.Name, err.Error()), Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
+	}
 
+	renderedReaction := triggerType.ReactionRenderer(encodedReaction)
 	answerMsg := fmt.Sprintf("Registered new %s trigger [`%s` => %s]", triggerType.Name, trigger, renderedReaction)
 
 	encodedExistingReaction, err := t.triggerStorer.GetString(encodedTrigger)
