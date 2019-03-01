@@ -73,13 +73,13 @@ func matchKarmaRecord(m *slackscot.IncomingMessage) bool {
 // matchKarmaTopReport returns true if the message matches a request for top karma with
 // a message such as "karma top <count>""
 func matchKarmaTopReport(m *slackscot.IncomingMessage) bool {
-	return strings.HasPrefix(m.NormalizedText, "karma top")
+	return topKarmaRegexp.MatchString(m.NormalizedText)
 }
 
 // matchKarmaWorstReport returns true if the message matches a request for the worst karma with
 // a message such as "karma worst <count>""
 func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
-	return strings.HasPrefix(m.NormalizedText, "karma worst")
+	return worstKarmaRegexp.MatchString(m.NormalizedText)
 }
 
 // recordKarma records a karma increase or decrease and answers with a message including
