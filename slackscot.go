@@ -410,18 +410,16 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.Messa
 	// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
 	isReply := msgEvent.ReplyTo > 0
 
-	s.log.Debugf("Processing event : %v\n", msgEvent)
+	s.log.Debugf("Processing event: %v", msgEvent)
 
 	if !isReply && msgEvent.Type == "message" {
-		slackMessageID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.Timestamp}
-
 		if msgEvent.SubType == "message_deleted" {
 			s.processDeletedMessage(driver, msgEvent)
 		} else {
 			if msgEvent.SubType == "message_changed" {
-				s.processUpdatedMessage(driver, msgEvent, slackMessageID)
+				s.processUpdatedMessage(driver, msgEvent)
 			} else if msgEvent.SubType != "message_replied" {
-				s.processNewMessage(driver, msgEvent, slackMessageID)
+				s.processNewMessage(driver, msgEvent)
 			}
 		}
 	}
@@ -432,27 +430,28 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.Messa
 // 2. If the message is present in cache, we had pre-existing responses so we handle this by updating responses on a plugin action basis. A plugin action that isn't triggering anymore gets its previous
 //    response deleted while a still triggering response will result in a message update. Newly triggered actions will be sent out as new messages.
 // 3. The new state of responses replaces the previous one for the triggering message in the cache
-func (s *Slackscot) processUpdatedMessage(driver chatDriver, msgEvent *slack.MessageEvent, incomingMessageID SlackMessageID) {
-	editedSlackMessageID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.SubMessage.Timestamp}
+func (s *Slackscot) processUpdatedMessage(driver chatDriver, m *slack.MessageEvent) {
+	incomingMessageID := SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
+	editedMsgID := SlackMessageID{channelID: m.Channel, timestamp: m.SubMessage.Timestamp}
 
-	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedSlackMessageID, s.triggeringMsgToResponse.Contains(editedSlackMessageID))
-	combinedMessage := combineIncomingMessage(msgEvent)
+	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedMsgID, s.triggeringMsgToResponse.Contains(editedMsgID))
 
-	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedSlackMessageID); exists {
-		s.processUpdatedMessageWithCachedResponses(driver, combinedMessage, incomingMessageID, editedSlackMessageID, cachedResponses.(map[string]SlackMessageID))
+	if cachedResponses, exists := s.triggeringMsgToResponse.Get(editedMsgID); exists {
+		s.processUpdatedMessageWithCachedResponses(driver, m, editedMsgID, cachedResponses.(map[string]SlackMessageID))
 	} else {
-		outMsgs := s.routeMessage(combinedMessage)
+		outMsgs := s.routeMessage(m)
+
 		s.sendOutgoingMessages(driver, incomingMessageID, outMsgs)
 	}
 }
 
 // processUpdatedMessageWithCachedResponses handles a message update for which we still have cached responses in cache. This is where we take care of deleting responses that are no longer
 // triggering the action they're coming from, updating the reactions for still triggering plugin actions as well as sending new reactions for plugin actions that are now triggering
-func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, combinedMessage *slack.Msg, incomingMessageID SlackMessageID, editedSlackMessageID SlackMessageID, cachedResponses map[string]SlackMessageID) {
+func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, m *slack.MessageEvent, editedMsgID SlackMessageID, cachedResponses map[string]SlackMessageID) {
 	newResponseByActionID := make(map[string]SlackMessageID)
 
-	outMsgs := s.routeMessage(combinedMessage)
-	s.log.Debugf("Detected %d existing responses to message [%s]\n", len(cachedResponses), editedSlackMessageID)
+	outMsgs := s.routeMessage(m)
+	s.log.Debugf("Detected %d existing responses to message [%s]\n", len(cachedResponses), editedMsgID)
 
 	for _, o := range outMsgs {
 		// We had a previous response for that same plugin action so edit it instead of posting a new message
@@ -461,7 +460,7 @@ func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, 
 
 			rID, err := s.updateExistingMessage(driver, r, o)
 			if err != nil {
-				s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedSlackMessageID, err)
+				s.log.Printf("Unable to update message [%s] to triggering message [%s]: %v\n", r, editedMsgID, err)
 			} else {
 				// Add the new updated message to the new responses
 				newResponseByActionID[o.pluginActionID] = rID
@@ -474,7 +473,7 @@ func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, 
 			s.log.Debugf("New response triggered to updated message [%s] [%s]: [%s]\n", o.OutgoingMessage.Text, r, o.OutgoingMessage.Text)
 
 			// It's a new message for that action so post it as a new message
-			rID, err := s.sendNewMessage(driver, o, editedSlackMessageID.timestamp)
+			rID, err := s.sendNewMessage(driver, o, editedMsgID.timestamp)
 			if err != nil {
 				s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
 			} else {
@@ -492,11 +491,11 @@ func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, 
 
 	// Since the updated message now has new responses, update the entry with those or remove if no actions are triggered
 	if len(newResponseByActionID) > 0 {
-		s.log.Debugf("Updating responses to edited message [%s]\n", editedSlackMessageID)
-		s.triggeringMsgToResponse.Add(editedSlackMessageID, newResponseByActionID)
+		s.log.Debugf("Updating responses to edited message [%s]\n", editedMsgID)
+		s.triggeringMsgToResponse.Add(editedMsgID, newResponseByActionID)
 	} else {
-		s.log.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedSlackMessageID)
-		s.triggeringMsgToResponse.Remove(editedSlackMessageID)
+		s.log.Debugf("Deleting entry for edited message [%s] since no more triggered response\n", editedMsgID)
+		s.triggeringMsgToResponse.Remove(editedMsgID)
 	}
 }
 
@@ -523,8 +522,9 @@ func (s *Slackscot) processDeletedMessage(deleter messageDeleter, msgEvent *slac
 }
 
 // processNewMessage handles a regular new message and sends any triggered response
-func (s *Slackscot) processNewMessage(msgSender messageSender, msgEvent *slack.MessageEvent, incomingMessageID SlackMessageID) {
-	outMsgs := s.routeMessage(&msgEvent.Msg)
+func (s *Slackscot) processNewMessage(msgSender messageSender, m *slack.MessageEvent) {
+	incomingMessageID := SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
+	outMsgs := s.routeMessage(m)
 
 	s.sendOutgoingMessages(msgSender, incomingMessageID, outMsgs)
 }
@@ -553,10 +553,14 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 }
 
 // sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
-func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, threadTS string) (rID SlackMessageID, err error) {
+func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, defaultThreadTS string) (rID SlackMessageID, err error) {
 	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
 	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(o.sendOpts[ThreadedReplyOpt]) {
-		options = append(options, slack.MsgOptionTS(threadTS))
+		if threadTS := cast.ToString(o.sendOpts[ThreadTimestamp]); threadTS != "" {
+			options = append(options, slack.MsgOptionTS(threadTS))
+		} else {
+			options = append(options, slack.MsgOptionTS(defaultThreadTS))
+		}
 
 		if s.config.GetBool(config.BroadcastThreadedRepliesKey) || cast.ToBool(o.sendOpts[BroadcastOpt]) {
 			options = append(options, slack.MsgOptionBroadcast())
@@ -577,19 +581,38 @@ func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessage
 	return rID, err
 }
 
-// combineIncomingMessageForHandling combines a main message and its sub message to form what would be an intuitive message to process for
-// a bot. That is, a message with the new updated text (since we're talking about a changed message) along with the channel being the one where the message
+// normalizeIncomingMessage normalizes a main message event and its sub message to form what would be an intuitive message to process for
+// a bot. When it's a regular message (no SubMessage), a copy is returned unchanged. For other cases (like message updates),
+// a message with the new updated text (since we're talking about a changed message) along with the channel being the one where the message
 // is visible and with the user correctly set to the person who updated/sent the message. We also take the timestamp of the original message to make
 // it convenient for plugins using the timestamp to know that they're looking at the same one they've seen before. Regarding this timestamp, we sort of treat
 // is like the identifier that it is which would be initialized when first posted.
 //
-// Essentially, take everything from the main message except for the text, user and timestamp that is set on the SubMessage
-func combineIncomingMessage(messageEvent *slack.MessageEvent) (combinedMessage *slack.Msg) {
-	combined := messageEvent.Msg
-	combined.Text = messageEvent.SubMessage.Text
-	combined.User = messageEvent.SubMessage.User
-	combined.Timestamp = messageEvent.SubMessage.Timestamp
-	return &combined
+// Essentially, take everything from the main message except for the text, user and timestamp that is set on the SubMessage, if present.
+func normalizeIncomingMessage(m *slack.MessageEvent) (normalized *slack.Msg) {
+	normalized = new(slack.Msg)
+	*normalized = m.Msg
+
+	if m.SubMessage != nil {
+		normalized.Text = m.SubMessage.Text
+		normalized.User = m.SubMessage.User
+		normalized.Timestamp = m.SubMessage.Timestamp
+	}
+	return normalized
+}
+
+// resolveThreadTimestamp returns the proper thread timestamp to use for a new message.
+// In the case of a response to a message on a thread, that value would be the original
+// thread timestamp. Otherwise, this would be the timestamp of the message responded to.
+// The function also returns whether or not the incoming message is a threaded message
+// which would indicate that we want any answer to get posted to that thread instead of the
+// main channel
+func resolveThreadTimestamp(m *slack.Msg) (threadTs string, isThreadedMessage bool) {
+	if m.ThreadTimestamp != "" {
+		return m.ThreadTimestamp, true
+	}
+
+	return m.Timestamp, false
 }
 
 // routeMessage handles routing the message to commands or hear actions according to the context
@@ -597,7 +620,9 @@ func combineIncomingMessage(messageEvent *slack.MessageEvent) (combinedMessage *
 // 	1. If the message is on a channel with a direct mention to us (@name), we route to commands
 // 	2. If the message is a direct message to us, we route to commands
 // 	3. If the message is on a channel without mention (regular conversation), we route to hear actions
-func (s *Slackscot) routeMessage(m *slack.Msg) (responses []*OutgoingMessage) {
+func (s *Slackscot) routeMessage(me *slack.MessageEvent) (responses []*OutgoingMessage) {
+	m := normalizeIncomingMessage(me)
+
 	// Check if message is directed at "us"
 	selfMessagePrefix := fmt.Sprintf("<@%s> ", s.selfID)
 	isDirectedMessage := strings.HasPrefix(m.Text, selfMessagePrefix)
@@ -659,6 +684,14 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 
 			if answer != nil {
 				slackOutMsg := rs(m, answer)
+
+				// If the message we're reacting to is happening on an existing thread, make sure we reply on that
+				// thread too and avoid the awkward situation of responding on the parent channel
+				threadTimestamp, threaded := resolveThreadTimestamp(&m.Msg)
+				if threaded {
+					answer.Options = append(answer.Options, AnswerInExistingThread(threadTimestamp))
+				}
+
 				outMsg := newOutMessageWithOptions(slackOutMsg, action.id, answer.Options...)
 
 				outMsgs = append(outMsgs, outMsg)

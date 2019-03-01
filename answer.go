@@ -5,6 +5,8 @@ const (
 	ThreadedReplyOpt = "threadedReply"
 	// BroadcastOpt is the name of the option indicating a broadcast answer
 	BroadcastOpt = "broadcast"
+	// ThreadTimestamp is the name of the option indicating the explicit timestamp of the thread to reply to
+	ThreadTimestamp = "threadTimestamp"
 )
 
 // AnswerOption defines a function applied to Answers
@@ -14,6 +16,14 @@ type AnswerOption func(sendOpts map[string]string)
 func AnswerInThread() func(sendOpts map[string]string) {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "true"
+	}
+}
+
+// AnswerInExistingThread sets threaded replying with the existing thread timestamp
+func AnswerInExistingThread(threadTimestamp string) func(sendOpts map[string]string) {
+	return func(sendOpts map[string]string) {
+		sendOpts[ThreadedReplyOpt] = "true"
+		sendOpts[ThreadTimestamp] = threadTimestamp
 	}
 }
 
