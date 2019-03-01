@@ -26,7 +26,7 @@ const (
 	responseCacheSizeDefault        = 5000
 	timeLocationDefault             = "Local"
 	threadedRepliesDefault          = false
-	broadcastThreadedRepliesDefault = true
+	broadcastThreadedRepliesDefault = false
 )
 
 // ReplyBehavior holds flags to define the replying behavior (use threads or not and broadcast replies or not)
@@ -43,9 +43,9 @@ func NewViperWithDefaults() (v *viper.Viper) {
 	v = viper.New()
 	v.SetDefault(DebugKey, debugDefault)
 	v.SetDefault(ResponseCacheSizeKey, responseCacheSizeDefault)
-	v.SetDefault(TimeLocationKey, "Local")
-	v.SetDefault(ThreadedRepliesKey, false)
-	v.SetDefault(BroadcastThreadedRepliesKey, true)
+	v.SetDefault(TimeLocationKey, timeLocationDefault)
+	v.SetDefault(ThreadedRepliesKey, threadedRepliesDefault)
+	v.SetDefault(BroadcastThreadedRepliesKey, broadcastThreadedRepliesDefault)
 
 	return v
 }

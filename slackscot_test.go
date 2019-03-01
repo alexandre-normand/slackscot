@@ -140,6 +140,12 @@ func optionDeletedMessage(channelID string, timestamp string) func(e *slack.Mess
 	}
 }
 
+func optionMessageOnThread(ts string) func(e *slack.MessageEvent) {
+	return func(e *slack.MessageEvent) {
+		e.ThreadTimestamp = ts
+	}
+}
+
 func optionDirectMessage(botUserID string) func(e *slack.MessageEvent) {
 	return func(e *slack.MessageEvent) {
 		e.Channel = fmt.Sprintf("D%s", botUserID)
@@ -234,6 +240,22 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+}
+
+func TestHandleIncomingThreadedMessageTriggeringResponse(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1, optionMessageOnThread("1212314125"))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		// This should include the threaded reply message options to ensure we reply on the thread without broadcast
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 	}
 

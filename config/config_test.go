@@ -14,7 +14,7 @@ func TestNewWithDefault(t *testing.T) {
 	assert.Equal(t, 5000, v.GetInt(config.ResponseCacheSizeKey), "%s should be %d", config.ResponseCacheSizeKey, 5000)
 	assert.Equal(t, "Local", v.GetString(config.TimeLocationKey), "%s should be %s", config.TimeLocationKey, "Local")
 	assert.Equal(t, false, v.GetBool(config.ThreadedRepliesKey), "%s should be %t", config.ThreadedRepliesKey, false)
-	assert.Equal(t, true, v.GetBool(config.BroadcastThreadedRepliesKey), "%s should be %t", config.BroadcastThreadedRepliesKey, true)
+	assert.Equal(t, false, v.GetBool(config.BroadcastThreadedRepliesKey), "%s should be %t", config.BroadcastThreadedRepliesKey, false)
 }
 
 func TestGetTimeLocationWithDefault(t *testing.T) {
