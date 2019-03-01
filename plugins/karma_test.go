@@ -57,6 +57,8 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"+----------+", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
 		{"---", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
 		{"+++", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
+		{"karma worst", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
+		{"karma top", map[string]bool{"h[0]": false, "c[0]": false, "c[1]": false}, map[string]string{}},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
