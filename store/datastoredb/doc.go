@@ -1,5 +1,5 @@
 /*
-Package databasedb provides an implementation of github.com/alexandre-normand/slackscot/store's StringStorer interface
+Package datastoredb provides an implementation of github.com/alexandre-normand/slackscot/store's StringStorer interface
 backed by the Google Cloud Datastore.
 
 

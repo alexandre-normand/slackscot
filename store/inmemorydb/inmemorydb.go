@@ -29,7 +29,7 @@ func New(storer store.StringStorer) (imdb *InMemoryDB, err error) {
 }
 
 // GetString returns the value associated to a given key. If the value is not
-// found or an error occured, the zero-value string is returned along with
+// found or an error occurred, the zero-value string is returned along with
 // the error
 func (imdb *InMemoryDB) GetString(key string) (value string, err error) {
 	v, ok := imdb.data[key]
