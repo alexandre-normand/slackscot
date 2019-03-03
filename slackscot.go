@@ -728,9 +728,12 @@ func reply(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
 	return newSlackOutgoingMessage(replyToMsg.Channel, fmt.Sprintf("<@%s>: %s", replyToMsg.User, answer.Text))
 }
 
-// directReply sends a reply to a direct message (which is internally a channel id for slack). It is essentially
-// the same as send but it's kept separate for clarity
+// directReply sends a reply to a direct message
 func directReply(replyToMsg *IncomingMessage, answer *Answer) *slack.OutgoingMessage {
+	// Force a non-threaded reply since we're in a direct conversation. Instead of overriding
+	// all existing options, we just add the one to override the threading here
+	answer.Options = append(answer.Options, AnswerWithoutThreading())
+
 	return send(replyToMsg, answer)
 }
 
