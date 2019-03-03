@@ -53,7 +53,7 @@ func (dsdb *DatastoreDB) testDB() (err error) {
 }
 
 // GetString returns the value associated to a given key. If the value is not
-// found or an error occured, the zero-value string is returned along with
+// found or an error occurred, the zero-value string is returned along with
 // the error
 func (dsdb *DatastoreDB) GetString(key string) (value string, err error) {
 	ctx := context.Background()
