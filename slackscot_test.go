@@ -523,7 +523,7 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 		assert.Equal(t, 5, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 
-		assert.Equal(t, 5, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "DFromAlphonse", sentMsgs[1].channelID)
 	}
 
