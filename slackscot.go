@@ -13,6 +13,7 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -50,6 +51,9 @@ type Slackscot struct {
 
 	// Logger
 	log *sLogger
+
+	// Resources to close on shutdown
+	closers []io.Closer
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -244,6 +248,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.name = name
 	s.config = v
 	s.namespaceCommands = true
+	s.closers = make([]io.Closer, 0)
 	s.defaultAction = func(m *IncomingMessage) *Answer {
 		return &Answer{Text: fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}

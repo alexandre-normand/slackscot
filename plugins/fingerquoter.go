@@ -3,7 +3,9 @@ package plugins
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/actions"
 	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/plugin"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -22,7 +24,7 @@ const (
 
 // FingerQuoter holds the plugin data for the finger quoter plugin
 type FingerQuoter struct {
-	slackscot.Plugin
+	*slackscot.Plugin
 	channels        []string
 	ignoredChannels []string
 	frequency       int
@@ -34,26 +36,27 @@ var candidateWordsStarting = regexp.MustCompile("(?:^|\\s)([\\w-]{5,})")
 var candidateWordsEnding = regexp.MustCompile("([\\w-]{5,})(?:$|\\s)")
 
 // NewFingerQuoter creates a new instance of the plugin
-func NewFingerQuoter(config *config.PluginConfig) (f *FingerQuoter, err error) {
+func NewFingerQuoter(config *config.PluginConfig) (p *slackscot.Plugin, err error) {
 	if ok := config.IsSet(frequencyKey); !ok {
 		return nil, fmt.Errorf("Missing %s config key: %s", FingerQuoterPluginName, frequencyKey)
 	}
 
-	f = new(FingerQuoter)
+	f := new(FingerQuoter)
 	f.channels = config.GetStringSlice(channelIDsKey)
 	f.ignoredChannels = config.GetStringSlice(ignoredChannelIDsKey)
 	f.frequency = config.GetInt(frequencyKey)
-	f.Name = FingerQuoterPluginName
-	f.HearActions = []slackscot.ActionDefinition{{
-		Hidden: true,
-		// Match based on the frequency probability and whether or not the channel is whitelisted
-		Match:       f.trigger,
-		Usage:       "just converse",
-		Description: "finger quoter listens to what people say and (sometimes) finger quotes a word",
-		Answer:      f.fingerQuoteMsg,
-	}}
 
-	return f, err
+	f.Plugin = plugin.New(FingerQuoterPluginName).
+		WithHearAction(actions.New().
+			Hidden().
+			WithMatcher(f.trigger).
+			WithUsage("just converse").
+			WithDescription("finger quoter listens to what people say and (sometimes) finger quotes a word").
+			WithAnswerer(f.fingerQuoteMsg).
+			Build()).
+		Build()
+
+	return f.Plugin, err
 }
 
 func (f *FingerQuoter) trigger(m *slackscot.IncomingMessage) bool {
