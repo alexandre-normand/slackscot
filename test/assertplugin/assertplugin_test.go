@@ -65,6 +65,8 @@ func newLittleTester() (mlt *myLittleTester) {
 
 func (mlt *myLittleTester) findChicakee(m *slackscot.IncomingMessage) *slackscot.Answer {
 	mlt.Logger.Debugf("a debug statement")
+	mlt.FileUploader.UploadFile(slack.FileUploadParameters{Filename: "imageOfABirdInATree.png", Filetype: "image/png", Title: "Look"})
+
 	return &slackscot.Answer{Text: "👀 in the 🌲"}
 }
 
@@ -99,6 +101,16 @@ func TestCommandResultValid(t *testing.T) {
 
 	assert.Equal(t, true, assertplugin.AnswersAndReacts(mockT, &myLittleTester.Plugin, &slack.Msg{Text: "<@bot> tell me where the black-capped chickadee is"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "👀 in the 🌲")
+	}))
+}
+
+func TestFileUploadCapture(t *testing.T) {
+	mockT := new(testing.T)
+	assertplugin := assertplugin.New("bot")
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, true, assertplugin.AnswersAndReactsWithUploads(mockT, &myLittleTester.Plugin, &slack.Msg{Text: "<@bot> tell me where the black-capped chickadee is"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "👀 in the 🌲") && assert.Len(t, fileUploads, 1) && assert.Equal(t, slack.FileUploadParameters{Filename: "imageOfABirdInATree.png", Filetype: "image/png", Title: "Look"}, fileUploads[0])
 	}))
 }
 

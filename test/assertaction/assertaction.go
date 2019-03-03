@@ -3,7 +3,7 @@ package assertaction
 
 import (
 	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/test"
+	"github.com/alexandre-normand/slackscot/test/capture"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -31,7 +31,7 @@ func MatchesAndEmojiReacts(t *testing.T, plugin *slackscot.Plugin, action slacks
 
 	if assert.Equalf(t, true, isMatch, "Message [%s] expected to match but action.Match returned false", m.NormalizedText) {
 		// Register a new emoji reactor with the plugin
-		ec := test.NewEmojiReactionCaptor()
+		ec := capture.NewEmojiReactor()
 		plugin.EmojiReactor = ec
 
 		action.Answer(m)
