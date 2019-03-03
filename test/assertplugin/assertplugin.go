@@ -1,12 +1,19 @@
 // Package assertplugin provides testing functions to validate a plugin's overall functionality.
 // This package is designed to play well but not require the assertanswer package for validation
 // of answers
+//
+// Note that all commands and hearActions are evaluated by assertplugin's driver but this is a
+// simplified version of how slackscot actually drives plugins and aims to provide the minimal
+// processing required to allow a plugin to test functionality given an incoming message.
+// Users should take special care to use include <@botUserID> with the same botUserID with which the
+// plugin driver has been instantiated in the message text inputs to test commands (or include a
+// channel name that starts with D for direct channel testing)
 package assertplugin
 
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
-	"github.com/alexandre-normand/slackscot/test"
+	"github.com/alexandre-normand/slackscot/test/capture"
 	"github.com/nlopes/slack"
 	"log"
 	"strings"
@@ -51,23 +58,42 @@ func OptionLog(logger *log.Logger) func(*Asserter) {
 // is successful and false otherwise (following the testify convention)
 type ResultValidator func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool
 
+// ResultWithUploadsValidator is a function to do further validation of the answers, emoji reactions and file uploads
+// resulting from a plugin processing of all of its commands and hear actions. The return value is meant to be true
+// if validation is successful and false otherwise (following the testify convention)
+type ResultWithUploadsValidator func(t *testing.T, answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) bool
+
 // AnswersAndReacts drives a plugin and collects Answers as well as emoji reactions. Once all of those have been collected,
 // it passes handling to a validator to assert the expected answers and emoji reactions. It follows the style of
 // github.com/stretchr/testify/assert as far as returning true/false to indicate success for further nested testing.
-//
-// Note that all commands and hearActions are evaluated but this is a simplified version of how slackscot actually drives
-// plugins and aims to provide the minimal processing required to allow a plugin to test functionality given an
-// incoming message. Users should take special care to use include <@botUserID> with the same botUserID with which the
-// plugin driver has been instantiated in the message text inputs to test commands (or include a channel name that
-// starts with D for direct channel testing)
 func (a *Asserter) AnswersAndReacts(t *testing.T, p *slackscot.Plugin, m *slack.Msg, validate ResultValidator) (valid bool) {
-	ec := test.NewEmojiReactionCaptor()
-	p.EmojiReactor = ec
+	answers, emojis, _ := a.injectServicesAndRun(p, m)
+
+	return validate(t, answers, emojis)
+}
+
+// AnswersAndReactsWithUploads drives a plugin and collects Answers as well as emoji reactions and file uploads.
+// Once all of those have been collected, it passes handling to a validator to assert the expected answers,
+// emoji reactions and file uploads. It follows the style of github.com/stretchr/testify/assert as far as
+// returning true/false to indicate success for further nested testing.
+func (a *Asserter) AnswersAndReactsWithUploads(t *testing.T, p *slackscot.Plugin, m *slack.Msg, validate ResultWithUploadsValidator) (valid bool) {
+	answers, emojis, fileUploads := a.injectServicesAndRun(p, m)
+
+	return validate(t, answers, emojis, fileUploads)
+}
+
+// injectServicesAndRun injects services in the plugin, drives all of its actions and returns the answers and captured data
+// from the execution
+func (a *Asserter) injectServicesAndRun(p *slackscot.Plugin, m *slack.Msg) (answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) {
+	emojiCaptor := capture.NewEmojiReactor()
+	p.EmojiReactor = emojiCaptor
+	fileUploadCaptor := capture.NewFileUploader()
+	p.FileUploader = slackscot.NewFileUploader(fileUploadCaptor)
 	p.Logger = slackscot.NewSLogger(getLogger(a), true)
 
-	answers := a.driveActions(p, m)
+	answers = a.driveActions(p, m)
 
-	return validate(t, answers, ec.Emojis)
+	return answers, emojiCaptor.Emojis, fileUploadCaptor.FileUploads
 }
 
 func getLogger(a *Asserter) (logger *log.Logger) {

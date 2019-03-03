@@ -1,4 +1,4 @@
-package test
+package capture
 
 import (
 	"fmt"
@@ -29,8 +29,8 @@ func (e *EmojiReactionCaptor) AddReaction(name string, item slack.ItemRef) error
 	return nil
 }
 
-// NewEmojiReactionCaptor returns a new EmojiReactionCaptor with an initialized emojis array
-func NewEmojiReactionCaptor() (emojiReactionCaptor *EmojiReactionCaptor) {
+// NewEmojiReactor returns a new EmojiReactionCaptor with an initialized emojis array
+func NewEmojiReactor() (emojiReactionCaptor *EmojiReactionCaptor) {
 	emojiReactionCaptor = new(EmojiReactionCaptor)
 	emojiReactionCaptor.Emojis = make([]string, 0)
 

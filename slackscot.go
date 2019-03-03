@@ -58,6 +58,7 @@ type Plugin struct {
 	UserInfoFinder UserInfoFinder
 	Logger         SLogger
 	EmojiReactor   EmojiReactor
+	FileUploader   FileUploader
 }
 
 // ActionDefinition represents how an action is triggered, published, used and described
@@ -166,6 +167,7 @@ type runDependencies struct {
 	chatDriver     chatDriver
 	userInfoFinder UserInfoFinder
 	emojiReactor   EmojiReactor
+	fileUploader   FileUploader
 	selfInfoFinder selfInfoFinder
 }
 
@@ -255,7 +257,7 @@ func (s *Slackscot) Run() (err error) {
 
 	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
 	// in a production scenario is by receiving a termination signal which
-	go s.runInternal(rtm.IncomingEvents, termination, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, selfInfoFinder: rtm}, true)
+	go s.runInternal(rtm.IncomingEvents, termination, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm}, true)
 
 	// Wait for termination
 	<-termination
@@ -282,7 +284,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 	s.RegisterPlugin(&helpPlugin.Plugin)
 
 	// Inject services into plugins before starting to process events
-	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor)
+	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader)
 
 	for msg := range events {
 		switch e := msg.Data.(type) {
@@ -316,16 +318,17 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 }
 
 // injectServicesToPlugins assembles/creates the services and injects them in all plugins
-func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, l SLogger, er EmojiReactor) (err error) {
-	uf, err := NewCachingUserInfoFinder(s.config, loadingUserInfoFinder, l)
+func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, logger SLogger, emojiReactor EmojiReactor, fileUploader FileUploader) (err error) {
+	userInfoFinder, err := NewCachingUserInfoFinder(s.config, loadingUserInfoFinder, logger)
 	if err != nil {
 		return err
 	}
 
 	for _, p := range s.plugins {
-		p.Logger = l
-		p.UserInfoFinder = uf
-		p.EmojiReactor = er
+		p.Logger = logger
+		p.UserInfoFinder = userInfoFinder
+		p.EmojiReactor = emojiReactor
+		p.FileUploader = fileUploader
 	}
 
 	return nil
