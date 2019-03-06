@@ -502,7 +502,7 @@ func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) 
 	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
 }
 
-// TestHelpTriggeringNoUserInfoCache indirectly tests the user info caching (or absence of) by exercising the
+// TestHelpTriggeringWithUserInfoCache indirectly tests the user info caching (or absence of) by exercising the
 // help plugin which makes a call to it in order to find info about the user who requested help
 func TestHelpTriggeringWithUserInfoCache(t *testing.T) {
 	v := config.NewViperWithDefaults()
@@ -520,7 +520,7 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 	})
 
 	if assert.Equal(t, 2, len(sentMsgs)) {
-		assert.Equal(t, 5, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 
 		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))

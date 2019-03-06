@@ -86,7 +86,7 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 		appendScheduledActions(&b, h.v.GetString(config.TimeLocationKey), h.pluginScheduledActions)
 	}
 
-	return &Answer{Text: b.String(), Options: []AnswerOption{AnswerInThreadWithBroadcast()}}
+	return &Answer{Text: b.String(), Options: []AnswerOption{AnswerInThread()}}
 }
 
 func appendActions(w io.Writer, actions []ActionDefinition) {
