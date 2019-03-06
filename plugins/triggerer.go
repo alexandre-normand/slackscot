@@ -56,7 +56,7 @@ func renderEmojiTrigger(trigger string, reaction string) (rendered string) {
 
 // renderStandardTrigger renders a standard trigger/reaction to be included in a listTriggers output
 func renderStandardTrigger(trigger string, reaction string) (rendered string) {
-	return fmt.Sprintf("`%s`\t=> `%s`", trigger, reaction)
+	return fmt.Sprintf("`%s`\t=> %s", trigger, renderStandardReaction(reaction))
 }
 
 // reactionEncoder is a function that takes in a raw reaction string and encodes it as a string to be persisted
@@ -486,7 +486,8 @@ func formatTriggers(triggers map[string]string, render elementRenderer) string {
 	bufw := bufio.NewWriter(&b)
 	w.Init(bufw, 5, 0, 1, ' ', 0)
 	for _, trigger := range keys {
-		fmt.Fprintf(w, "\t• %s\n", render(trigger, triggers[trigger]))
+		reaction := triggers[trigger]
+		fmt.Fprintf(w, "\t• %s\n", render(trigger, reaction))
 	}
 	fmt.Fprintf(w, "\n")
 
