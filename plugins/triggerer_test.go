@@ -97,15 +97,15 @@ func TestRegisterNewMultilineReactionTrigger(t *testing.T) {
 	assertplugin := assertplugin.New("bot")
 
 	// Register new trigger
-	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with ```{\nattributes=test\n}\n```"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => ```{\nattributes=test\n}\n```]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with ```{\n\"attributes\"=1.0\n}\n```"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => ```{\n\"attributes\"=1.0\n}\n```]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "```{\nattributes=test\n}\n```") && assertanswer.HasOptions(t, answers[0])
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "```{\n\"attributes\"=1.0\n}\n```") && assertanswer.HasOptions(t, answers[0])
 		})
 
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "```{\nattributes=test\n}\n```") && assertanswer.HasOptions(t, answers[0])
+			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "```{\n\"attributes\"=1.0\n}\n```") && assertanswer.HasOptions(t, answers[0])
 		})
 	}
 }
@@ -363,12 +363,12 @@ func TestListTriggers(t *testing.T) {
 	// Register triggers
 	if assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
-	}) && assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on suddenly with https://suddenly.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`suddenly` => `https://suddenly.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
+	}) && assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> trigger on suddenly with ```{\n\"attributes\"=1.0\n}\n```"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`suddenly` => ```{\n\"attributes\"=1.0\n}\n```]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// List triggers
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current triggers: \n     • `deal with it` => `http://dealwithit.gif`\n     • `suddenly`     => `https://suddenly.gif`\n\n") &&
+			return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current triggers: \n     • `deal with it` => `http://dealwithit.gif`\n     • `suddenly`     => ```{\n\"attributes\"=1.0\n}\n```\n\n") &&
 				assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 		})
 	}
