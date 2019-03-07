@@ -460,6 +460,38 @@ func TestDirectMessageNotMatchingAnything(t *testing.T) {
 	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
 }
 
+func TestDefaultCommandAnswerInChannel(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		// Trigger the command action
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "<@BotUserID> mistyped command", "Alphonse", timestamp1)),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+}
+
+func TestDefaultCommandAnswerToMsgOnExistingThread(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		// Trigger the command action
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "<@BotUserID> mistyped command", "Alphonse", timestamp1, optionMessageOnThread("1212314125"))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+}
+
 func TestAtMessageNotMatchingAnything(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		// At Message but not matching the command

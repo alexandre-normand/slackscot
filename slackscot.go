@@ -665,13 +665,25 @@ func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithID, m *
 	outMsgs = handleMessage(actions, m, rs)
 	if len(outMsgs) == 0 {
 		answer := defaultAnswer(m)
+		answer.useExistingThreadIfAny(m)
 
 		slackOutMsg := rs(m, answer)
-		outMsg := newOutMessageWithOptions(slackOutMsg, "default")
+
+		outMsg := newOutMessageWithOptions(slackOutMsg, "default", answer.Options...)
 		return []*OutgoingMessage{outMsg}
 	}
 
 	return outMsgs
+}
+
+// useExistingThreadIfAny sets the option on an Answer to reply in the existing thread if there is one
+func (a *Answer) useExistingThreadIfAny(m *IncomingMessage) {
+	// If the message we're reacting to is happening on an existing thread, make sure we reply on that
+	// thread too and avoid the awkward situation of responding on the parent channel
+	threadTimestamp, threaded := resolveThreadTimestamp(&m.Msg)
+	if threaded {
+		a.Options = append(a.Options, AnswerInExistingThread(threadTimestamp))
+	}
 }
 
 // processMessage loops over all action definitions and invokes its action if the incoming message matches it's regular expression
@@ -686,17 +698,10 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 			answer := action.Answer(m)
 
 			if answer != nil {
+				answer.useExistingThreadIfAny(m)
 				slackOutMsg := rs(m, answer)
 
-				// If the message we're reacting to is happening on an existing thread, make sure we reply on that
-				// thread too and avoid the awkward situation of responding on the parent channel
-				threadTimestamp, threaded := resolveThreadTimestamp(&m.Msg)
-				if threaded {
-					answer.Options = append(answer.Options, AnswerInExistingThread(threadTimestamp))
-				}
-
 				outMsg := newOutMessageWithOptions(slackOutMsg, action.id, answer.Options...)
-
 				outMsgs = append(outMsgs, outMsg)
 			}
 		}
