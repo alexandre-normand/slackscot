@@ -8,6 +8,16 @@ Requirements for the Google Cloud Datastore integration:
   - Google Cloud Credentials (typically in the form of a json file
     with credentials from https://console.cloud.google.com/apis/credentials/serviceaccountkey)
 
+Note: for deployments using credentials rotation, the current solution supports this use-case
+with a naive lazy recreation of the client on error. In order for fresh credentials to be
+effective when an authentication error happens, the credential client options must reflect
+the fresh credentials. One example of this is
+
+ option.WithCredentialsFile(filename)
+
+Since that option points to a filename, the fresh credentials at that file location
+would be refreshed on client recreation.
+
 Example code:
 
 	import (
