@@ -16,6 +16,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/viper v1.3.1
+	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.2.2
 	github.com/syndtr/goleveldb v0.0.0-20190203031304-2f17a3356c66
 	google.golang.org/api v0.1.0

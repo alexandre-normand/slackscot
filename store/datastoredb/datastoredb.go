@@ -10,10 +10,8 @@ import (
 // the given name (usually a plugin name) to the datastore entity Kind
 // to isolate data between different plugins
 type DatastoreDB struct {
-	*datastore.Client
-	kind             string
-	gcloudProjectID  string
-	gcloudClientOpts []option.ClientOption
+	datastorer
+	kind string
 }
 
 // EntryValue represents an entity/entry value mapped to a datastore key
@@ -34,12 +32,23 @@ const (
 // something like option.WithCredentialsFile with the credentials file being updated on disk so that when reconnecting
 // on a failure, the updated credentials are visible through the same gcloud client options
 func New(name string, gcloudProjectID string, gcloudClientOpts ...option.ClientOption) (dsdb *DatastoreDB, err error) {
+	ds := new(gcdatastore)
+	ds.gcloudProjectID = gcloudProjectID
+	ds.gcloudClientOpts = gcloudClientOpts
+
+	return newWithDatastorer(name, ds)
+}
+
+// newWithDatastorer returns a new instance of DatastoreDB using the provided datastorer
+func newWithDatastorer(name string, datastorer datastorer) (dsdb *DatastoreDB, err error) {
 	dsdb = new(DatastoreDB)
 	dsdb.kind = name
-	dsdb.gcloudProjectID = gcloudProjectID
-	dsdb.gcloudClientOpts = gcloudClientOpts
+	dsdb.datastorer = datastorer
 
-	dsdb.connectClient()
+	err = dsdb.connect()
+	if err != nil {
+		return nil, err
+	}
 
 	err = dsdb.testDB()
 	if err = dsdb.testDB(); err != nil {
@@ -50,21 +59,9 @@ func New(name string, gcloudProjectID string, gcloudClientOpts ...option.ClientO
 	return dsdb, nil
 }
 
-// connectClient establishes a new datastore Client connection
-// Note: must be called after gcloudProjectID and gCloudClientOpts has been set
-func (dsdb *DatastoreDB) connectClient() (err error) {
-	ctx := context.Background()
-	dsdb.Client, err = datastore.NewClient(ctx, dsdb.gcloudProjectID, dsdb.gcloudClientOpts...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // testDB makes a lightweight call to the datastore to validate connectivity and credentials
 func (dsdb *DatastoreDB) testDB() (err error) {
-	_, err = dsdb.GetString("testConnectivity")
+	err = dsdb.Get(context.Background(), datastore.NameKey(dsdb.kind, "testConnectivity", nil), &EntryValue{})
 
 	if err != nil && err != datastore.ErrNoSuchEntity {
 		return err
@@ -82,15 +79,10 @@ func (dsdb *DatastoreDB) GetString(key string) (value string, err error) {
 	var e EntryValue
 	k := datastore.NameKey(dsdb.kind, key, nil)
 
-	attempt := 0
-	err = dsdb.Get(ctx, k, &e)
-
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
-	for attempt < maxAttemptCount && err != nil && shouldRetry(err) {
-		dsdb.connectClient()
-
-		attempt = attempt + 1
-		err = dsdb.Get(ctx, k, &e)
+	var attempt int
+	for attempt, err = 1, dsdb.Get(ctx, k, &e); attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt, err = attempt+1, dsdb.Get(ctx, k, &e) {
+		dsdb.connect()
 	}
 
 	if err != nil {
@@ -105,14 +97,13 @@ func (dsdb *DatastoreDB) PutString(key string, value string) (err error) {
 	ctx := context.Background()
 	k := datastore.NameKey(dsdb.kind, key, nil)
 
-	attempt := 0
+	// Execute first attempt
 	_, err = dsdb.Put(ctx, k, &EntryValue{Value: value})
 
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
-	for attempt < maxAttemptCount && err != nil && shouldRetry(err) {
-		dsdb.connectClient()
+	for attempt := 1; attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt = attempt + 1 {
+		dsdb.connect()
 
-		attempt = attempt + 1
 		_, err = dsdb.Put(ctx, k, &EntryValue{Value: value})
 	}
 
@@ -125,15 +116,10 @@ func (dsdb *DatastoreDB) DeleteString(key string) (err error) {
 	ctx := context.Background()
 	k := datastore.NameKey(dsdb.kind, key, nil)
 
-	attempt := 0
-	err = dsdb.Delete(ctx, k)
-
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
-	for attempt < maxAttemptCount && err != nil && shouldRetry(err) {
-		dsdb.connectClient()
-
-		attempt = attempt + 1
-		err = dsdb.Delete(ctx, k)
+	var attempt int
+	for attempt, err = 1, dsdb.Delete(ctx, k); attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt, err = attempt+1, dsdb.Delete(ctx, k) {
+		dsdb.connect()
 	}
 
 	return err
@@ -146,14 +132,18 @@ func (dsdb *DatastoreDB) Scan() (entries map[string]string, err error) {
 	ctx := context.Background()
 	var vals []*EntryValue
 
-	attempt := 0
+	// Run first attempt before looping
 	keys, err := dsdb.GetAll(ctx, datastore.NewQuery(dsdb.kind), &vals)
 
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
-	for attempt < maxAttemptCount && err != nil && shouldRetry(err) {
-		dsdb.connectClient()
-		attempt = attempt + 1
+	for attempt := 1; attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt = attempt + 1 {
+		dsdb.connect()
+
 		keys, err = dsdb.GetAll(ctx, datastore.NewQuery(dsdb.kind), &vals)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	for i, key := range keys {
@@ -174,9 +164,4 @@ func (dsdb *DatastoreDB) Scan() (entries map[string]string, err error) {
 // with. This means we could still retry when it's pointless to do so at the expense of added latency.
 func shouldRetry(err error) bool {
 	return err != datastore.ErrNoSuchEntity && err != datastore.ErrInvalidEntityType && err != datastore.ErrInvalidKey
-}
-
-// Close closes the underlying datastore client
-func (dsdb *DatastoreDB) Close() (err error) {
-	return dsdb.Client.Close()
 }
