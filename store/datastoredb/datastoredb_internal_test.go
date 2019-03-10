@@ -60,11 +60,11 @@ func (md *mockDatastore) Get(c context.Context, k *datastore.Key, dest interface
 
 // GetAll mocks a GetAll datastore call. The base was inspired by the generated mock implementation via https://github.com/vektra/mockery
 // to get an idea of how to support returner functions
-func (md *mockDatastore) GetAll(c context.Context, query interface{}, dest interface{}) (keys []*datastore.Key, err error) {
+func (md *mockDatastore) GetAll(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key, err error) {
 	ret := md.Called(c, query, dest)
 
 	var r0 []*datastore.Key
-	if rf, ok := ret.Get(0).(func(context.Context, interface{}, interface{}) []*datastore.Key); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *datastore.Query, interface{}) []*datastore.Key); ok {
 		r0 = rf(c, query, dest)
 	} else {
 		if ret.Get(0) != nil {
@@ -73,7 +73,7 @@ func (md *mockDatastore) GetAll(c context.Context, query interface{}, dest inter
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, interface{}, interface{}) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *datastore.Query, interface{}) error); ok {
 		r1 = rf(c, query, dest)
 	} else {
 		r1 = ret.Error(1)
@@ -210,7 +210,7 @@ func TestSuccessfulScan(t *testing.T) {
 	// and set that one value for the key that we're returning in the output. This should be much easier but the datastore API is
 	// not the most elegant in that regards so that's just something to deal with
 	var vals []*EntryValue
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(func(c context.Context, query interface{}, dest interface{}) (keys []*datastore.Key) {
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(func(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key) {
 		if vals, ok := dest.(*[]*EntryValue); ok {
 			if vals != nil {
 				(*vals) = make([]*EntryValue, 1)

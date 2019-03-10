@@ -42,27 +42,27 @@ type datastorer interface {
 	io.Closer
 	Delete(c context.Context, k *datastore.Key) (err error)
 	Get(c context.Context, k *datastore.Key, dest interface{}) (err error)
-	GetAll(c context.Context, query interface{}, dest interface{}) (keys []*datastore.Key, err error)
+	GetAll(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key, err error)
 	Put(c context.Context, k *datastore.Key, v interface{}) (key *datastore.Key, err error)
 }
 
 // Delete deletes the entity for the given key. See https://godoc.org/cloud.google.com/go/datastore#Client.Delete
 func (ds *gcdatastore) Delete(c context.Context, k *datastore.Key) (err error) {
-	return ds.Delete(c, k)
+	return ds.Client.Delete(c, k)
 }
 
 // Get loads the entity stored for key into dst. See https://godoc.org/cloud.google.com/go/datastore#Client.Get
 func (ds *gcdatastore) Get(c context.Context, k *datastore.Key, dest interface{}) (err error) {
-	return ds.Get(c, k, dest)
+	return ds.Client.Get(c, k, dest)
 }
 
 // GetAll runs the provided query in the given context and returns all keys that match that query.
 // See https://godoc.org/cloud.google.com/go/datastore#Client.GetAll
-func (ds *gcdatastore) GetAll(c context.Context, query interface{}, dest interface{}) (keys []*datastore.Key, err error) {
-	return ds.GetAll(c, query, dest)
+func (ds *gcdatastore) GetAll(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key, err error) {
+	return ds.Client.GetAll(c, query, dest)
 }
 
 // Put saves the entity src into the datastore with the given key. See https://godoc.org/cloud.google.com/go/datastore#Client.Put
 func (ds *gcdatastore) Put(c context.Context, k *datastore.Key, v interface{}) (key *datastore.Key, err error) {
-	return ds.Put(c, k, v)
+	return ds.Client.Put(c, k, v)
 }
