@@ -18,7 +18,8 @@ import (
 // with a hear action that will listen and react if one of the registered triggers is said
 type Triggerer struct {
 	slackscot.Plugin
-	triggerStorer store.StringStorer
+	triggerStorer  store.StringStorer
+	triggerRegexes map[string]*regexp.Regexp
 }
 
 const (
@@ -130,6 +131,7 @@ func NewTriggerer(strStorer store.StringStorer) (triggerer *Triggerer) {
 
 	t.Plugin = slackscot.Plugin{Name: triggererPluginName, Commands: commands, HearActions: hearActions}
 	t.triggerStorer = strStorer
+	t.triggerRegexes = make(map[string]*regexp.Regexp)
 
 	return t
 }
@@ -224,15 +226,36 @@ func (t *Triggerer) matchTriggers(m *slackscot.IncomingMessage) bool {
 		return false
 	}
 
-	for _, triggers := range triggersByType {
+	for typeID, triggers := range triggersByType {
 		for trigger := range triggers {
-			if strings.Contains(strings.ToUpper(m.NormalizedText), strings.ToUpper(trigger)) {
+			exp, err := t.getTriggerRegexp(typeID, trigger)
+			if err != nil {
+				t.Logger.Printf("Error getting regexp for trigger [%s]: %v", trigger, err)
+			}
+
+			if exp.MatchString(m.NormalizedText) {
 				return true
 			}
 		}
 	}
 
 	return false
+}
+
+// getTriggerRegexp generates a regexp for a given trigger. The resulting regexp is lazily cached so
+// the regexes don't have to be recompiled every time
+func (t *Triggerer) getTriggerRegexp(triggerTypeID rune, trigger string) (exp *regexp.Regexp, err error) {
+	encTrigger := encodeTriggerWithTypeID(trigger, triggerTypeID)
+	if exp, ok := t.triggerRegexes[encTrigger]; ok {
+		return exp, nil
+	}
+
+	t.triggerRegexes[encTrigger], err = regexp.Compile(fmt.Sprintf("(?i)\\b%s\\b", regexp.QuoteMeta(trigger)))
+	if err != nil {
+		return nil, err
+	}
+
+	return t.triggerRegexes[encTrigger], nil
 }
 
 // reactOnTrigger reacts on emoji and standard triggers. For standard triggers, only the first match applies. For emoji triggers,
@@ -251,7 +274,12 @@ func (t *Triggerer) reactOnTriggers(m *slackscot.IncomingMessage) *slackscot.Ans
 // reactOnStandardTriggers returns a reaction string if it finds a trigger match. Note that only at most one standard trigger can match
 func (t *Triggerer) reactOnStandardTriggers(m *slackscot.IncomingMessage, standardTriggers map[string]string) *slackscot.Answer {
 	for trigger, reaction := range standardTriggers {
-		if strings.Contains(strings.ToUpper(m.NormalizedText), strings.ToUpper(trigger)) {
+		exp, err := t.getTriggerRegexp(standardTriggerTypeID, trigger)
+		if err != nil {
+			t.Logger.Printf("Error getting regexp for trigger [%s]: %v", trigger, err)
+		}
+
+		if exp.MatchString(m.NormalizedText) {
 			return &slackscot.Answer{Text: reaction}
 		}
 	}
@@ -262,7 +290,12 @@ func (t *Triggerer) reactOnStandardTriggers(m *slackscot.IncomingMessage, standa
 // reactOnEmojiTriggers adds emoji reactions matching emoji triggers, as appropriate
 func (t *Triggerer) reactOnEmojiTriggers(m *slackscot.IncomingMessage, emojiTriggers map[string]string) {
 	for trigger, reaction := range emojiTriggers {
-		if strings.Contains(strings.ToUpper(m.NormalizedText), strings.ToUpper(trigger)) {
+		exp, err := t.getTriggerRegexp(emojiTriggerTypeID, trigger)
+		if err != nil {
+			t.Logger.Printf("Error getting regexp for trigger [%s]: %v", trigger, err)
+		}
+
+		if exp.MatchString(m.NormalizedText) {
 			for _, emoji := range parseEmojiList(reaction) {
 				t.EmojiReactor.AddReaction(emoji, slack.NewRefToMessage(m.Channel, m.Timestamp))
 			}

@@ -75,6 +75,10 @@ func TestRegisterNewTrigger(t *testing.T) {
 			return assert.Empty(t, answers) && assert.Empty(t, emojis)
 		})
 
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with itself"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, answers) && assert.Empty(t, emojis)
+		})
+
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://dealwithit.gif") && assertanswer.HasOptions(t, answers[0])
 		})
@@ -120,6 +124,10 @@ func TestRegisterNewEmojiTrigger(t *testing.T) {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`deal with it` => :boom:, :cat:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, emojis) && assert.Empty(t, answers)
+		})
+
+		assertplugin.AnswersAndReacts(t, &triggerer.Plugin, &slack.Msg{Text: "deal with itself"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, emojis) && assert.Empty(t, answers)
 		})
 
