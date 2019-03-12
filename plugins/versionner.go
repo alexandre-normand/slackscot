@@ -14,11 +14,11 @@ type Versioner struct {
 }
 
 const (
-	versionerPluginName = "versioner"
+	versionerPluginName = "versionner"
 )
 
-// NewVersioner creates a new instance of the versioner plugin
-func NewVersioner(name string, version string) *Versioner {
+// NewVersionner creates a new instance of the versioner plugin
+func NewVersionner(name string, version string) *Versioner {
 	return &Versioner{Plugin: slackscot.Plugin{Name: versionerPluginName, Commands: []slackscot.ActionDefinition{{
 		Match: func(m *slackscot.IncomingMessage) bool {
 			return strings.HasPrefix(m.NormalizedText, "version")
