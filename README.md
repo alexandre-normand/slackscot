@@ -103,8 +103,7 @@ your ambitious dreams (if you dreams include this sort of thing).
     Testing functions to help validate plugin action behavior (see example in 
     [triggerer_test.go](plugins/triggerer_test.go)). Testing functions
     are found in 
-    [assertplugin](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertplugin), 
-    [assertaction](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertaction) and 
+    [assertplugin](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertplugin) and 
     [assertanswer](https://godoc.org/github.com/alexandre-normand/slackscot/test/assertanswer)
 
 *   Built-in `help` plugin supporting a decently formatted help message
