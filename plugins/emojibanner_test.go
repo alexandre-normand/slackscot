@@ -3,6 +3,8 @@ package plugins_test
 import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
+	"github.com/alexandre-normand/slackscot/test/assertanswer"
+	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -13,64 +15,78 @@ func TestEmojiBannerTrigger(t *testing.T) {
 	pc := viper.New()
 
 	ebm, err := plugins.NewEmojiBannerMaker(pc)
-	assert.Nil(t, err)
-
+	assert.NoError(t, err)
 	defer ebm.Close()
 
-	c := ebm.Commands[0]
+	assertplugin := assertplugin.New(t, "robert")
 
-	assert.Equal(t, false, c.Match(&slackscot.IncomingMessage{NormalizedText: "other"}))
-	assert.Equal(t, false, c.Match(&slackscot.IncomingMessage{NormalizedText: "emoji"}))
-	assert.Equal(t, true, c.Match(&slackscot.IncomingMessage{NormalizedText: "emoji banner cats :cat:"}))
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> other"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
+
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
+
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner cat :cat:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\r\n⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
+			":cat::cat::cat::cat::cat::cat::cat::cat::cat::cat:\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:\n:cat:⬜️⬜️:cat:"+
+			":cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:\n:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️"+
+			":cat::cat::cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️\n:cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️:cat:⬜️⬜️:cat::cat::cat::cat::cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️"+
+			":cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️\n⬜️:cat::cat::cat::cat::cat::cat::cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️\n"+
+			"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n")
+	})
 }
 
 func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
 	pc := viper.New()
 
 	ebm, err := plugins.NewEmojiBannerMaker(pc)
-	assert.Nil(t, err)
-
+	assert.NoError(t, err)
 	defer ebm.Close()
 
-	c := ebm.Commands[0]
+	assertplugin := assertplugin.New(t, "robert")
 
-	assert.Equal(t, "Wrong usage: emoji banner <word of 5 characters or less> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats"}}).Text)
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage`: emoji banner `<word of 5 characters or less>` `<emoji>`")
+	})
+
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner cats"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage`: emoji banner `<word of 5 characters or less>` `<emoji>`")
+	})
 }
 
 func TestEmojiBannerGenerationWithLongWord(t *testing.T) {
 	pc := viper.New()
 
 	ebm, err := plugins.NewEmojiBannerMaker(pc)
-	assert.Nil(t, err)
-
+	assert.NoError(t, err)
 	defer ebm.Close()
 
-	c := ebm.Commands[0]
+	assertplugin := assertplugin.New(t, "robert")
 
-	assert.Equal(t, "Wrong usage (word longer than 5 characters): emoji banner <word of 5 characters or less> <emoji>", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner testing :bug:"}}).Text)
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner testing :bug:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage` (word *longer* than `5` characters): emoji banner `<word of 5 characters or less>` `<emoji>`")
+	})
 }
 
 func TestEmojiBannerGenerationWithDefaultFont(t *testing.T) {
 	pc := viper.New()
 
 	ebm, err := plugins.NewEmojiBannerMaker(pc)
-	assert.Nil(t, err)
-
+	assert.NoError(t, err)
 	defer ebm.Close()
 
-	c := ebm.Commands[0]
+	assertplugin := assertplugin.New(t, "robert")
 
-	assert.Equal(t, "\r\n⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:"+
-		":cat::cat::cat::cat::cat::cat::cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:"+
-		":cat::cat:\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️"+
-		":cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:\n:cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️"+
-		":cat:⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat::cat::cat::cat:"+
-		":cat::cat:\n:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat::cat::cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️"+
-		"⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️\n:cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️:cat:⬜️⬜️:cat::cat::cat::cat::cat:"+
-		"⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n⬜️:cat::cat::cat::cat:"+
-		":cat::cat::cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
-		":cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️"+
-		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}).Text)
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner cat :cat:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\r\n⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
+			":cat::cat::cat::cat::cat::cat::cat::cat::cat::cat:\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:\n:cat:⬜️⬜️:cat:"+
+			":cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:\n:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️"+
+			":cat::cat::cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️\n:cat:⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️:cat:⬜️⬜️:cat::cat::cat::cat::cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️"+
+			":cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️\n⬜️:cat::cat::cat::cat::cat::cat::cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️\n"+
+			"⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n")
+	})
 }
 
 func TestEmojiBannerGenerationWithBannerFont(t *testing.T) {
@@ -78,18 +94,17 @@ func TestEmojiBannerGenerationWithBannerFont(t *testing.T) {
 	pc.Set("figletFontUrl", "http://www.figlet.org/fonts/banner.flf")
 
 	ebm, err := plugins.NewEmojiBannerMaker(pc)
-	assert.Nil(t, err)
-
+	assert.NoError(t, err)
 	defer ebm.Close()
 
-	c := ebm.Commands[0]
+	assertplugin := assertplugin.New(t, "robert")
 
-	assert.Equal(t, "\r\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat:"+
-		":cat:⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat:⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat:"+
-		"⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat:⬜️⬜️\n⬜️:cat:"+
-		"⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:"+
-		"⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️\n⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat::cat::cat:"+
-		":cat:⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n", c.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "emoji banner cats :cat:"}}).Text)
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner cat :cat:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\r\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️⬜️⬜️:cat:"+
+			":cat:⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat:⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️"+
+			":cat:⬜️⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️⬜️⬜️⬜️:cat::cat::cat::cat::cat::cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n"+
+			"⬜️⬜️:cat::cat::cat::cat:⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️⬜️:cat:⬜️⬜️⬜️\n⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️⬜️\n")
+	})
 }
 
 func TestBadFontURLShouldFailPluginCreation(t *testing.T) {
@@ -97,7 +112,7 @@ func TestBadFontURLShouldFailPluginCreation(t *testing.T) {
 	pc.Set("figletFontUrl", "https://invalid.url.is.bad/")
 
 	_, err := plugins.NewEmojiBannerMaker(pc)
-	if assert.NotNil(t, err) {
+	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "Error loading font url")
 	}
 }
@@ -107,7 +122,7 @@ func TestInvalidFontURLShouldFailPluginCreation(t *testing.T) {
 	pc.Set("figletFontUrl", "%proto:")
 
 	_, err := plugins.NewEmojiBannerMaker(pc)
-	if assert.NotNil(t, err) {
+	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "Invalid font url")
 	}
 }
