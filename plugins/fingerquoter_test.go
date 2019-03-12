@@ -18,7 +18,7 @@ func TestMissingFrequencyConfig(t *testing.T) {
 	pc := viper.New()
 
 	_, err := plugins.NewFingerQuoter(pc)
-	if assert.NotNil(t, err) {
+	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "Missing fingerQuoter config key: frequency")
 	}
 }
@@ -29,17 +29,19 @@ func TestMatchFrequency(t *testing.T) {
 	pc.Set("frequency", 2)
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
+
 	matches := 0
 	ts := "1546833245.0369%02d"
-
 	for i := 0; i < 10; i++ {
 		msgt := fmt.Sprintf(ts, i)
-		if h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Timestamp: msgt}}) {
-			matches = matches + 1
-		}
+
+		assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Timestamp: msgt}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			matches = matches + len(answers)
+			return true
+		})
 	}
 
 	assert.Equal(t, 5, matches)
@@ -52,13 +54,21 @@ func TestChannelWhitelisting(t *testing.T) {
 	pc.Set("channelIDs", []string{"channel1", "channel2"})
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
 
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
-	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel2", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel3", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
 }
 
 func TestChannelIgnoring(t *testing.T) {
@@ -69,13 +79,21 @@ func TestChannelIgnoring(t *testing.T) {
 	pc.Set("ignoredChannelIDs", []string{"channel2"})
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
 
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
-	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
-	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel2", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel3", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
 }
 
 func TestChannelIgnoredWithDefaultWhitelisting(t *testing.T) {
@@ -86,13 +104,21 @@ func TestChannelIgnoredWithDefaultWhitelisting(t *testing.T) {
 	pc.Set("ignoredChannelIDs", []string{"channel2"})
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
 
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
-	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel2", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel3", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
 }
 
 func TestDefaultWhitelistingEnablesForAll(t *testing.T) {
@@ -102,13 +128,21 @@ func TestDefaultWhitelistingEnablesForAll(t *testing.T) {
 	pc.Set("channelIDs", "")
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
 
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "1546833210.036900"}}))
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel2", Timestamp: "1546833210.036900"}}))
-	assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel3", Timestamp: "1546833210.036900"}}))
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel2", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
+
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel3", Timestamp: "1546833210.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "\"thing\"")
+	})
 }
 
 func TestMatchConsistentWithSameTimestamp(t *testing.T) {
@@ -116,13 +150,18 @@ func TestMatchConsistentWithSameTimestamp(t *testing.T) {
 	pc.Set("frequency", 2)
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
 
 	for i := 0; i < 100; i++ {
-		assert.True(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Timestamp: "1546833210.036903"}}))
-		assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Timestamp: "1546833222.031904"}}))
+		assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "1546833210.036903"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Len(t, answers, 1)
+		})
+
+		assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "1546833222.031904"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+			return assert.Empty(t, answers)
+		})
 	}
 }
 
@@ -135,12 +174,13 @@ func TestMatchFalseWhenCorruptedTimestamp(t *testing.T) {
 
 	// Set debug logger
 	var b strings.Builder
-	f.Logger = slackscot.NewSLogger(log.New(&b, "", 0), true)
+	logger := log.New(&b, "", 0)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot", assertplugin.OptionLog(logger))
 
-	assert.False(t, h.Match(&slackscot.IncomingMessage{NormalizedText: "text", Msg: slack.Msg{Channel: "channel1", Timestamp: "NotAFloatValue"}}))
-	assert.Contains(t, b.String(), "error converting timestamp to float")
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "some random thing someone could say", Channel: "channel1", Timestamp: "NotAFloatValue"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers) && assert.Contains(t, b.String(), "error converting timestamp to float")
+	})
 }
 
 func TestNoAnswerWhenCorruptedTimestamp(t *testing.T) {
@@ -180,7 +220,7 @@ func TestNotQuotingPartsOfURLs(t *testing.T) {
 	pc.Set("frequency", 1)
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
 
@@ -231,9 +271,11 @@ func TestNoQuotingIfOnlySmallWords(t *testing.T) {
 	pc.Set("frequency", 1)
 
 	f, err := plugins.NewFingerQuoter(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
-	h := f.HearActions[0]
+	assertplugin := assertplugin.New(t, "bot")
 
-	assert.Nil(t, h.Answer(&slackscot.IncomingMessage{Msg: slack.Msg{Text: "Do I or not?", Timestamp: "1546833210.036900"}}))
+	assertplugin.AnswersAndReacts(&f.Plugin, &slack.Msg{Text: "Do I or not?", Timestamp: "1546833310.036900"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
 }
