@@ -24,6 +24,7 @@ import (
 // sending test messages for processing
 type Asserter struct {
 	botUserID string
+	t         *testing.T
 	logger    *log.Logger
 }
 
@@ -31,9 +32,10 @@ type Asserter struct {
 // (only include the id without the '@' prefix).
 // The botUserId is used in order to detect commands formed with
 // <@botUserId>
-func New(botUserID string, options ...Option) (a *Asserter) {
+func New(t *testing.T, botUserID string, options ...Option) (a *Asserter) {
 	a = new(Asserter)
 	a.botUserID = botUserID
+	a.t = t
 
 	for _, option := range options {
 		option(a)
@@ -66,20 +68,20 @@ type ResultWithUploadsValidator func(t *testing.T, answers []*slackscot.Answer, 
 // AnswersAndReacts drives a plugin and collects Answers as well as emoji reactions. Once all of those have been collected,
 // it passes handling to a validator to assert the expected answers and emoji reactions. It follows the style of
 // github.com/stretchr/testify/assert as far as returning true/false to indicate success for further nested testing.
-func (a *Asserter) AnswersAndReacts(t *testing.T, p *slackscot.Plugin, m *slack.Msg, validate ResultValidator) (valid bool) {
+func (a *Asserter) AnswersAndReacts(p *slackscot.Plugin, m *slack.Msg, validate ResultValidator) (valid bool) {
 	answers, emojis, _ := a.injectServicesAndRun(p, m)
 
-	return validate(t, answers, emojis)
+	return validate(a.t, answers, emojis)
 }
 
 // AnswersAndReactsWithUploads drives a plugin and collects Answers as well as emoji reactions and file uploads.
 // Once all of those have been collected, it passes handling to a validator to assert the expected answers,
 // emoji reactions and file uploads. It follows the style of github.com/stretchr/testify/assert as far as
 // returning true/false to indicate success for further nested testing.
-func (a *Asserter) AnswersAndReactsWithUploads(t *testing.T, p *slackscot.Plugin, m *slack.Msg, validate ResultWithUploadsValidator) (valid bool) {
+func (a *Asserter) AnswersAndReactsWithUploads(p *slackscot.Plugin, m *slack.Msg, validate ResultWithUploadsValidator) (valid bool) {
 	answers, emojis, fileUploads := a.injectServicesAndRun(p, m)
 
-	return validate(t, answers, emojis, fileUploads)
+	return validate(a.t, answers, emojis, fileUploads)
 }
 
 // injectServicesAndRun injects services in the plugin, drives all of its actions and returns the answers and captured data
