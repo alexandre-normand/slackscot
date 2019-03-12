@@ -32,7 +32,7 @@ func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	pc.Set("channelIDs", []string{"channel1", "channel2"})
 
 	o, err := plugins.NewOhMonday(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	sa := o.ScheduledActions[0]
 	var b strings.Builder
@@ -58,7 +58,7 @@ func TestDefaultAtTime(t *testing.T) {
 	pc.Set("channelIDs", "testChannel")
 
 	o, err := plugins.NewOhMonday(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sa := o.ScheduledActions[0]
 
 	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, sa.Schedule)
@@ -68,7 +68,7 @@ func TestMissingChannelIDs(t *testing.T) {
 	pc := viper.New()
 
 	o, err := plugins.NewOhMonday(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	sa := o.ScheduledActions[0]
 	var b strings.Builder
@@ -85,7 +85,7 @@ func TestEmptyChannels(t *testing.T) {
 	pc.Set("channelIDs", "")
 
 	o, err := plugins.NewOhMonday(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	sa := o.ScheduledActions[0]
 	var b strings.Builder
@@ -103,7 +103,7 @@ func TestAtTimeOverride(t *testing.T) {
 	pc.Set("atTime", "11:00")
 
 	o, err := plugins.NewOhMonday(pc)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	sa := o.ScheduledActions[0]
 
 	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, sa.Schedule)
