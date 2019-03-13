@@ -13,8 +13,10 @@ package assertplugin
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/alexandre-normand/slackscot/test/capture"
 	"github.com/nlopes/slack"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"strings"
 	"testing"
@@ -65,6 +67,12 @@ type ResultValidator func(t *testing.T, answers []*slackscot.Answer, emojis []st
 // if validation is successful and false otherwise (following the testify convention)
 type ResultWithUploadsValidator func(t *testing.T, answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) bool
 
+// ResultWithUploadsValidator is a function to do further validation of the messages sent by a slackscot.ScheduledAction.
+// The messages sent during the execution of scheduled actions is given as a map of channel IDs to messages
+// sent on that channel. The return value is meant to be true if validation is successful and false otherwise
+// (following the testify convention)
+type ScheduleResultValidator func(t *testing.T, sentMessagesByChannelID map[string][]string) bool
+
 // AnswersAndReacts drives a plugin and collects Answers as well as emoji reactions. Once all of those have been collected,
 // it passes handling to a validator to assert the expected answers and emoji reactions. It follows the style of
 // github.com/stretchr/testify/assert as far as returning true/false to indicate success for further nested testing.
@@ -84,18 +92,60 @@ func (a *Asserter) AnswersAndReactsWithUploads(p *slackscot.Plugin, m *slack.Msg
 	return validate(a.t, answers, emojis, fileUploads)
 }
 
+// RunsOnSchedule drives a plugin's scheduled actions that match the schedule definition being passed in (i.e. "Every 1 hour" will
+// run all actions scheduled to run every hour) and collects all the sent messages. Once all have been collected,
+// the results are passed to the ScheduleResultValidator as a map[string][]string where the key is the channel id
+// and the value holds the messages sent to that channel
+func (a *Asserter) RunsOnSchedule(p *slackscot.Plugin, schedule schedule.Definition, validate ScheduleResultValidator) (valid bool) {
+	a.injectServices(p)
+	sender := capture.NewRealTimeSender()
+
+	didOneRun := false
+	for _, action := range p.ScheduledActions {
+		if action.Schedule == schedule {
+			action.Action(sender)
+			didOneRun = true
+		}
+	}
+
+	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did", schedule) && validate(a.t, sender.SentMessages)
+}
+
+// DoesNotRunOnSchedule drives a plugin's scheduled actions and validate that none of the
+// ScheduledActions run on the specified schedule
+func (a *Asserter) DoesNotRunOnSchedule(p *slackscot.Plugin, schedule schedule.Definition) (valid bool) {
+	a.injectServices(p)
+	sender := capture.NewRealTimeSender()
+
+	for _, action := range p.ScheduledActions {
+		if action.Schedule == schedule {
+			action.Action(sender)
+			return assert.Falsef(a.t, true, "Expected no action to run for schedule [%s] but [%s] did run", schedule, action.Description)
+		}
+	}
+
+	// No action ran so we can assert that it was indeed false
+	return assert.False(a.t, false)
+}
+
 // injectServicesAndRun injects services in the plugin, drives all of its actions and returns the answers and captured data
 // from the execution
 func (a *Asserter) injectServicesAndRun(p *slackscot.Plugin, m *slack.Msg) (answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) {
-	emojiCaptor := capture.NewEmojiReactor()
-	p.EmojiReactor = emojiCaptor
-	fileUploadCaptor := capture.NewFileUploader()
-	p.FileUploader = slackscot.NewFileUploader(fileUploadCaptor)
-	p.Logger = slackscot.NewSLogger(getLogger(a), true)
+	emojiCaptor, fileUploadCaptor := a.injectServices(p)
 
 	answers = a.driveActions(p, m)
 
 	return answers, emojiCaptor.Emojis, fileUploadCaptor.FileUploads
+}
+
+func (a *Asserter) injectServices(p *slackscot.Plugin) (emojiCaptor *capture.EmojiReactionCaptor, fileUploadCaptor *capture.FileUploadCaptor) {
+	emojiCaptor = capture.NewEmojiReactor()
+	p.EmojiReactor = emojiCaptor
+	fileUploadCaptor = capture.NewFileUploader()
+	p.FileUploader = slackscot.NewFileUploader(fileUploadCaptor)
+	p.Logger = slackscot.NewSLogger(getLogger(a), true)
+
+	return emojiCaptor, fileUploadCaptor
 }
 
 func getLogger(a *Asserter) (logger *log.Logger) {

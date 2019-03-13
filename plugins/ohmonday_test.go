@@ -1,55 +1,30 @@
 package plugins_test
 
 import (
-	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/alexandre-normand/slackscot/schedule"
-	"github.com/nlopes/slack"
+	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"log"
-	"strings"
 	"testing"
 	"time"
 )
 
-type FakeSender struct {
-	msgs map[string]string
-}
-
-func (f *FakeSender) SendNewMessage(message string, channelID string) (err error) {
-	f.msgs[channelID] = message
-
-	return nil
-}
-
-func (f *FakeSender) GetAPI() (rtm *slack.RTM) {
-	return nil
-}
-
 func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	pc := viper.New()
 	pc.Set("channelIDs", []string{"channel1", "channel2"})
+	pc.Set("atTime", "09:00")
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
-	sa := o.ScheduledActions[0]
-	var b strings.Builder
-	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
-
-	sender := FakeSender{msgs: make(map[string]string)}
+	assertplugin := assertplugin.New(t, "bot")
 
 	for i := 0; i < 100; i++ {
-		sa.Action(&sender)
-
-		if assert.Contains(t, sender.msgs, "channel1") {
-			assert.Contains(t, sender.msgs["channel1"], "https://")
-		}
-
-		if assert.Contains(t, sender.msgs, "channel2") {
-			assert.Contains(t, sender.msgs["channel2"], "https://")
-		}
+		assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "09:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+			return assert.Contains(t, sentMsgs, "channel1") && assert.Len(t, sentMsgs["channel1"], 1) && assert.Contains(t, sentMsgs["channel1"][0], "https://") &&
+				assert.Contains(t, sentMsgs, "channel2") && assert.Len(t, sentMsgs["channel2"], 1) && assert.Contains(t, sentMsgs["channel2"][0], "https://")
+		})
 	}
 }
 
@@ -59,9 +34,11 @@ func TestDefaultAtTime(t *testing.T) {
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
-	sa := o.ScheduledActions[0]
 
-	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, sa.Schedule)
+	assertplugin := assertplugin.New(t, "bot")
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return true
+	})
 }
 
 func TestMissingChannelIDs(t *testing.T) {
@@ -70,14 +47,10 @@ func TestMissingChannelIDs(t *testing.T) {
 	o, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
-	sa := o.ScheduledActions[0]
-	var b strings.Builder
-	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
-	sender := FakeSender{msgs: make(map[string]string)}
-
-	sa.Action(&sender)
-
-	assert.Empty(t, sender.msgs)
+	assertplugin := assertplugin.New(t, "bot")
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return assert.Empty(t, sentMsgs)
+	})
 }
 
 func TestEmptyChannels(t *testing.T) {
@@ -87,14 +60,10 @@ func TestEmptyChannels(t *testing.T) {
 	o, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
-	sa := o.ScheduledActions[0]
-	var b strings.Builder
-	o.Logger = slackscot.NewSLogger(log.New(&b, "", 0), false)
-	sender := FakeSender{msgs: make(map[string]string)}
-
-	sa.Action(&sender)
-
-	assert.Empty(t, sender.msgs)
+	assertplugin := assertplugin.New(t, "bot")
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return assert.Empty(t, sentMsgs)
+	})
 }
 
 func TestAtTimeOverride(t *testing.T) {
@@ -104,8 +73,9 @@ func TestAtTimeOverride(t *testing.T) {
 
 	o, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
-	sa := o.ScheduledActions[0]
 
-	assert.Equal(t, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, sa.Schedule)
-
+	assertplugin := assertplugin.New(t, "bot")
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return true
+	})
 }
