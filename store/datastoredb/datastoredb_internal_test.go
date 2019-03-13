@@ -12,7 +12,7 @@ import (
 // mock of the datastore
 type mockDatastore struct {
 	mock.Mock
-	returnNoErrOnRepeatedKey bool   // If set, the mock will ignore any expected error set on a repeated invocation with the same key. Note that the key tracking is shared accross all functions
+	returnNoErrOnRepeatedKey bool   // If set, the mock will ignore any expected error set on a repeated invocation with the same key. Note that the key tracking is shared across all functions
 	lastKey                  string // Used to keep track of the last key in order to honor the returnNoErrOnRepeatedKey and *not* return an error on the second call with the same key
 }
 

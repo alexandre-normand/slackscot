@@ -13,7 +13,7 @@ type FileUploadCaptor struct {
 	currentID   int
 }
 
-// AddReaction adds an emoji reaction with the given named emoji to the given item
+// UploadFile tracks a file upload for post-execution validation
 func (f *FileUploadCaptor) UploadFile(params slack.FileUploadParameters) (file *slack.File, err error) {
 	f.FileUploads = append(f.FileUploads, params)
 

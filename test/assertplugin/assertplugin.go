@@ -67,7 +67,7 @@ type ResultValidator func(t *testing.T, answers []*slackscot.Answer, emojis []st
 // if validation is successful and false otherwise (following the testify convention)
 type ResultWithUploadsValidator func(t *testing.T, answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) bool
 
-// ResultWithUploadsValidator is a function to do further validation of the messages sent by a slackscot.ScheduledAction.
+// ScheduleResultValidator is a function to do further validation of the messages sent by a slackscot.ScheduledAction.
 // The messages sent during the execution of scheduled actions is given as a map of channel IDs to messages
 // sent on that channel. The return value is meant to be true if validation is successful and false otherwise
 // (following the testify convention)

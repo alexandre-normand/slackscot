@@ -61,7 +61,7 @@ func newLittleTester() (mlt *myLittleTester) {
 	}
 
 	mlt.ScheduledActions = []slackscot.ScheduledActionDefinition{
-		slackscot.ScheduledActionDefinition{Schedule: schedule.Definition{Interval: 1, Unit: schedule.Minutes}, Description: "Check health", Action: healthStatus},
+		{Schedule: schedule.Definition{Interval: 1, Unit: schedule.Minutes}, Description: "Check health", Action: healthStatus},
 	}
 
 	return mlt

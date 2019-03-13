@@ -27,7 +27,7 @@ type FileUploader interface {
 // UploadOption defines an option on a FileUploadParameters (i.e. upload on thread)
 type UploadOption func(params *slack.FileUploadParameters)
 
-// UploadInExistingThreadOption sets the file upload thread timestamp to an existing thread timestamp if
+// UploadInThreadOption sets the file upload thread timestamp to an existing thread timestamp if
 // the incoming message triggering this is on an existing thread
 func UploadInThreadOption(m *IncomingMessage) func(params *slack.FileUploadParameters) {
 	return func(p *slack.FileUploadParameters) {
