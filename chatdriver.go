@@ -10,7 +10,7 @@ import (
 // for more advanced uses.
 type RealTimeMessageSender interface {
 	// SendNewMessage is the function that sends a new message to the specified channelID
-	SendNewMessage(message string, channelID string) (err error)
+	SendNewMessage(channelID string, message string) (err error)
 
 	// GetAPI is a function that returns the internal slack RTM
 	GetAPI() *slack.RTM
@@ -52,7 +52,7 @@ type slackRealTimeMsgSender struct {
 }
 
 // SendNewMessage sends a new message using the slack RTM api
-func (s *slackRealTimeMsgSender) SendNewMessage(message string, channelID string) (err error) {
+func (s *slackRealTimeMsgSender) SendNewMessage(channelID string, message string) (err error) {
 	m := s.rtm.NewOutgoingMessage(message, channelID)
 	s.rtm.SendMessage(m)
 

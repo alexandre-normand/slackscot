@@ -95,6 +95,6 @@ func (o *OhMonday) sendGreeting(sender slackscot.RealTimeMessageSender) {
 		message := mondayPictures[selectionRandom.Intn(len(mondayPictures))]
 		o.Logger.Debugf("[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, c)
 
-		sender.SendNewMessage(message, c)
+		sender.SendNewMessage(c, message)
 	}
 }

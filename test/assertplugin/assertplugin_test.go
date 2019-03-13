@@ -2,6 +2,7 @@ package assertplugin_test
 
 import (
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/alexandre-normand/slackscot/test/assertanswer"
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
@@ -58,7 +59,10 @@ func newLittleTester() (mlt *myLittleTester) {
 			Answer:      mlt.emojiReact,
 		},
 	}
-	mlt.ScheduledActions = nil
+
+	mlt.ScheduledActions = []slackscot.ScheduledActionDefinition{
+		slackscot.ScheduledActionDefinition{Schedule: schedule.Definition{Interval: 1, Unit: schedule.Minutes}, Description: "Check health", Action: healthStatus},
+	}
 
 	return mlt
 }
@@ -76,6 +80,10 @@ func areYouAnswerer(m *slackscot.IncomingMessage) *slackscot.Answer {
 
 func heyAnswerer(m *slackscot.IncomingMessage) *slackscot.Answer {
 	return &slackscot.Answer{Text: "hey wut?"}
+}
+
+func healthStatus(sender slackscot.RealTimeMessageSender) {
+	sender.SendNewMessage("test", "healthy")
 }
 
 func (mlt *myLittleTester) emojiReact(m *slackscot.IncomingMessage) *slackscot.Answer {
@@ -165,4 +173,50 @@ func TestMultipleAnswersWithEmojiReaction(t *testing.T) {
 	assert.Equal(t, true, assertplugin.AnswersAndReacts(&myLittleTester.Plugin, &slack.Msg{Text: "hey, are you up? I think I just saw blue jays"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 2) && assertanswer.HasText(t, answers[0], "I'm 😴, you?") && assertanswer.HasText(t, answers[1], "hey wut?") && assert.Contains(t, emojis, "owl")
 	}))
+}
+
+func TestRunsOnScheduleAssert(t *testing.T) {
+	mockT := new(testing.T)
+	assertplugin := assertplugin.New(mockT, "bot")
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, true, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return assert.Len(t, sentMsgs, 1) && assert.Contains(t, sentMsgs, "test") && assert.Contains(t, sentMsgs["test"], "healthy")
+	}))
+}
+
+func TestRunsOnScheduleAssertWhenDoesNotRun(t *testing.T) {
+	mockT := new(testing.T)
+	assertplugin := assertplugin.New(mockT, "bot")
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, false, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Hours}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return true
+	}))
+}
+
+func TestRunsOnScheduleAssertFailingValidator(t *testing.T) {
+	mockT := new(testing.T)
+	assertplugin := assertplugin.New(mockT, "bot")
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, false, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		return assert.Contains(t, sentMsgs, "myOtherChannel")
+	}))
+}
+
+func TestDoesNotOnScheduleAssert(t *testing.T) {
+	mockT := new(testing.T)
+	assertplugin := assertplugin.New(mockT, "bot")
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, true, assertplugin.DoesNotRunOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Hours}))
+}
+
+func TestDoesNotOnScheduleAssertWhenRunsOnSchedule(t *testing.T) {
+	mockT := new(testing.T)
+	assertplugin := assertplugin.New(mockT, "bot")
+	myLittleTester := newLittleTester()
+
+	assert.Equal(t, false, assertplugin.DoesNotRunOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}))
 }
