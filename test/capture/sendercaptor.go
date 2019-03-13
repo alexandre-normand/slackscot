@@ -10,7 +10,7 @@ type RealTimeSenderCaptor struct {
 	SentMessages map[string][]string
 }
 
-// NewSender returns a new initialized RealTimeSenderCaptor instance
+// NewRealTimeSender returns a new initialized RealTimeSenderCaptor instance
 func NewRealTimeSender() (rtms *RealTimeSenderCaptor) {
 	rtms = new(RealTimeSenderCaptor)
 	rtms.SentMessages = make(map[string][]string)
