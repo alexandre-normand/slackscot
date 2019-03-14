@@ -1,6 +1,7 @@
 package plugins_test
 
 import (
+	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/alexandre-normand/slackscot/store"
@@ -87,4 +88,102 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestErrorStoringKarmaRecord(t *testing.T) {
+	mockStorer := &mockStorer{}
+
+	mockStorer.On("GetString", "thing").Return("", fmt.Errorf("not found"))
+	mockStorer.On("PutString", "thing", "1").Return(fmt.Errorf("can't persist"))
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Empty(t, answers)
+	})
+}
+
+func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
+	mockStorer := &mockStorer{}
+
+	mockStorer.On("GetString", "thing").Return("abc", nil)
+	mockStorer.On("PutString", "thing", "1").Return(nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`thing` just gained a level (`thing`: 1)")
+	})
+}
+
+func TestErrorGettingList(t *testing.T) {
+	mockStorer := &mockStorer{}
+
+	mockStorer.On("Scan").Return(map[string]string{}, fmt.Errorf("can't load karma"))
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: can't load karma")
+	})
+}
+
+func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
+	mockStorer := &mockStorer{}
+
+	mockStorer.On("Scan").Return(map[string]string{"thing": "abc"}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
+	})
+}
+
+func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
+	mockStorer := &mockStorer{}
+
+	mockStorer.On("Scan").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the top 2 things: \n```2    bird\n1    thing\n```\n")
+	})
+}
+
+func TestLessItemsThanRequestedWorstCount(t *testing.T) {
+	mockStorer := &mockStorer{}
+
+	mockStorer.On("Scan").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma worst 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the worst 2 things: \n```1    thing\n2    bird\n```\n")
+	})
 }

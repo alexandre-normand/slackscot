@@ -111,9 +111,10 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 	err = k.karmaStorer.PutString(thing, strconv.Itoa(karma))
 	if err != nil {
 		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
+		return nil
 	}
-	return &slackscot.Answer{Text: fmt.Sprintf(format, k.renderThing(thing), k.renderThing(thing), karma)}
 
+	return &slackscot.Answer{Text: fmt.Sprintf(format, k.renderThing(thing), k.renderThing(thing), karma)}
 }
 
 // renderThing renders the thing value. In most cases, it should just return the value
@@ -132,16 +133,24 @@ func (k *Karma) renderThing(thing string) (renderedThing string) {
 }
 
 func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(topKarmaRegexp, message, "top", getTopThings)
+	return k.answerKarmaRankList(topKarmaRegexp, message, "top", sortTop)
 }
 
 func (k *Karma) answerKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", getWorstThings)
+	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", sortWorst)
 }
 
-type extractRankedList func(rawData map[string]string, count int) (results pairList, err error)
+func sortWorst(pl pairList) {
+	sort.Sort(pl)
+}
 
-func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, getRankedItems extractRankedList) *slackscot.Answer {
+func sortTop(pl pairList) {
+	sort.Sort(sort.Reverse(pl))
+}
+
+type karmaSorter func(pl pairList)
+
+func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, sorter karmaSorter) *slackscot.Answer {
 	match := regexp.FindAllStringSubmatch(message.Text, -1)[0]
 
 	rawCount := match[2]
@@ -149,18 +158,25 @@ func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.In
 
 	values, err := k.karmaStorer.Scan()
 	if err != nil {
-		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)}
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
 	}
 
-	pairs, err := getRankedItems(values, count)
+	pairs, err := getRankedList(values, count, sorter)
 	if err != nil {
-		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, thing happened: %v", rankingType, count, err)}
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
 	}
 	var buffer bytes.Buffer
 
-	buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, count))
+	buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, min(len(pairs), count)))
 	buffer.WriteString(k.formatList(pairs))
 	return &slackscot.Answer{Text: buffer.String()}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (k *Karma) formatList(pl pairList) string {
@@ -202,7 +218,7 @@ func convertTopairs(wordFrequencies map[string]int) pairList {
 	return pl
 }
 
-func getTopThings(rawData map[string]string, count int) (results pairList, err error) {
+func getRankedList(rawData map[string]string, count int, sort karmaSorter) (results pairList, err error) {
 	wordWithFrequencies, err := convertMapValues(rawData)
 	if err != nil {
 		return results, err
@@ -210,24 +226,7 @@ func getTopThings(rawData map[string]string, count int) (results pairList, err e
 
 	pl := convertTopairs(wordWithFrequencies)
 
-	sort.Sort(sort.Reverse(pl))
-	limit := count
-
-	if len(pl) < count {
-		limit = len(pl)
-	}
-	return pl[:limit], nil
-}
-
-func getWorstThings(rawData map[string]string, count int) (results pairList, err error) {
-	wordWithFrequencies, err := convertMapValues(rawData)
-	if err != nil {
-		return results, err
-	}
-
-	pl := convertTopairs(wordWithFrequencies)
-
-	sort.Sort(pl)
+	sort(pl)
 
 	limit := count
 
