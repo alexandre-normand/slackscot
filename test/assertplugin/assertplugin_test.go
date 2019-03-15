@@ -61,7 +61,7 @@ func newLittleTester() (mlt *myLittleTester) {
 	}
 
 	mlt.ScheduledActions = []slackscot.ScheduledActionDefinition{
-		{Schedule: schedule.Definition{Interval: 1, Unit: schedule.Minutes}, Description: "Check health", Action: healthStatus},
+		{Schedule: schedule.Definition{Interval: 1, Unit: schedule.Minutes}, Description: "Check health", Action: mlt.healthStatus},
 	}
 
 	return mlt
@@ -82,8 +82,9 @@ func heyAnswerer(m *slackscot.IncomingMessage) *slackscot.Answer {
 	return &slackscot.Answer{Text: "hey wut?"}
 }
 
-func healthStatus(sender slackscot.RealTimeMessageSender) {
+func (mlt *myLittleTester) healthStatus(sender slackscot.RealTimeMessageSender) {
 	sender.SendNewMessage("test", "healthy")
+	mlt.FileUploader.UploadFile(slack.FileUploadParameters{Filename: "healthStatus.png", Filetype: "image/png", Title: "healthy"})
 }
 
 func (mlt *myLittleTester) emojiReact(m *slackscot.IncomingMessage) *slackscot.Answer {
@@ -180,8 +181,8 @@ func TestRunsOnScheduleAssert(t *testing.T) {
 	assertplugin := assertplugin.New(mockT, "bot")
 	myLittleTester := newLittleTester()
 
-	assert.Equal(t, true, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}, func(t *testing.T, sentMsgs map[string][]string) bool {
-		return assert.Len(t, sentMsgs, 1) && assert.Contains(t, sentMsgs, "test") && assert.Contains(t, sentMsgs["test"], "healthy")
+	assert.Equal(t, true, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
+		return assert.Len(t, sentMsgs, 1) && assert.Contains(t, sentMsgs, "test") && assert.Contains(t, sentMsgs["test"], "healthy") && assert.Len(t, fileUploads, 1) && assert.Equal(t, slack.FileUploadParameters{Filename: "healthStatus.png", Filetype: "image/png", Title: "healthy"}, fileUploads[0])
 	}))
 }
 
@@ -190,7 +191,7 @@ func TestRunsOnScheduleAssertWhenDoesNotRun(t *testing.T) {
 	assertplugin := assertplugin.New(mockT, "bot")
 	myLittleTester := newLittleTester()
 
-	assert.Equal(t, false, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Hours}, func(t *testing.T, sentMsgs map[string][]string) bool {
+	assert.Equal(t, false, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Hours}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return true
 	}))
 }
@@ -200,7 +201,7 @@ func TestRunsOnScheduleAssertFailingValidator(t *testing.T) {
 	assertplugin := assertplugin.New(mockT, "bot")
 	myLittleTester := newLittleTester()
 
-	assert.Equal(t, false, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}, func(t *testing.T, sentMsgs map[string][]string) bool {
+	assert.Equal(t, false, assertplugin.RunsOnSchedule(&myLittleTester.Plugin, schedule.Definition{Interval: 1, Unit: schedule.Minutes}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return assert.Contains(t, sentMsgs, "myOtherChannel")
 	}))
 }

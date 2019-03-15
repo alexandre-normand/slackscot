@@ -4,6 +4,7 @@ import (
 	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
+	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -21,7 +22,7 @@ func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	for i := 0; i < 100; i++ {
-		assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "09:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+		assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "09:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 			return assert.Contains(t, sentMsgs, "channel1") && assert.Len(t, sentMsgs["channel1"], 1) && assert.Contains(t, sentMsgs["channel1"][0], "https://") &&
 				assert.Contains(t, sentMsgs, "channel2") && assert.Len(t, sentMsgs["channel2"], 1) && assert.Contains(t, sentMsgs["channel2"][0], "https://")
 		})
@@ -36,7 +37,7 @@ func TestDefaultAtTime(t *testing.T) {
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return true
 	})
 }
@@ -48,7 +49,7 @@ func TestMissingChannelIDs(t *testing.T) {
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return assert.Empty(t, sentMsgs)
 	})
 }
@@ -61,7 +62,7 @@ func TestEmptyChannels(t *testing.T) {
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return assert.Empty(t, sentMsgs)
 	})
 }
@@ -75,7 +76,7 @@ func TestAtTimeOverride(t *testing.T) {
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, func(t *testing.T, sentMsgs map[string][]string) bool {
+	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return true
 	})
 }
