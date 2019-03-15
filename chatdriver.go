@@ -4,16 +4,12 @@ import (
 	"github.com/nlopes/slack"
 )
 
-// RealTimeMessageSender is implemented by any value that has the SendNewMessage and GetAPI method.
+// RealTimeMessageSender is implemented by any value that has the NewOutgoingMessage method.
 // The main purpose is a slight decoupling of the slack.RTM in order for plugins to be able to write
-// tests more easily if all they do is send new messages on a channel. GetAPI leaks the slack.RTM
-// for more advanced uses.
+// tests more easily if all they do is send new messages on a channel
 type RealTimeMessageSender interface {
-	// SendNewMessage is the function that sends a new message to the specified channelID
-	SendNewMessage(channelID string, message string) (err error)
-
-	// GetAPI is a function that returns the internal slack RTM
-	GetAPI() *slack.RTM
+	// NewOutgoingMessage is the function that sends a new message to the specified channelID
+	NewOutgoingMessage(text string, channelID string, options ...slack.RTMsgOption) *slack.OutgoingMessage
 }
 
 // messageSender is implemented by any value that has the SendMessage method. Note that the difference between the RealTimeMessageSender
@@ -44,23 +40,4 @@ type chatDriver interface {
 	messageDeleter
 	messageSender
 	messageUpdater
-}
-
-// slackRealTimeMsgSender is the default and main implementing type for the AdvancedMessageSender interface
-type slackRealTimeMsgSender struct {
-	rtm *slack.RTM
-}
-
-// SendNewMessage sends a new message using the slack RTM api
-func (s *slackRealTimeMsgSender) SendNewMessage(channelID string, message string) (err error) {
-	m := s.rtm.NewOutgoingMessage(message, channelID)
-	s.rtm.SendMessage(m)
-
-	return nil
-}
-
-// GetAPI returns the underlying slack RTM api. Beware that relying on this when writing a plugin
-// might mean complications in writing tests for it
-func (s *slackRealTimeMsgSender) GetAPI() *slack.RTM {
-	return s.rtm
 }

@@ -99,29 +99,27 @@ func (a *Asserter) AnswersAndReactsWithUploads(p *slackscot.Plugin, m *slack.Msg
 // the results are passed to the ScheduleResultValidator as a map[string][]string where the key is the channel id
 // and the value holds the messages sent to that channel
 func (a *Asserter) RunsOnSchedule(p *slackscot.Plugin, schedule schedule.Definition, validate ScheduleResultValidator) (valid bool) {
-	_, fileUploadCaptor := a.injectServices(p)
-	sender := capture.NewRealTimeSender()
+	_, fileUploadCaptor, rtmSender := a.injectServices(p)
 
 	didOneRun := false
 	for _, action := range p.ScheduledActions {
 		if action.Schedule == schedule {
-			action.Action(sender)
+			action.Action()
 			didOneRun = true
 		}
 	}
 
-	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did", schedule) && validate(a.t, sender.SentMessages, fileUploadCaptor.FileUploads)
+	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did", schedule) && validate(a.t, rtmSender.SentMessages, fileUploadCaptor.FileUploads)
 }
 
 // DoesNotRunOnSchedule drives a plugin's scheduled actions and validate that none of the
 // ScheduledActions run on the specified schedule
 func (a *Asserter) DoesNotRunOnSchedule(p *slackscot.Plugin, schedule schedule.Definition) (valid bool) {
 	a.injectServices(p)
-	sender := capture.NewRealTimeSender()
 
 	for _, action := range p.ScheduledActions {
 		if action.Schedule == schedule {
-			action.Action(sender)
+			action.Action()
 			return assert.Falsef(a.t, true, "Expected no action to run for schedule [%s] but [%s] did run", schedule, action.Description)
 		}
 	}
@@ -133,21 +131,23 @@ func (a *Asserter) DoesNotRunOnSchedule(p *slackscot.Plugin, schedule schedule.D
 // injectServicesAndRun injects services in the plugin, drives all of its actions and returns the answers and captured data
 // from the execution
 func (a *Asserter) injectServicesAndRun(p *slackscot.Plugin, m *slack.Msg) (answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) {
-	emojiCaptor, fileUploadCaptor := a.injectServices(p)
+	emojiCaptor, fileUploadCaptor, _ := a.injectServices(p)
 
 	answers = a.driveActions(p, m)
 
 	return answers, emojiCaptor.Emojis, fileUploadCaptor.FileUploads
 }
 
-func (a *Asserter) injectServices(p *slackscot.Plugin) (emojiCaptor *capture.EmojiReactionCaptor, fileUploadCaptor *capture.FileUploadCaptor) {
+func (a *Asserter) injectServices(p *slackscot.Plugin) (emojiCaptor *capture.EmojiReactionCaptor, fileUploadCaptor *capture.FileUploadCaptor, rtmSenderCaptor *capture.RealTimeSenderCaptor) {
 	emojiCaptor = capture.NewEmojiReactor()
 	p.EmojiReactor = emojiCaptor
 	fileUploadCaptor = capture.NewFileUploader()
 	p.FileUploader = slackscot.NewFileUploader(fileUploadCaptor)
 	p.Logger = slackscot.NewSLogger(getLogger(a), true)
+	rtmSender := capture.NewRealTimeSender()
+	p.RealTimeMsgSender = rtmSender
 
-	return emojiCaptor, fileUploadCaptor
+	return emojiCaptor, fileUploadCaptor, rtmSender
 }
 
 func getLogger(a *Asserter) (logger *log.Logger) {
