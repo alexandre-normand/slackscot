@@ -67,11 +67,13 @@ type ResultValidator func(t *testing.T, answers []*slackscot.Answer, emojis []st
 // if validation is successful and false otherwise (following the testify convention)
 type ResultWithUploadsValidator func(t *testing.T, answers []*slackscot.Answer, emojis []string, fileUploads []slack.FileUploadParameters) bool
 
-// ScheduleResultValidator is a function to do further validation of the messages sent by a slackscot.ScheduledAction.
-// The messages sent during the execution of scheduled actions is given as a map of channel IDs to messages
-// sent on that channel. The return value is meant to be true if validation is successful and false otherwise
+// ScheduleResultValidator is a function to do further validation of the messages potentially sent by a
+// slackscot.ScheduledAction as well as files uploaded. The messages sent during the execution of
+// scheduled actions is given as a map of channel IDs to messages sent on that channel.
+//
+// The return value is meant to be true if validation is successful and false otherwise
 // (following the testify convention)
-type ScheduleResultValidator func(t *testing.T, sentMessagesByChannelID map[string][]string) bool
+type ScheduleResultValidator func(t *testing.T, sentMessagesByChannelID map[string][]string, fileUploads []slack.FileUploadParameters) bool
 
 // AnswersAndReacts drives a plugin and collects Answers as well as emoji reactions. Once all of those have been collected,
 // it passes handling to a validator to assert the expected answers and emoji reactions. It follows the style of
@@ -97,7 +99,7 @@ func (a *Asserter) AnswersAndReactsWithUploads(p *slackscot.Plugin, m *slack.Msg
 // the results are passed to the ScheduleResultValidator as a map[string][]string where the key is the channel id
 // and the value holds the messages sent to that channel
 func (a *Asserter) RunsOnSchedule(p *slackscot.Plugin, schedule schedule.Definition, validate ScheduleResultValidator) (valid bool) {
-	a.injectServices(p)
+	_, fileUploadCaptor := a.injectServices(p)
 	sender := capture.NewRealTimeSender()
 
 	didOneRun := false
@@ -108,7 +110,7 @@ func (a *Asserter) RunsOnSchedule(p *slackscot.Plugin, schedule schedule.Definit
 		}
 	}
 
-	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did", schedule) && validate(a.t, sender.SentMessages)
+	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did", schedule) && validate(a.t, sender.SentMessages, fileUploadCaptor.FileUploads)
 }
 
 // DoesNotRunOnSchedule drives a plugin's scheduled actions and validate that none of the
