@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
+	"github.com/alexandre-normand/slackscot/test/capture"
 	"github.com/nlopes/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -80,19 +81,6 @@ func (c *inMemoryChatDriver) nextTimestamp() (fmtTime string) {
 
 func formatTimestamp(ts uint64) string {
 	return fmt.Sprintf("%d.000000", ts)
-}
-
-type realTimeSender struct {
-	rtmMsgs []rtmMessage
-}
-
-func (rs *realTimeSender) SendNewMessage(message string, channelID string) (err error) {
-	rs.rtmMsgs = append(rs.rtmMsgs, rtmMessage{channelID: channelID, message: message})
-	return nil
-}
-
-func (rs *realTimeSender) GetAPI() (rtm *slack.RTM) {
-	return nil
 }
 
 type selfFinder struct {
@@ -230,7 +218,7 @@ func TestInvalidCredentialsShutsdownImmediately(t *testing.T) {
 	assert.Equal(t, 0, len(sentMsgs))
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
@@ -245,7 +233,7 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestHandleIncomingThreadedMessageTriggeringResponse(t *testing.T) {
@@ -261,7 +249,7 @@ func TestHandleIncomingThreadedMessageTriggeringResponse(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIgnoreIncomingMessageReplied(t *testing.T) {
@@ -272,7 +260,7 @@ func TestIgnoreIncomingMessageReplied(t *testing.T) {
 	assert.Empty(t, sentMsgs)
 	assert.Empty(t, updatedMsgs)
 	assert.Empty(t, deletedMsgs)
-	assert.Empty(t, rtmSender.rtmMsgs)
+	assert.Empty(t, rtmSender.SentMessages)
 }
 
 func TestIgnoreReplyToMessage(t *testing.T) {
@@ -290,7 +278,7 @@ func TestIgnoreReplyToMessage(t *testing.T) {
 	assert.Equal(t, 0, len(sentMsgs))
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingMessageUpdateTriggeringResponseUpdate(t *testing.T) {
@@ -310,7 +298,7 @@ func TestIncomingMessageUpdateTriggeringResponseUpdate(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingMessageUpdateNotTriggeringUpdateIfDifferentChannel(t *testing.T) {
@@ -330,7 +318,7 @@ func TestIncomingMessageUpdateNotTriggeringUpdateIfDifferentChannel(t *testing.T
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestThreadedReplies(t *testing.T) {
@@ -359,7 +347,7 @@ func TestThreadedReplies(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestThreadedRepliesWithBroadcast(t *testing.T) {
@@ -388,7 +376,7 @@ func TestThreadedRepliesWithBroadcast(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingMessageTriggeringNewResponse(t *testing.T) {
@@ -405,7 +393,7 @@ func TestIncomingMessageTriggeringNewResponse(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingTriggeringMessageUpdatedToNotTriggerAnymore(t *testing.T) {
@@ -425,7 +413,7 @@ func TestIncomingTriggeringMessageUpdatedToNotTriggerAnymore(t *testing.T) {
 		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
 
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestDirectMessageMatchingCommand(t *testing.T) {
@@ -441,7 +429,7 @@ func TestDirectMessageMatchingCommand(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestDirectMessageNotMatchingAnything(t *testing.T) {
@@ -457,7 +445,7 @@ func TestDirectMessageNotMatchingAnything(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestDefaultCommandAnswerInChannel(t *testing.T) {
@@ -473,7 +461,7 @@ func TestDefaultCommandAnswerInChannel(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestDefaultCommandAnswerToMsgOnExistingThread(t *testing.T) {
@@ -489,7 +477,7 @@ func TestDefaultCommandAnswerToMsgOnExistingThread(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestAtMessageNotMatchingAnything(t *testing.T) {
@@ -505,7 +493,7 @@ func TestAtMessageNotMatchingAnything(t *testing.T) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) {
@@ -531,7 +519,7 @@ func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) 
 		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
 
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 // TestHelpTriggeringWithUserInfoCache indirectly tests the user info caching (or absence of) by exercising the
@@ -561,7 +549,7 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 // TestHelpTriggeringNoUserInfoCache indirectly tests the user info caching (or absence of) by exercising the
@@ -590,7 +578,7 @@ func TestTriggeringMessageDeletion(t *testing.T) {
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingMessageUpdateTriggeringResponseDeletion(t *testing.T) {
@@ -609,7 +597,7 @@ func TestIncomingMessageUpdateTriggeringResponseDeletion(t *testing.T) {
 		assert.Equal(t, deletedMessage{channelID: "Cgeneral", timestamp: formatTimestamp(firstReplyTimestamp)}, deletedMsgs[0])
 		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingMessageNotTriggeringResponse(t *testing.T) {
@@ -620,7 +608,7 @@ func TestIncomingMessageNotTriggeringResponse(t *testing.T) {
 	assert.Equal(t, 0, len(sentMsgs))
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestIncomingMessageFromOurselfIgnored(t *testing.T) {
@@ -631,23 +619,26 @@ func TestIncomingMessageFromOurselfIgnored(t *testing.T) {
 	assert.Equal(t, 0, len(sentMsgs))
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.rtmMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
 func TestScheduledAction(t *testing.T) {
 	scheduleDefinition := schedule.Definition{Interval: 1, Unit: schedule.Seconds}
-	beatPlugin := Plugin{Name: "rabbit", Commands: nil, HearActions: nil, ScheduledActions: []ScheduledActionDefinition{{Schedule: scheduleDefinition, Description: "Send a beat every second", Action: func(sender RealTimeMessageSender) {
-		sender.SendNewMessage("beat", "Cstatus")
-	}}}}
+	beatPlugin := new(Plugin)
+	beatPlugin.Name = "beat"
+	beatPlugin.ScheduledActions = []ScheduledActionDefinition{{Schedule: scheduleDefinition, Description: "Send a beat every second", Action: func() {
+		beatPlugin.RealTimeMsgSender.NewOutgoingMessage("beat", "Cstatus")
+	}}}
 
-	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, &beatPlugin, []slack.RTMEvent{
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, beatPlugin, []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("DFromAlphonse", "help", "Alphonse", timestamp1)),
 	})
 
 	// Wait 1.5 seconds so that the first scheduled execution has time to run
 	time.Sleep(time.Duration(1500) * time.Millisecond)
-	if assert.Equal(t, 1, len(rtmSender.rtmMsgs)) {
-		assert.Equal(t, rtmMessage{channelID: "Cstatus", message: "beat"}, rtmSender.rtmMsgs[0])
+	if assert.Equal(t, 1, len(rtmSender.SentMessages)) {
+		assert.Contains(t, rtmSender.SentMessages, "Cstatus")
+		assert.Contains(t, rtmSender.SentMessages["Cstatus"], "beat")
 	}
 
 	assert.Equal(t, 1, len(sentMsgs))
@@ -685,22 +676,21 @@ func newMessageEvent(channel string, text string, fromUser string, timestamp str
 	return e
 }
 
-func runSlackscotWithIncomingEventsWithLogs(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSender *realTimeSender, logs []string) {
+func runSlackscotWithIncomingEventsWithLogs(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSenderCaptor *capture.RealTimeSenderCaptor, logs []string) {
 	var logBuilder strings.Builder
 	logger := log.New(&logBuilder, "", 0)
 
-	sentMessages, updatedMsgs, deletedMsgs, rtmSender = runSlackscotWithIncomingEvents(t, v, plugin, events, OptionLog(logger))
-	return sentMessages, updatedMsgs, deletedMsgs, rtmSender, strings.Split(logBuilder.String(), "\n")
+	sentMessages, updatedMsgs, deletedMsgs, rtmSenderCaptor = runSlackscotWithIncomingEvents(t, v, plugin, events, OptionLog(logger))
+	return sentMessages, updatedMsgs, deletedMsgs, rtmSenderCaptor, strings.Split(logBuilder.String(), "\n")
 }
 
-func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent, options ...Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSender *realTimeSender) {
+func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent, options ...Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSenderCaptor *capture.RealTimeSenderCaptor) {
 	if v == nil {
 		v = config.NewViperWithDefaults()
 	}
 
 	inMemoryChatDriver := inMemoryChatDriver{timeCursor: firstReplyTimestamp - replyTimeIncrementInSeconds, sentMsgs: make([]sentMessage, 0), updatedMsgs: make([]updatedMessage, 0), deletedMsgs: make([]deletedMessage, 0)}
-	rtmSender = new(realTimeSender)
-	rtmSender.rtmMsgs = make([]rtmMessage, 0)
+	rtmSenderCaptor = capture.NewRealTimeSender()
 
 	var selfFinder selfFinder
 	var userInfoFinder userInfoFinder
@@ -715,17 +705,17 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	assert.Nil(t, err)
 
 	// Start the scheduler, it is up to the test to wait enough time to make sure scheduled actions run
-	go s.startActionScheduler(timeLoc, rtmSender)
+	go s.startActionScheduler(timeLoc)
 
 	ec := make(chan slack.RTMEvent)
 	termination := make(chan bool)
-	go s.runInternal(ec, termination, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder}, false)
+	go s.runInternal(ec, termination, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder, realTimeMsgSender: rtmSenderCaptor}, false)
 
 	go sendTestEventsForProcessing(ec, events)
 
 	<-termination
 
-	return inMemoryChatDriver.sentMsgs, inMemoryChatDriver.updatedMsgs, inMemoryChatDriver.deletedMsgs, rtmSender
+	return inMemoryChatDriver.sentMsgs, inMemoryChatDriver.updatedMsgs, inMemoryChatDriver.deletedMsgs, rtmSenderCaptor
 }
 
 func sendTestEventsForProcessing(ec chan<- slack.RTMEvent, events []slack.RTMEvent) {

@@ -55,10 +55,11 @@ type Plugin struct {
 
 	// Those slackscot services are injected post-creation when slackscot is called.
 	// A plugin shouldn't rely on those being available during creation
-	UserInfoFinder UserInfoFinder
-	Logger         SLogger
-	EmojiReactor   EmojiReactor
-	FileUploader   FileUploader
+	UserInfoFinder    UserInfoFinder
+	Logger            SLogger
+	EmojiReactor      EmojiReactor
+	FileUploader      FileUploader
+	RealTimeMsgSender RealTimeMessageSender
 }
 
 // ActionDefinition represents how an action is triggered, published, used and described
@@ -121,7 +122,9 @@ type ScheduledActionDefinition struct {
 }
 
 // ScheduledAction is what gets executed when a ScheduledActionDefinition is triggered (by its ScheduleDefinition)
-type ScheduledAction func(sender RealTimeMessageSender)
+// In order to do anything, a plugin should define its scheduled actions functions with itself as a receiver
+// so the function has access to the injected services
+type ScheduledAction func()
 
 // SlackMessageID holds the elements that form a unique message identifier for slack. Technically, slack also uses
 // the workspace id as the first part of that unique identifier but since an instance of slackscot only lives within
@@ -164,11 +167,12 @@ type terminationEvent struct {
 // runDependencies represents all runtime dependencies. Note that they're mostly satisfied by slack.RTM or slack.Client
 // but having dependencies used as the smaller interfaces keeps the rest of the code cleaner and easier to test
 type runDependencies struct {
-	chatDriver     chatDriver
-	userInfoFinder UserInfoFinder
-	emojiReactor   EmojiReactor
-	fileUploader   FileUploader
-	selfInfoFinder selfInfoFinder
+	chatDriver        chatDriver
+	userInfoFinder    UserInfoFinder
+	emojiReactor      EmojiReactor
+	fileUploader      FileUploader
+	selfInfoFinder    selfInfoFinder
+	realTimeMsgSender RealTimeMessageSender
 }
 
 // Option defines an option for a Slackscot
@@ -239,9 +243,6 @@ func (s *Slackscot) Run() (err error) {
 	rtm := sc.NewRTM()
 	go rtm.ManageConnection()
 
-	// Wrap the slack API to expose access to it for advanced uses
-	slackRealTimeMsgSender := slackRealTimeMsgSender{rtm: rtm}
-
 	// Load time zone location for the scheduler, we just log the error here since we fail to start
 	// but we're in a go routine. Hopefully, this should be sufficient for users to figure out the bad
 	// configuration
@@ -251,13 +252,13 @@ func (s *Slackscot) Run() (err error) {
 	}
 
 	// Start scheduling of all plugins' scheduled actions
-	go s.startActionScheduler(timeLoc, &slackRealTimeMsgSender)
+	go s.startActionScheduler(timeLoc)
 
 	termination := make(chan bool)
 
 	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
 	// in a production scenario is by receiving a termination signal which
-	go s.runInternal(rtm.IncomingEvents, termination, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm}, true)
+	go s.runInternal(rtm.IncomingEvents, termination, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm}, true)
 
 	// Wait for termination
 	<-termination
@@ -284,7 +285,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 	s.RegisterPlugin(&helpPlugin.Plugin)
 
 	// Inject services into plugins before starting to process events
-	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader)
+	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader, deps.realTimeMsgSender)
 
 	for msg := range events {
 		switch e := msg.Data.(type) {
@@ -318,7 +319,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 }
 
 // injectServicesToPlugins assembles/creates the services and injects them in all plugins
-func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, logger SLogger, emojiReactor EmojiReactor, fileUploader FileUploader) (err error) {
+func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, logger SLogger, emojiReactor EmojiReactor, fileUploader FileUploader, msgSender RealTimeMessageSender) (err error) {
 	userInfoFinder, err := NewCachingUserInfoFinder(s.config, loadingUserInfoFinder, logger)
 	if err != nil {
 		return err
@@ -329,6 +330,7 @@ func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder
 		p.UserInfoFinder = userInfoFinder
 		p.EmojiReactor = emojiReactor
 		p.FileUploader = fileUploader
+		p.RealTimeMsgSender = msgSender
 	}
 
 	return nil
@@ -380,7 +382,7 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder) {
 
 // startActionScheduler creates all ScheduledActionDefinition from all plugins and registers them with the scheduler
 // Very importantly, it also starts the scheduler
-func (s *Slackscot) startActionScheduler(timeLoc *time.Location, sender RealTimeMessageSender) {
+func (s *Slackscot) startActionScheduler(timeLoc *time.Location) {
 	gocron.ChangeLoc(timeLoc)
 	sc := gocron.NewScheduler()
 
@@ -390,7 +392,7 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location, sender RealTime
 				j, err := schedule.NewJob(sc, sa.Schedule)
 				if err == nil {
 					s.log.Debugf("Adding job [%v] to scheduler\n", j)
-					err = j.Do(sa.Action, sender)
+					err = j.Do(sa.Action)
 				}
 
 				if err != nil {

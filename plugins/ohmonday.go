@@ -90,11 +90,11 @@ func NewOhMonday(c *config.PluginConfig) (o *OhMonday, err error) {
 	return o, nil
 }
 
-func (o *OhMonday) sendGreeting(sender slackscot.RealTimeMessageSender) {
+func (o *OhMonday) sendGreeting() {
 	for _, c := range o.channels {
 		message := mondayPictures[selectionRandom.Intn(len(mondayPictures))]
 		o.Logger.Debugf("[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, c)
 
-		sender.SendNewMessage(c, message)
+		o.RealTimeMsgSender.NewOutgoingMessage(message, c)
 	}
 }
