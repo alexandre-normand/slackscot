@@ -6,6 +6,17 @@ import (
 	"io"
 )
 
+// SiloStringStorer is implemented by any value that has the Get/Put/Delete/Scan and Closer methods
+// on string keys/values with a silo name.
+type SiloStringStorer interface {
+	io.Closer
+
+	GetSiloString(silo string, key string) (value string, err error)
+	PutSiloString(silo string, key string, value string) (err error)
+	DeleteSiloString(silo string, key string) (err error)
+	ScanSilo(silo string) (entries map[string]string, err error)
+}
+
 // StringStorer is implemented by any value that has the Get/Put/Delete/Scan and Closer methods
 // on string keys/values.
 type StringStorer interface {

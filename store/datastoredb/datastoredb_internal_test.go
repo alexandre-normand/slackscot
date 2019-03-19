@@ -162,6 +162,23 @@ func TestSuccessfulGetString(t *testing.T) {
 	}
 }
 
+func TestGetSiloString(t *testing.T) {
+	mockDS := mockDatastore{}
+	defer mockDS.AssertExpectations(t)
+
+	mockDS.On("connect").Return(nil)
+	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
+	mockDS.On("Get", mock.Anything, newKeyWithNamespace("channelSilo", testEntityName, "renée"), mock.Anything).Return(nil)
+
+	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
+	assert.NoError(t, err)
+	if assert.NotNil(t, dsdb) {
+		v, err := dsdb.GetSiloString("channelSilo", "renée")
+		assert.NoError(t, err)
+		assert.Equal(t, "val:renée", v)
+	}
+}
+
 func TestReconnectOnGetFailure(t *testing.T) {
 	// Very importantly, we set up our mock to *not* return an error on repeated calls for the same key
 	mockDS := mockDatastore{returnNoErrOnRepeatedKey: true}
@@ -204,22 +221,8 @@ func TestSuccessfulScan(t *testing.T) {
 
 	mockDS.On("connect").Return(nil)
 	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
-	// This is tricky to test since we're mocking a call that takes a pointer to an array to be written to by the call 😅. To do this, we
-	// have set up GetAll to allow a "returner" function to be passed in for each argument. Each one of those functions must have
-	// the same input signature and only the return value expected at that index. I know, I know 😱. So here, we use a return function
-	// and set that one value for the key that we're returning in the output. This should be much easier but the datastore API is
-	// not the most elegant in that regards so that's just something to deal with
 	var vals []*EntryValue
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(func(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key) {
-		if vals, ok := dest.(*[]*EntryValue); ok {
-			if vals != nil {
-				(*vals) = make([]*EntryValue, 1)
-				(*vals)[0] = &EntryValue{Value: "bird"}
-			}
-		}
-
-		return []*datastore.Key{datastore.NameKey(testEntityName, "renée", nil)}
-	}, nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(newScanReturner(map[string]string{"renée": "bird"}), nil)
 
 	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
 	assert.NoError(t, err)
@@ -227,6 +230,51 @@ func TestSuccessfulScan(t *testing.T) {
 		v, err := dsdb.Scan()
 		assert.NoError(t, err)
 		assert.Equal(t, map[string]string{"renée": "bird"}, v)
+	}
+}
+
+func TestSiloScan(t *testing.T) {
+	mockDS := mockDatastore{}
+	defer mockDS.AssertExpectations(t)
+
+	mockDS.On("connect").Return(nil)
+	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
+	var vals []*EntryValue
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("myLittleChannel"), &vals).Return(newScanReturner(map[string]string{"renée": "bird"}), nil)
+
+	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
+	assert.NoError(t, err)
+	if assert.NotNil(t, dsdb) {
+		v, err := dsdb.ScanSilo("myLittleChannel")
+		assert.NoError(t, err)
+		assert.Equal(t, map[string]string{"renée": "bird"}, v)
+	}
+}
+
+// newScanReturner builds a mock function that will return scan data.
+// This is tricky to test since we're mocking a call that takes a pointer to an array to be written to by the call 😅. To do this, we
+// have set up GetAll to allow a "returner" function to be passed in for each argument. Each one of those functions must have
+// the same input signature and only the return value expected at that index. I know, I know 😱. So here, we use a return function
+// and set that one value for the key that we're returning in the output. This should be much easier but the datastore API is
+// not the most elegant in that regards so that's just something to deal with
+func newScanReturner(entries map[string]string) func(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key) {
+	return func(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key) {
+		if vals, ok := dest.(*[]*EntryValue); ok {
+			if vals != nil {
+				keys = make([]*datastore.Key, len(entries))
+				(*vals) = make([]*EntryValue, len(entries))
+
+				i := 0
+				for k, v := range entries {
+					keys[i] = datastore.NameKey(testEntityName, k, nil)
+					(*vals)[i] = &EntryValue{Value: v}
+					i = i + 1
+				}
+				return keys
+			}
+		}
+
+		return nil
 	}
 }
 
@@ -282,6 +330,22 @@ func TestPutSuccessful(t *testing.T) {
 	}
 }
 
+func TestSiloPut(t *testing.T) {
+	mockDS := mockDatastore{}
+	defer mockDS.AssertExpectations(t)
+
+	mockDS.On("connect").Return(nil)
+	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
+	mockDS.On("Put", mock.Anything, newKeyWithNamespace("myLittleSilo", testEntityName, "renée"), mock.Anything).Return(newKeyWithNamespace("myLittleSilo", testEntityName, "renée"), nil)
+
+	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
+	assert.NoError(t, err)
+	if assert.NotNil(t, dsdb) {
+		err := dsdb.PutSiloString("myLittleSilo", "renée", "bird")
+		assert.NoError(t, err)
+	}
+}
+
 func TestReconnectOnPutFailure(t *testing.T) {
 	// Very importantly, we set up our mock to *not* return an error on repeated calls for the same key
 	mockDS := mockDatastore{returnNoErrOnRepeatedKey: true}
@@ -329,6 +393,22 @@ func TestDeleteSuccessful(t *testing.T) {
 	assert.NoError(t, err)
 	if assert.NotNil(t, dsdb) {
 		err := dsdb.DeleteString("renée")
+		assert.NoError(t, err)
+	}
+}
+
+func TestSiloDelete(t *testing.T) {
+	mockDS := mockDatastore{}
+	defer mockDS.AssertExpectations(t)
+
+	mockDS.On("connect").Return(nil)
+	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
+	mockDS.On("Delete", mock.Anything, newKeyWithNamespace("myLittleSilo", testEntityName, "renée")).Return(nil)
+
+	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
+	assert.NoError(t, err)
+	if assert.NotNil(t, dsdb) {
+		err := dsdb.DeleteSiloString("myLittleSilo", "renée")
 		assert.NoError(t, err)
 	}
 }
