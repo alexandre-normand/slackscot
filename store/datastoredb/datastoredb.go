@@ -74,10 +74,16 @@ func (dsdb *DatastoreDB) testDB() (err error) {
 // found or an error occurred, the zero-value string is returned along with
 // the error
 func (dsdb *DatastoreDB) GetString(key string) (value string, err error) {
+	return dsdb.GetSiloString("", key)
+}
+
+// GetSiloString returns the value associated to a given key within the silo provided. If the value is not
+// found or an error occurred, the zero-value string is returned along with the error
+func (dsdb *DatastoreDB) GetSiloString(silo string, key string) (value string, err error) {
 	ctx := context.Background()
 
 	var e EntryValue
-	k := datastore.NameKey(dsdb.kind, key, nil)
+	k := newKeyWithNamespace(silo, dsdb.kind, key)
 
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
 	var attempt int
@@ -94,8 +100,13 @@ func (dsdb *DatastoreDB) GetString(key string) (value string, err error) {
 
 // PutString stores the key/value to the database
 func (dsdb *DatastoreDB) PutString(key string, value string) (err error) {
+	return dsdb.PutSiloString("", key, value)
+}
+
+// PutSiloString stores the key/value to the database in the given silo
+func (dsdb *DatastoreDB) PutSiloString(silo string, key string, value string) (err error) {
 	ctx := context.Background()
-	k := datastore.NameKey(dsdb.kind, key, nil)
+	k := newKeyWithNamespace(silo, dsdb.kind, key)
 
 	// Execute first attempt
 	_, err = dsdb.Put(ctx, k, &EntryValue{Value: value})
@@ -113,8 +124,14 @@ func (dsdb *DatastoreDB) PutString(key string, value string) (err error) {
 // DeleteString deletes the entry for the given key. If the entry is not found
 // an error is returned
 func (dsdb *DatastoreDB) DeleteString(key string) (err error) {
+	return dsdb.DeleteSiloString("", key)
+}
+
+// DeleteSiloString deletes the entry for the given key in the given silo. If the entry is not found
+// an error is returned
+func (dsdb *DatastoreDB) DeleteSiloString(silo string, key string) (err error) {
 	ctx := context.Background()
-	k := datastore.NameKey(dsdb.kind, key, nil)
+	k := newKeyWithNamespace(silo, dsdb.kind, key)
 
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
 	var attempt int
@@ -127,13 +144,18 @@ func (dsdb *DatastoreDB) DeleteString(key string) (err error) {
 
 // Scan returns all key/values from the database
 func (dsdb *DatastoreDB) Scan() (entries map[string]string, err error) {
+	return dsdb.ScanSilo("")
+}
+
+// ScanSilo returns all key/values from the database in the given silo
+func (dsdb *DatastoreDB) ScanSilo(silo string) (entries map[string]string, err error) {
 	entries = make(map[string]string)
 
 	ctx := context.Background()
 	var vals []*EntryValue
 
 	// Run first attempt before looping
-	keys, err := dsdb.GetAll(ctx, datastore.NewQuery(dsdb.kind), &vals)
+	keys, err := dsdb.GetAll(ctx, datastore.NewQuery(dsdb.kind).Namespace(silo), &vals)
 
 	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
 	for attempt := 1; attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt = attempt + 1 {
@@ -164,4 +186,13 @@ func (dsdb *DatastoreDB) Scan() (entries map[string]string, err error) {
 // with. This means we could still retry when it's pointless to do so at the expense of added latency.
 func shouldRetry(err error) bool {
 	return err != datastore.ErrNoSuchEntity && err != datastore.ErrInvalidEntityType && err != datastore.ErrInvalidKey
+}
+
+// newKeyWithNamespace returns a new datastore key for the given kind and key name within the
+// specified namespace
+func newKeyWithNamespace(namespace string, kind string, key string) (k *datastore.Key) {
+	k = datastore.NameKey(kind, key, nil)
+	k.Namespace = namespace
+
+	return k
 }
