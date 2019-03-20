@@ -16,7 +16,7 @@ import (
 // Karma holds the plugin data for the karma plugin
 type Karma struct {
 	slackscot.Plugin
-	karmaStorer store.StringStorer
+	karmaStorer store.SiloStringStorer
 }
 
 const (
@@ -29,7 +29,7 @@ var topKarmaRegexp = regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
 var worstKarmaRegexp = regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
 
 // NewKarma creates a new instance of the Karma plugin
-func NewKarma(strStorer store.StringStorer) (karma *Karma) {
+func NewKarma(strStorer store.SiloStringStorer) (karma *Karma) {
 	k := new(Karma)
 
 	hearActions := []slackscot.ActionDefinition{
@@ -89,7 +89,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 
 	var format string
 	thing := match[1]
-	rawValue, err := k.karmaStorer.GetString(thing)
+	rawValue, err := k.karmaStorer.GetSiloString(message.Channel, thing)
 	if err != nil {
 		rawValue = "0"
 	}
@@ -108,7 +108,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 	}
 
 	// Store new value
-	err = k.karmaStorer.PutString(thing, strconv.Itoa(karma))
+	err = k.karmaStorer.PutSiloString(message.Channel, thing, strconv.Itoa(karma))
 	if err != nil {
 		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
 		return nil
@@ -156,7 +156,7 @@ func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.In
 	rawCount := match[2]
 	count, _ := strconv.Atoi(rawCount)
 
-	values, err := k.karmaStorer.Scan()
+	values, err := k.karmaStorer.ScanSilo(message.Channel)
 	if err != nil {
 		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
 	}
@@ -165,11 +165,17 @@ func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.In
 	if err != nil {
 		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
 	}
-	var buffer bytes.Buffer
 
-	buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, min(len(pairs), count)))
-	buffer.WriteString(k.formatList(pairs))
-	return &slackscot.Answer{Text: buffer.String()}
+	if len(pairs) > 0 {
+		var buffer bytes.Buffer
+
+		buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, min(len(pairs), count)))
+		buffer.WriteString(k.formatList(pairs))
+
+		return &slackscot.Answer{Text: buffer.String()}
+	}
+
+	return &slackscot.Answer{Text: "Sorry, no recorded karma found :disappointed:"}
 }
 
 func min(a, b int) int {
