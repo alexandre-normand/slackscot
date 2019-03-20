@@ -6,7 +6,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	leveldberrors "github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/util"
 	"path/filepath"
+	"strings"
 )
 
 // LevelDB holds a datastore name and its leveldb instance
@@ -41,6 +43,13 @@ func (ldb *LevelDB) Close() (err error) {
 	return ldb.database.Close()
 }
 
+// GetSiloString retrieves a value associated to the key in the given silo
+func (ldb *LevelDB) GetSiloString(silo string, key string) (value string, err error) {
+	val, err := ldb.Get([]byte(silo + key))
+
+	return string(val), err
+}
+
 // GetString retrieves a value associated to the key
 func (ldb *LevelDB) GetString(key string) (value string, err error) {
 	val, err := ldb.Get([]byte(key))
@@ -58,6 +67,11 @@ func (ldb *LevelDB) Get(key []byte) (value []byte, err error) {
 	return value, nil
 }
 
+// PutSiloString adds or updates a value associated to the key in the given silo
+func (ldb *LevelDB) PutSiloString(silo string, key string, value string) (err error) {
+	return ldb.Put([]byte(silo+key), []byte(value))
+}
+
 // PutString adds or updates a value associated to the key
 func (ldb *LevelDB) PutString(key string, value string) (err error) {
 	return ldb.Put([]byte(key), []byte(value))
@@ -73,6 +87,11 @@ func (ldb *LevelDB) DeleteString(key string) (err error) {
 	return ldb.Delete([]byte(key))
 }
 
+// DeleteSiloString deletes an entry for a given key string in the given silo
+func (ldb *LevelDB) DeleteSiloString(silo string, key string) (err error) {
+	return ldb.Delete([]byte(silo + key))
+}
+
 // Delete deletes an entry for a given key
 func (ldb *LevelDB) Delete(key []byte) (err error) {
 	return ldb.database.Delete(key, nil)
@@ -84,6 +103,22 @@ func (ldb *LevelDB) Scan() (entries map[string]string, err error) {
 	iter := ldb.database.NewIterator(nil, nil)
 	for iter.Next() {
 		key := string(iter.Key())
+		value := string(iter.Value())
+		entries[key] = value
+	}
+
+	iter.Release()
+	err = iter.Error()
+
+	return entries, err
+}
+
+// ScanSilo returns the complete set of key/values from the database in the given silo
+func (ldb *LevelDB) ScanSilo(silo string) (entries map[string]string, err error) {
+	entries = map[string]string{}
+	iter := ldb.database.NewIterator(util.BytesPrefix([]byte(silo)), nil)
+	for iter.Next() {
+		key := strings.TrimPrefix(string(iter.Key()), silo)
 		value := string(iter.Value())
 		entries[key] = value
 	}

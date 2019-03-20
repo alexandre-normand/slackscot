@@ -153,3 +153,31 @@ func TestPutGetScanAsString(t *testing.T) {
 
 	assert.Equal(t, map[string]string{"testKey": "value1"}, m)
 }
+
+func TestPutGetScanSiloString(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
+	defer os.RemoveAll(dir)
+
+	var sstorer store.SiloStringStorer
+
+	sstorer, err = store.NewLevelDB("test", dir)
+	assert.NoError(t, err)
+	defer sstorer.Close()
+
+	err = sstorer.PutSiloString("ns1", "testKey", "value1")
+	assert.NoError(t, err)
+
+	_, err = sstorer.GetSiloString("otherns1", "testKey")
+	assert.Error(t, err)
+
+	v, err := sstorer.GetSiloString("ns1", "testKey")
+	assert.NoError(t, err)
+
+	assert.Equal(t, "value1", v)
+
+	m, err := sstorer.ScanSilo("ns1")
+	assert.Nil(t, err)
+
+	assert.Equal(t, map[string]string{"testKey": "value1"}, m)
+}
