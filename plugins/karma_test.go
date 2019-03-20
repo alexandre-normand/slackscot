@@ -24,40 +24,44 @@ func (u userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error)
 func TestKarmaMatchesAndAnswers(t *testing.T) {
 	testCases := []struct {
 		text           string
+		channel        string
 		expectedAnswer string
 	}{
-		{"creek++", "`creek` just gained a level (`creek`: 1)"},
-		{"creek--", "`creek` just lost a life (`creek`: 0)"},
-		{"the creek++", "`creek` just gained a level (`creek`: 1)"},
-		{"our creek++ is nice", "`creek` just gained a level (`creek`: 2)"},
-		{"our creek++ is really nice", "`creek` just gained a level (`creek`: 3)"},
-		{"oceans++", "`oceans` just gained a level (`oceans`: 1)"},
-		{"oceans++", "`oceans` just gained a level (`oceans`: 2)"},
-		{"nettle++", "`nettle` just gained a level (`nettle`: 1)"},
-		{"salmon++", "`salmon` just gained a level (`salmon`: 1)"},
-		{"salmon++", "`salmon` just gained a level (`salmon`: 2)"},
-		{"salmon++", "`salmon` just gained a level (`salmon`: 3)"},
-		{"salmon++", "`salmon` just gained a level (`salmon`: 4)"},
-		{"dams--", "`dams` just lost a life (`dams`: -1)"},
-		{"dams--", "`dams` just lost a life (`dams`: -2)"},
-		{"<@bot> karma", ""},
-		{"<@bot> karma top 2", "Here are the top 2 things: \n```4    salmon\n3    creek\n```\n"},
-		{"<@bot> karma worst 2", "Here are the worst 2 things: \n```-2   dams\n1    nettle\n```\n"},
-		{"<@U21355>++", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 1)"},
-		{"<@U21355>++", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 2)"},
-		{"<@U21355>++", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 3)"},
-		{"<@U21355>++", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 4)"},
-		{"<@U21355>++", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 5)"},
-		{"<@U21355>++", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"},
-		{"<@bot> karma top 1", "Here are the top 1 things: \n```6    Bernard Tremblay\n```\n"},
-		{"don't++", "`don't` just gained a level (`don't`: 1)"},
-		{"under-the-bridge++", "`the-bridge` just gained a level (`the-bridge`: 1)"},
-		{"Jean-Michel++", "`Jean-Michel` just gained a level (`Jean-Michel`: 1)"},
-		{"+----------+", ""},
-		{"---", ""},
-		{"+++", ""},
-		{"<@bot> karma worst", ""},
-		{"<@bot> karma top", ""},
+		{"creek++", "Cgeneral", "`creek` just gained a level (`creek`: 1)"},
+		{"creek--", "Cgeneral", "`creek` just lost a life (`creek`: 0)"},
+		{"the creek++", "Cgeneral", "`creek` just gained a level (`creek`: 1)"},
+		{"our creek++ is nice", "Cgeneral", "`creek` just gained a level (`creek`: 2)"},
+		{"our creek++ is really nice", "Cgeneral", "`creek` just gained a level (`creek`: 3)"},
+		{"oceans++", "Cgeneral", "`oceans` just gained a level (`oceans`: 1)"},
+		{"oceans++", "Cgeneral", "`oceans` just gained a level (`oceans`: 2)"},
+		{"nettle++", "Cgeneral", "`nettle` just gained a level (`nettle`: 1)"},
+		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 1)"},
+		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 2)"},
+		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 3)"},
+		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 4)"},
+		{"dams--", "Cgeneral", "`dams` just lost a life (`dams`: -1)"},
+		{"dams--", "Cgeneral", "`dams` just lost a life (`dams`: -2)"},
+		{"<@bot> karma", "Cgeneral", ""},
+		{"<@bot> karma top 2", "Cgeneral", "Here are the top 2 things: \n```4    salmon\n3    creek\n```\n"},
+		{"<@bot> karma worst 2", "Cgeneral", "Here are the worst 2 things: \n```-2   dams\n1    nettle\n```\n"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 1)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 2)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 3)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 4)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 5)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"},
+		{"<@bot> karma top 1", "Cgeneral", "Here are the top 1 things: \n```6    Bernard Tremblay\n```\n"},
+		{"don't++", "Cgeneral", "`don't` just gained a level (`don't`: 1)"},
+		{"under-the-bridge++", "Cgeneral", "`the-bridge` just gained a level (`the-bridge`: 1)"},
+		{"Jean-Michel++", "Cgeneral", "`Jean-Michel` just gained a level (`Jean-Michel`: 1)"},
+		{"+----------+", "Cgeneral", ""},
+		{"---", "Cgeneral", ""},
+		{"+++", "Cgeneral", ""},
+		{"<@bot> karma worst", "Cgeneral", ""},
+		{"<@bot> karma top", "Cgeneral", ""},
+		{"salmon++", "Coceanlife", "`salmon` just gained a level (`salmon`: 1)"},
+		{"<@bot> karma top 1", "Coceanlife", "Here are the top 1 things: \n```1    salmon\n```\n"},
+		{"<@bot> karma top 1", "Cother", "Sorry, no recorded karma found :disappointed:"},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
@@ -78,7 +82,7 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 	if assert.NotNil(t, k) {
 		for _, tc := range testCases {
 			t.Run(tc.text, func(t *testing.T) {
-				assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: tc.text}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+				assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: tc.channel, Text: tc.text}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 					if len(tc.expectedAnswer) > 0 {
 						return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], tc.expectedAnswer)
 					}
@@ -92,9 +96,10 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 
 func TestErrorStoringKarmaRecord(t *testing.T) {
 	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GetString", "thing").Return("", fmt.Errorf("not found"))
-	mockStorer.On("PutString", "thing", "1").Return(fmt.Errorf("can't persist"))
+	mockStorer.On("GetSiloString", "myLittleChannel", "thing").Return("", fmt.Errorf("not found"))
+	mockStorer.On("PutSiloString", "myLittleChannel", "thing", "1").Return(fmt.Errorf("can't persist"))
 
 	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(mockStorer)
@@ -102,16 +107,17 @@ func TestErrorStoringKarmaRecord(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, answers)
 	})
 }
 
 func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
 	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GetString", "thing").Return("abc", nil)
-	mockStorer.On("PutString", "thing", "1").Return(nil)
+	mockStorer.On("GetSiloString", "myLittleChannel", "thing").Return("abc", nil)
+	mockStorer.On("PutSiloString", "myLittleChannel", "thing", "1").Return(nil)
 
 	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(mockStorer)
@@ -119,15 +125,16 @@ func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`thing` just gained a level (`thing`: 1)")
 	})
 }
 
 func TestErrorGettingList(t *testing.T) {
 	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("Scan").Return(map[string]string{}, fmt.Errorf("can't load karma"))
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{}, fmt.Errorf("can't load karma"))
 
 	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(mockStorer)
@@ -135,15 +142,16 @@ func TestErrorGettingList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: can't load karma")
 	})
 }
 
 func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
 	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("Scan").Return(map[string]string{"thing": "abc"}, nil)
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "abc"}, nil)
 
 	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(mockStorer)
@@ -151,15 +159,16 @@ func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
 	})
 }
 
 func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("Scan").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
 
 	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(mockStorer)
@@ -167,15 +176,16 @@ func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the top 2 things: \n```2    bird\n1    thing\n```\n")
 	})
 }
 
 func TestLessItemsThanRequestedWorstCount(t *testing.T) {
 	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("Scan").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
 
 	var userInfoFinder userInfoFinder
 	k := plugins.NewKarma(mockStorer)
@@ -183,7 +193,7 @@ func TestLessItemsThanRequestedWorstCount(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Text: "<@bot> karma worst 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma worst 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the worst 2 things: \n```1    thing\n2    bird\n```\n")
 	})
 }
