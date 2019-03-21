@@ -3,6 +3,7 @@ package store_test
 import (
 	"github.com/alexandre-normand/slackscot/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -177,7 +178,33 @@ func TestPutGetScanSiloString(t *testing.T) {
 	assert.Equal(t, "value1", v)
 
 	m, err := sstorer.ScanSilo("ns1")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	assert.Equal(t, map[string]string{"testKey": "value1"}, m)
+}
+
+func TestGlobalScan(t *testing.T) {
+	dir, err := ioutil.TempDir("", "tmpTest")
+	assert.Nil(t, err)
+	defer os.RemoveAll(dir)
+
+	var sstorer store.GlobalSiloStringStorer
+
+	sstorer, err = store.NewLevelDB("test", dir)
+	assert.NoError(t, err)
+	defer sstorer.Close()
+
+	err = sstorer.PutSiloString("ns1", "testKey", "value1")
+	require.NoError(t, err)
+
+	err = sstorer.PutSiloString("ns2", "testKey2", "value2")
+	require.NoError(t, err)
+
+	err = sstorer.PutSiloString("", "testKey", "value2")
+	require.NoError(t, err)
+
+	m, err := sstorer.GlobalScan()
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string]map[string]string{"ns1": map[string]string{"testKey": "value1"}, "ns2": map[string]string{"testKey2": "value2"}, "": map[string]string{"testKey": "value2"}}, m)
 }
