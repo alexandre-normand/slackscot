@@ -6,6 +6,13 @@ import (
 	"io"
 )
 
+// GlobalScan is implemented by any value that has all the SiloStringStorer methods
+// and the GlobalScanSilo method
+type GlobalSiloStringStorer interface {
+	SiloStringStorer
+	GlobalScan() (entries map[string]map[string]string, err error)
+}
+
 // SiloStringStorer is implemented by any value that has the Get/Put/Delete/Scan and Closer methods
 // on string keys/values with a silo name.
 type SiloStringStorer interface {

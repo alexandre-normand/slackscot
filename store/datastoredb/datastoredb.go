@@ -151,18 +151,7 @@ func (dsdb *DatastoreDB) Scan() (entries map[string]string, err error) {
 func (dsdb *DatastoreDB) ScanSilo(silo string) (entries map[string]string, err error) {
 	entries = make(map[string]string)
 
-	ctx := context.Background()
-	var vals []*EntryValue
-
-	// Run first attempt before looping
-	keys, err := dsdb.GetAll(ctx, datastore.NewQuery(dsdb.kind).Namespace(silo), &vals)
-
-	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
-	for attempt := 1; attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt = attempt + 1 {
-		dsdb.connect()
-
-		keys, err = dsdb.GetAll(ctx, datastore.NewQuery(dsdb.kind), &vals)
-	}
+	keys, vals, err := dsdb.scan(datastore.NewQuery(dsdb.kind).Namespace(silo))
 
 	if err != nil {
 		return nil, err
@@ -173,6 +162,45 @@ func (dsdb *DatastoreDB) ScanSilo(silo string) (entries map[string]string, err e
 	}
 
 	return entries, nil
+}
+
+// GlobalScan returns all key/values for all silos keyed by silo name
+func (dsdb *DatastoreDB) GlobalScan() (entries map[string]map[string]string, err error) {
+	entries = make(map[string]map[string]string)
+
+	keys, vals, err := dsdb.scan(datastore.NewQuery(dsdb.kind))
+	if err != nil {
+		return nil, err
+	}
+
+	for i, key := range keys {
+		if _, ok := entries[key.Namespace]; !ok {
+			entries[key.Namespace] = make(map[string]string)
+		}
+
+		entries[key.Namespace][key.Name] = vals[i].Value
+	}
+
+	return entries, nil
+}
+
+// scan runs an internal datastore query and returns the raw keys and values for post-processing
+func (dsdb *DatastoreDB) scan(query *datastore.Query) (keys []*datastore.Key, vals []*EntryValue, err error) {
+	ctx := context.Background()
+
+	vals = make([]*EntryValue, 0)
+
+	// Run first attempt before looping
+	keys, err = dsdb.GetAll(ctx, query, &vals)
+
+	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
+	for attempt := 1; attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt = attempt + 1 {
+		dsdb.connect()
+
+		keys, err = dsdb.GetAll(ctx, query, &vals)
+	}
+
+	return keys, vals, err
 }
 
 // shouldRetry returns true if the given error should be retried or false if not.
