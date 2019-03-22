@@ -48,11 +48,11 @@ func TestEmojiBannerGenerationWithWrongUsage(t *testing.T) {
 	assertplugin := assertplugin.New(t, "robert")
 
 	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage`: emoji banner `<word of 5 characters or less>` `<emoji>`")
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage`: emoji banner `<word of 4 characters or less>` `<emoji>`")
 	})
 
 	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner cats"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage`: emoji banner `<word of 5 characters or less>` `<emoji>`")
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage`: emoji banner `<word of 4 characters or less>` `<emoji>`")
 	})
 }
 
@@ -65,8 +65,8 @@ func TestEmojiBannerGenerationWithLongWord(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "robert")
 
-	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner testing :bug:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage` (word *longer* than `5` characters): emoji banner `<word of 5 characters or less>` `<emoji>`")
+	assertplugin.AnswersAndReacts(&ebm.Plugin, &slack.Msg{Text: "<@robert> emoji banner hello :bug:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Wrong usage` (word *longer* than `4` characters): emoji banner `<word of 5 characters or less>` `<emoji>`")
 	})
 }
 
