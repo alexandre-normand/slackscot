@@ -63,6 +63,9 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"salmon++", "Coceanlife", "`salmon` just gained a level (`salmon`: 1)"},
 		{"<@bot> karma top 1", "Coceanlife", "Here are the top 1 things: \n```1    salmon\n```\n"},
 		{"<@bot> karma top 1", "Cother", "Sorry, no recorded karma found :disappointed:"},
+		{"dams--", "Coceanlife", "`dams` just lost a life (`dams`: -1)"},
+		{"<@bot> karma global top 2", "Cother2", "Here are the global top 2 things: \n```7    Bernard Tremblay\n5    salmon\n```\n"},
+		{"<@bot> karma global worst 2", "Cother2", "Here are the global worst 2 things: \n```-3   dams\n1    Jean-Michel\n```\n"},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
@@ -148,6 +151,23 @@ func TestErrorGettingList(t *testing.T) {
 	})
 }
 
+func TestErrorGettingGlobalList(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{}, fmt.Errorf("can't load karma"))
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChan", Text: "<@bot> karma global top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the global top [1] things for you. If you must know, this happened: can't load karma")
+	})
+}
+
 func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
 	mockStorer := &mockStorer{}
 	defer mockStorer.AssertExpectations(t)
@@ -162,6 +182,40 @@ func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
 
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
+	})
+}
+
+func TestInvalidSingleStoredKarmaValuesOnGlobalTopList(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "abc"}, "myOtherChannel": map[string]string{"thing": "1"}}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChannel", Text: "<@bot> karma global top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the global top [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
+	})
+}
+
+func TestInvalidSingleStoredKarmaValuesOnGlobalWorstList(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "1"}, "myOtherChannel": map[string]string{"thing": "abc"}}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChannel", Text: "<@bot> karma global worst 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the global worst [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
 	})
 }
 

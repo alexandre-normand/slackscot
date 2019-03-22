@@ -16,7 +16,7 @@ import (
 // Karma holds the plugin data for the karma plugin
 type Karma struct {
 	slackscot.Plugin
-	karmaStorer store.SiloStringStorer
+	karmaStorer store.GlobalSiloStringStorer
 }
 
 const (
@@ -25,11 +25,13 @@ const (
 )
 
 var karmaRegex = regexp.MustCompile("(?:\\A|\\W)<?(@?[\\w']+-?[\\w']+)>?\\s?(\\+{2}|\\-{2}).*")
-var topKarmaRegexp = regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
-var worstKarmaRegexp = regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
+var topKarmaRegexp = regexp.MustCompile("(?i)\\A(karma top)+ (\\d+).*")
+var worstKarmaRegexp = regexp.MustCompile("(?i)\\A(karma worst)+ (\\d+).*")
+var topGlobalKarmaRegexp = regexp.MustCompile("(?i)\\A(karma global top)+ (\\d+).*")
+var worstGlobalKarmaRegexp = regexp.MustCompile("(?i)\\A(karma global worst)+ (\\d+).*")
 
 // NewKarma creates a new instance of the Karma plugin
-func NewKarma(strStorer store.SiloStringStorer) (karma *Karma) {
+func NewKarma(strStorer store.GlobalSiloStringStorer) (karma *Karma) {
 	k := new(Karma)
 
 	hearActions := []slackscot.ActionDefinition{
@@ -46,15 +48,29 @@ func NewKarma(strStorer store.SiloStringStorer) (karma *Karma) {
 			Hidden:      false,
 			Match:       matchKarmaTopReport,
 			Usage:       "karma top <howMany>",
-			Description: "Return the X top things ever",
+			Description: "Return the X top things ever recorded in this channel",
 			Answer:      k.answerKarmaTop,
 		},
 		{
 			Hidden:      false,
 			Match:       matchKarmaWorstReport,
 			Usage:       "karma worst <howMany>",
-			Description: "Return the X worst things ever",
+			Description: "Return the X worst things ever recorded in this channel",
 			Answer:      k.answerKarmaWorst,
+		},
+		{
+			Hidden:      false,
+			Match:       matchGlobalKarmaTopReport,
+			Usage:       "karma global top <howMany>",
+			Description: "Return the X top things ever over all channels",
+			Answer:      k.answerGlobalKarmaTop,
+		},
+		{
+			Hidden:      false,
+			Match:       matchGlobalKarmaWorstReport,
+			Usage:       "karma global worst <howMany>",
+			Description: "Return the X worst things ever over all channels",
+			Answer:      k.answerGlobalKarmaWorst,
 		},
 	}
 
@@ -80,6 +96,18 @@ func matchKarmaTopReport(m *slackscot.IncomingMessage) bool {
 // a message such as "karma worst <count>""
 func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 	return worstKarmaRegexp.MatchString(m.NormalizedText)
+}
+
+// matchGlobalKarmaTopReport returns true if the message matches a request for top global karma with
+// a message such as "global karma top <count>""
+func matchGlobalKarmaTopReport(m *slackscot.IncomingMessage) bool {
+	return topGlobalKarmaRegexp.MatchString(m.NormalizedText)
+}
+
+// matchGlobalKarmaWorstReport returns true if the message matches a request for the worst global karma with
+// a message such as "global karma worst <count>""
+func matchGlobalKarmaWorstReport(m *slackscot.IncomingMessage) bool {
+	return worstGlobalKarmaRegexp.MatchString(m.NormalizedText)
 }
 
 // recordKarma records a karma increase or decrease and answers with a message including
@@ -133,11 +161,19 @@ func (k *Karma) renderThing(thing string) (renderedThing string) {
 }
 
 func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(topKarmaRegexp, message, "top", sortTop)
+	return k.answerKarmaRankList(topKarmaRegexp, message, "top", k.scanChannelKarma, sortTop)
 }
 
 func (k *Karma) answerKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", sortWorst)
+	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", k.scanChannelKarma, sortWorst)
+}
+
+func (k *Karma) answerGlobalKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
+	return k.answerKarmaRankList(topGlobalKarmaRegexp, message, "global top", k.scanGlobalKarma, sortTop)
+}
+
+func (k *Karma) answerGlobalKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
+	return k.answerKarmaRankList(worstGlobalKarmaRegexp, message, "global worst", k.scanGlobalKarma, sortWorst)
 }
 
 func sortWorst(pl pairList) {
@@ -150,13 +186,60 @@ func sortTop(pl pairList) {
 
 type karmaSorter func(pl pairList)
 
-func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, sorter karmaSorter) *slackscot.Answer {
-	match := regexp.FindAllStringSubmatch(message.Text, -1)[0]
+func (k *Karma) scanChannelKarma(channelID string) (entries map[string]string, err error) {
+	return k.karmaStorer.ScanSilo(channelID)
+}
+
+// scanGlobalKarma invokes a GlobalScan and merges karma over all channels. If there's
+// an error, a nil map is returned along with that error
+func (k *Karma) scanGlobalKarma(channelID string) (entries map[string]string, err error) {
+	entriesByChannel, err := k.karmaStorer.GlobalScan()
+	if err != nil {
+		return nil, err
+	}
+
+	entries = make(map[string]string)
+	for _, chEntries := range entriesByChannel {
+		for thing, val := range chEntries {
+			if _, ok := entries[thing]; !ok {
+				entries[thing] = val
+			} else {
+				entries[thing], err = mergeKarma(entries[thing], val)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	return entries, nil
+}
+
+// mergeKarma merges two values assumed to be strings holding integers and
+// returns the sum as a string
+func mergeKarma(v1 string, v2 string) (merged string, err error) {
+	val1, err := strconv.Atoi(v1)
+	if err != nil {
+		return "", err
+	}
+
+	val2, err := strconv.Atoi(v2)
+	if err != nil {
+		return "", err
+	}
+
+	return strconv.Itoa(val1 + val2), nil
+}
+
+type karmaScanner func(channel string) (entries map[string]string, err error)
+
+func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, scanner karmaScanner, sorter karmaSorter) *slackscot.Answer {
+	match := regexp.FindAllStringSubmatch(message.NormalizedText, -1)[0]
 
 	rawCount := match[2]
 	count, _ := strconv.Atoi(rawCount)
 
-	values, err := k.karmaStorer.ScanSilo(message.Channel)
+	values, err := scanner(message.Channel)
 	if err != nil {
 		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
 	}
@@ -209,11 +292,15 @@ type pair struct {
 // pairList adapted from Andrew Gerrand for a similar problem: https://groups.google.com/forum/#!topic/golang-nuts/FT7cjmcL7gw
 type pairList []pair
 
-func (p pairList) Len() int           { return len(p) }
-func (p pairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
-func (p pairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p pairList) Len() int { return len(p) }
 
-func convertTopairs(wordFrequencies map[string]int) pairList {
+func (p pairList) Less(i, j int) bool {
+	return p[i].Value < p[j].Value || (p[i].Value == p[j].Value && strings.Compare(p[i].Key, p[j].Key) < 0)
+}
+
+func (p pairList) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
+func convertToPairs(wordFrequencies map[string]int) pairList {
 	pl := make(pairList, len(wordFrequencies))
 	i := 0
 	for k, v := range wordFrequencies {
@@ -230,7 +317,7 @@ func getRankedList(rawData map[string]string, count int, sort karmaSorter) (resu
 		return results, err
 	}
 
-	pl := convertTopairs(wordWithFrequencies)
+	pl := convertToPairs(wordWithFrequencies)
 
 	sort(pl)
 

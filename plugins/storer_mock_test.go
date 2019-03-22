@@ -65,6 +65,13 @@ func (ms *mockStorer) ScanSilo(silo string) (entries map[string]string, err erro
 	return args.Get(0).(map[string]string), args.Error(1)
 }
 
+// GlobalScan mocks an implementation of GlobalScan
+func (ms *mockStorer) GlobalScan() (entries map[string]map[string]string, err error) {
+	args := ms.Called()
+
+	return args.Get(0).(map[string]map[string]string), args.Error(1)
+}
+
 // Close mocks an implementation of Close
 func (ms *mockStorer) Close() (err error) {
 	args := ms.Called()
