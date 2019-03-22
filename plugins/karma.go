@@ -24,7 +24,7 @@ const (
 	KarmaPluginName = "karma"
 )
 
-var karmaRegex = regexp.MustCompile("(?:\\A|\\W)<?(@?[\\w']+-?[\\w']+)>?(\\+{2}|\\-{2}).*")
+var karmaRegex = regexp.MustCompile("(?:\\A|\\W)<?(@?[\\w']+-?[\\w']+)>?\\s?(\\+{2}|\\-{2}).*")
 var topKarmaRegexp = regexp.MustCompile("(?i)(karma top)+ (\\d+).*")
 var worstKarmaRegexp = regexp.MustCompile("(?i)(karma worst)+ (\\d+).*")
 
