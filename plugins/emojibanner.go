@@ -24,6 +24,7 @@ const (
 const (
 	// EmojiBannerPluginName holds identifying name for the emoji banner plugin
 	EmojiBannerPluginName = "emojiBanner"
+	bannerMaxWordLength   = 4
 )
 
 // EmojiBannerMaker holds the plugin data for the emoji banner maker plugin
@@ -124,15 +125,15 @@ func validateAndRenderEmoji(message string, regex *regexp.Regexp, renderer *figl
 			word := parameters[0]
 			emoji := parameters[1]
 
-			if len(word) < 5 {
+			if len(word) <= bannerMaxWordLength {
 				return renderBanner(word, emoji, renderer, options)
 			}
 
-			return &slackscot.Answer{Text: "`Wrong usage` (word *longer* than `5` characters): emoji banner `<word of 5 characters or less>` `<emoji>`"}
+			return &slackscot.Answer{Text: fmt.Sprintf("`Wrong usage` (word *longer* than `%d` characters): emoji banner `<word of 5 characters or less>` `<emoji>`", bannerMaxWordLength)}
 		}
 	}
 
-	return &slackscot.Answer{Text: "`Wrong usage`: emoji banner `<word of 5 characters or less>` `<emoji>`"}
+	return &slackscot.Answer{Text: fmt.Sprintf("`Wrong usage`: emoji banner `<word of %d characters or less>` `<emoji>`", bannerMaxWordLength)}
 }
 
 func renderBanner(word, emoji string, renderer *figlet4go.AsciiRender, options *figlet4go.RenderOptions) *slackscot.Answer {
