@@ -72,6 +72,13 @@ func NewKarma(strStorer store.GlobalSiloStringStorer) (karma *Karma) {
 			Description: "Return the X worst things ever over all channels",
 			Answer:      k.answerGlobalKarmaWorst,
 		},
+		{
+			Hidden:      false,
+			Match:       matchClearKarma,
+			Usage:       "karma clear",
+			Description: "Clears all recorded karma for the current channel",
+			Answer:      k.clearChannelKarma,
+		},
 	}
 
 	k.Plugin = slackscot.Plugin{Name: KarmaPluginName, Commands: commands, HearActions: hearActions}
@@ -87,27 +94,33 @@ func matchKarmaRecord(m *slackscot.IncomingMessage) bool {
 }
 
 // matchKarmaTopReport returns true if the message matches a request for top karma with
-// a message such as "karma top <count>""
+// a message such as "karma top <count>"
 func matchKarmaTopReport(m *slackscot.IncomingMessage) bool {
 	return topKarmaRegexp.MatchString(m.NormalizedText)
 }
 
 // matchKarmaWorstReport returns true if the message matches a request for the worst karma with
-// a message such as "karma worst <count>""
+// a message such as "karma worst <count>"
 func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 	return worstKarmaRegexp.MatchString(m.NormalizedText)
 }
 
 // matchGlobalKarmaTopReport returns true if the message matches a request for top global karma with
-// a message such as "global karma top <count>""
+// a message such as "global karma top <count>"
 func matchGlobalKarmaTopReport(m *slackscot.IncomingMessage) bool {
 	return topGlobalKarmaRegexp.MatchString(m.NormalizedText)
 }
 
 // matchGlobalKarmaWorstReport returns true if the message matches a request for the worst global karma with
-// a message such as "global karma worst <count>""
+// a message such as "global karma worst <count>"
 func matchGlobalKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 	return worstGlobalKarmaRegexp.MatchString(m.NormalizedText)
+}
+
+// matchClearKarma returns true if the message matches a request for clearing karma with a
+// message such as "karma clear"
+func matchClearKarma(m *slackscot.IncomingMessage) bool {
+	return strings.HasPrefix(m.NormalizedText, "karma clear")
 }
 
 // recordKarma records a karma increase or decrease and answers with a message including
@@ -174,6 +187,24 @@ func (k *Karma) answerGlobalKarmaTop(message *slackscot.IncomingMessage) *slacks
 
 func (k *Karma) answerGlobalKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
 	return k.answerKarmaRankList(worstGlobalKarmaRegexp, message, "global worst", k.scanGlobalKarma, sortWorst)
+}
+
+// clearChannelKarma processes a request to clear karma in a channel (the message's channel is used to tell which one)
+func (k *Karma) clearChannelKarma(message *slackscot.IncomingMessage) *slackscot.Answer {
+	entries, err := k.karmaStorer.ScanSilo(message.Channel)
+	if err != nil {
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", message.Channel, err.Error())}
+	}
+
+	for thing, _ := range entries {
+		err = k.karmaStorer.DeleteSiloString(message.Channel, thing)
+	}
+
+	if err != nil {
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", message.Channel, err.Error())}
+	}
+
+	return &slackscot.Answer{Text: "Karma all cleared :white_check_mark::boom:"}
 }
 
 func sortWorst(pl pairList) {
