@@ -66,6 +66,8 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"dams--", "Coceanlife", "`dams` just lost a life (`dams`: -1)"},
 		{"<@bot> karma global top 2", "Cother2", "Here are the global top 2 things: \n```7    Bernard Tremblay\n5    salmon\n```\n"},
 		{"<@bot> karma global worst 2", "Cother2", "Here are the global worst 2 things: \n```-3   dams\n1    Jean-Michel\n```\n"},
+		{"<@bot> karma clear", "Coceanlife", "Karma all cleared :white_check_mark::boom:"},
+		{"<@bot> karma top 1", "Coceanlife", "Sorry, no recorded karma found :disappointed:"},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
@@ -148,6 +150,41 @@ func TestErrorGettingList(t *testing.T) {
 
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: can't load karma")
+	})
+}
+
+func TestErrorGettingKarmaWhenClearing(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{}, fmt.Errorf("can't load karma"))
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma clear"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get delete karma for channel [myLittleChannel] for you. If you must know, this happened: can't load karma")
+	})
+}
+
+func TestErrorDeletingKarmaWhenClearing(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "abc"}, nil)
+	mockStorer.On("DeleteSiloString", "myLittleChannel", "thing").Return(fmt.Errorf("can't delete"))
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma clear"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get delete karma for channel [myLittleChannel] for you. If you must know, this happened: can't delete")
 	})
 }
 
