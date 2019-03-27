@@ -1,5 +1,9 @@
 package slackscot
 
+import (
+	"github.com/nlopes/slack"
+)
+
 const (
 	// ThreadedReplyOpt is the name of the option indicating a threaded-reply answer
 	ThreadedReplyOpt = "threadedReply"
@@ -8,6 +12,18 @@ const (
 	// ThreadTimestamp is the name of the option indicating the explicit timestamp of the thread to reply to
 	ThreadTimestamp = "threadTimestamp"
 )
+
+// Answer holds data of an Action's Answer: namely, its text and options
+// to use when delivering it
+type Answer struct {
+	Text string
+
+	// Options to apply when sending a message
+	Options []AnswerOption
+
+	// BlockKit content blocks to apply when sending the message
+	ContentBlocks []slack.Block
+}
 
 // AnswerOption defines a function applied to Answers
 type AnswerOption func(sendOpts map[string]string)
