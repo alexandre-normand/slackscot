@@ -18,7 +18,7 @@ import (
 // with a hear action that will listen and react if one of the registered triggers is said
 type Triggerer struct {
 	slackscot.Plugin
-	triggerStorer  store.StringStorer
+	triggerStorer  store.GlobalSiloStringStorer
 	triggerRegexes map[string]*regexp.Regexp
 }
 
@@ -26,6 +26,7 @@ const (
 	// triggererPluginName holds identifying name for the triggerer plugin
 	triggererPluginName = "triggerer"
 	emojiDelimiter      = ","
+	globalSiloName      = ""
 )
 
 // Trigger types
@@ -103,10 +104,10 @@ var triggerTypes map[rune]triggerType
 var emojiRegex = regexp.MustCompile(":([\\w_-]+):")
 
 func init() {
-	registerTriggerRegex := regexp.MustCompile("(?msi)\\Atrigger on (.+) with (.+)")
+	registerTriggerRegex := regexp.MustCompile("(?msi)\\Atrigger (anywhere )?on (.+) with (.+)")
 	deleteTriggerRegex := regexp.MustCompile("(?i)\\Aforget trigger on (.+)")
 
-	registerEmojiTriggerRegex := regexp.MustCompile("(?i)\\Aemoji trigger on (.+) with (.+)")
+	registerEmojiTriggerRegex := regexp.MustCompile("(?i)\\Aemoji trigger (anywhere )?on (.+) with (.+)")
 	deleteEmojiTriggerRegex := regexp.MustCompile("(?i)\\Aforget emoji trigger on (.+)")
 
 	triggerTypes = make(map[rune]triggerType)
@@ -115,7 +116,7 @@ func init() {
 }
 
 // NewTriggerer creates a new instance of the Triggerer plugin
-func NewTriggerer(strStorer store.StringStorer) (triggerer *Triggerer) {
+func NewTriggerer(storer store.GlobalSiloStringStorer) (triggerer *Triggerer) {
 	t := new(Triggerer)
 
 	hearActions := []slackscot.ActionDefinition{
@@ -130,7 +131,7 @@ func NewTriggerer(strStorer store.StringStorer) (triggerer *Triggerer) {
 	commands := pluginCommands(t)
 
 	t.Plugin = slackscot.Plugin{Name: triggererPluginName, Commands: commands, HearActions: hearActions}
-	t.triggerStorer = strStorer
+	t.triggerStorer = storer
 	t.triggerRegexes = make(map[string]*regexp.Regexp)
 
 	return t
@@ -142,7 +143,7 @@ func pluginCommands(t *Triggerer) []slackscot.ActionDefinition {
 		{
 			Hidden:      false,
 			Match:       matchNewStandardTrigger,
-			Usage:       "trigger on <trigger string> with <reaction string>",
+			Usage:       "trigger [anywhere] on <trigger string> with <reaction string>",
 			Description: "Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`",
 			Answer:      t.registerStandardTrigger,
 		},
@@ -165,7 +166,7 @@ func pluginCommands(t *Triggerer) []slackscot.ActionDefinition {
 		{
 			Hidden:      false,
 			Match:       matchNewEmojiTrigger,
-			Usage:       "emoji trigger on <trigger string> with <reaction emojis>",
+			Usage:       "emoji trigger [anywhere] on <trigger string> with <reaction emojis>",
 			Description: "Register an emoji trigger which will instruct me to emoji react with `reaction emojis` when someone says `trigger string`",
 			Answer:      t.registerEmojiTrigger,
 		},
@@ -220,7 +221,7 @@ func matchDeleteEmojiTrigger(m *slackscot.IncomingMessage) bool {
 
 // matchTriggers returns true if the message matches one of the registered triggers
 func (t *Triggerer) matchTriggers(m *slackscot.IncomingMessage) bool {
-	triggersByType, err := t.getTriggersByType()
+	triggersByType, err := t.getTriggersByType(m.Channel)
 	if err != nil {
 		t.Logger.Printf("Error loading triggers: %v", err)
 		return false
@@ -261,7 +262,7 @@ func (t *Triggerer) getTriggerRegexp(triggerTypeID rune, trigger string) (exp *r
 // reactOnTrigger reacts on emoji and standard triggers. For standard triggers, only the first match applies. For emoji triggers,
 // all matching triggers apply. Note that both emoji triggers and a standard trigger can apply to the same message
 func (t *Triggerer) reactOnTriggers(m *slackscot.IncomingMessage) *slackscot.Answer {
-	triggersByType, err := t.getTriggersByType()
+	triggersByType, err := t.getTriggersByType(m.Channel)
 	if err != nil {
 		t.Logger.Printf("Error loading triggers: %v", err)
 		return nil
@@ -306,7 +307,7 @@ func (t *Triggerer) reactOnEmojiTriggers(m *slackscot.IncomingMessage, emojiTrig
 // registerTrigger adds or updates a trigger
 func (t *Triggerer) registerTrigger(m *slackscot.IncomingMessage, triggerTypeID rune) *slackscot.Answer {
 	triggerType := triggerTypes[triggerTypeID]
-	trigger, rawReaction := parseRegisterCommand(m.NormalizedText, triggerType.RegisterRegex)
+	silo, trigger, rawReaction := parseRegisterCommand(m, triggerType.RegisterRegex)
 	encodedTrigger := encodeTriggerWithTypeID(trigger, triggerTypeID)
 	encodedReaction, err := triggerType.ReactionEncoder(rawReaction)
 	if err != nil {
@@ -316,14 +317,14 @@ func (t *Triggerer) registerTrigger(m *slackscot.IncomingMessage, triggerTypeID 
 	renderedReaction := triggerType.ReactionRenderer(encodedReaction)
 	answerMsg := fmt.Sprintf("Registered new %s trigger [`%s` => %s]", triggerType.Name, trigger, renderedReaction)
 
-	encodedExistingReaction, err := t.triggerStorer.GetString(encodedTrigger)
+	encodedExistingReaction, err := t.triggerStorer.GetSiloString(silo, encodedTrigger)
 	if encodedExistingReaction != "" {
 		existingReactionRender := triggerType.ReactionRenderer(encodedExistingReaction)
 		answerMsg = fmt.Sprintf("Replaced %s trigger reaction for [`%s`] with [%s] (was [%s] previously)", triggerType.Name, trigger, renderedReaction, existingReactionRender)
 	}
 
 	// Store new/updated trigger
-	err = t.triggerStorer.PutString(encodedTrigger, encodedReaction)
+	err = t.triggerStorer.PutSiloString(silo, encodedTrigger, encodedReaction)
 	if err != nil {
 		answerMsg = fmt.Sprintf("Error persisting %s trigger [`%s` => %s]: `%s`", triggerType.Name, trigger, renderedReaction, err.Error())
 		t.Logger.Printf("[%s] %s", triggererPluginName, answerMsg)
@@ -356,14 +357,22 @@ func encodeTriggerWithTypeID(trigger string, triggerTypeID rune) string {
 	return b.String()
 }
 
-// parseRegisterCommand parses the trigger and reaction from a command string
-func parseRegisterCommand(text string, registerRegex *regexp.Regexp) (trigger string, rawReaction string) {
-	matches := registerRegex.FindAllStringSubmatch(text, -1)[0]
+// parseRegisterCommand parses the global mode, trigger and reaction from a command string
+func parseRegisterCommand(m *slackscot.IncomingMessage, registerRegex *regexp.Regexp) (silo string, trigger string, rawReaction string) {
+	matches := registerRegex.FindAllStringSubmatch(m.NormalizedText, -1)[0]
 
-	trigger = strings.Trim(matches[1], " ")
-	reaction := strings.Trim(matches[2], " ")
+	where := strings.Trim(matches[1], " ")
+	trigger = strings.Trim(matches[2], " ")
+	reaction := strings.Trim(matches[3], " ")
 
-	return trigger, reaction
+	silo = m.Channel
+	// if the optional "anywhere" was included in the instruction, set the silo
+	// to the global one
+	if strings.HasPrefix(where, "anywhere") {
+		silo = globalSiloName
+	}
+
+	return silo, trigger, reaction
 }
 
 // renderSlackEmojis renders an array of emojis to a slack string using the :emoji: format
@@ -416,55 +425,71 @@ func (t *Triggerer) deleteStandardTrigger(m *slackscot.IncomingMessage) *slacksc
 	return t.deleteTrigger(m, standardTriggerTypeID)
 }
 
+// deleteEmojiTrigger deletes an emoji trigger
+func (t *Triggerer) deleteEmojiTrigger(m *slackscot.IncomingMessage) *slackscot.Answer {
+	return t.deleteTrigger(m, emojiTriggerTypeID)
+}
+
 func (t *Triggerer) deleteTrigger(m *slackscot.IncomingMessage, triggerTypeID rune) *slackscot.Answer {
 	triggerType := triggerTypes[triggerTypeID]
 	matches := triggerType.DeleteRegex.FindAllStringSubmatch(m.NormalizedText, -1)[0]
 	trigger := strings.Trim(matches[1], " ")
 
-	encodedTrigger := encodeTriggerWithTypeID(trigger, triggerType.ID)
-	existingEncodedReaction, err := t.triggerStorer.GetString(encodedTrigger)
-	if existingEncodedReaction != "" {
-		existingReactionRender := triggerType.ReactionRenderer(existingEncodedReaction)
+	a := t.deleteChannelTrigger(m.Channel, trigger, triggerType)
+	if a == nil {
+		// If there isn't a channel trigger, we assume the intent was to delete a global one so we try that
+		a = t.deleteChannelTrigger(globalSiloName, trigger, triggerType)
+	}
 
-		// Delete trigger
-		err = t.triggerStorer.DeleteString(encodedTrigger)
-		if err != nil {
-			answerMsg := fmt.Sprintf("Error removing %s trigger [`%s` => %s]: `%s`", triggerType.Name, trigger, existingReactionRender, err.Error())
-			t.Logger.Printf("[%s] %s", triggererPluginName, answerMsg)
-
-			return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
-		}
-
-		answerMsg := fmt.Sprintf("Deleted %s trigger [`%s` => %s]", triggerType.Name, trigger, existingReactionRender)
-		t.Logger.Debugf("[%s] %s", triggererPluginName, answerMsg)
-
-		return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
+	if a != nil {
+		return a
 	}
 
 	answerMsg := fmt.Sprintf("No %s trigger found on `%s`", triggerType.Name, trigger)
 	return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 }
 
-// deleteEmojiTrigger deletes an emoji trigger
-func (t *Triggerer) deleteEmojiTrigger(m *slackscot.IncomingMessage) *slackscot.Answer {
-	return t.deleteTrigger(m, emojiTriggerTypeID)
+// deleteChannelTrigger deletes a trigger for the given channel (which is the silo the trigger is stored in).
+// This is meant to allow deleting a trigger for a specific channel but also a global one using the globalSiloName
+func (t *Triggerer) deleteChannelTrigger(channel string, trigger string, ttype triggerType) *slackscot.Answer {
+	encodedTrigger := encodeTriggerWithTypeID(trigger, ttype.ID)
+	existingEncodedReaction, err := t.triggerStorer.GetSiloString(channel, encodedTrigger)
+	if existingEncodedReaction != "" {
+		existingReactionRender := ttype.ReactionRenderer(existingEncodedReaction)
+
+		// Delete trigger
+		err = t.triggerStorer.DeleteSiloString(channel, encodedTrigger)
+		if err != nil {
+			answerMsg := fmt.Sprintf("Error removing %s trigger [`%s` => %s]: `%s`", ttype.Name, trigger, existingReactionRender, err.Error())
+			t.Logger.Printf("[%s] %s", triggererPluginName, answerMsg)
+
+			return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
+		}
+
+		answerMsg := fmt.Sprintf("Deleted %s trigger [`%s` => %s]", ttype.Name, trigger, existingReactionRender)
+		t.Logger.Debugf("[%s] %s", triggererPluginName, answerMsg)
+
+		return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
+	}
+
+	return nil
 }
 
 // listStandardTriggers returns a message with the full list of registered triggers
 func (t *Triggerer) listStandardTriggers(m *slackscot.IncomingMessage) *slackscot.Answer {
-	return t.listTriggers("Here are the current triggers: \n", standardTriggerTypeID)
+	return t.listTriggers(m.Channel, "Here are the current triggers: \n", standardTriggerTypeID)
 }
 
 // listEmojiTriggers returns a message with the full list of registered triggers
 func (t *Triggerer) listEmojiTriggers(m *slackscot.IncomingMessage) *slackscot.Answer {
-	return t.listTriggers("Here are the current emoji triggers: \n", emojiTriggerTypeID)
+	return t.listTriggers(m.Channel, "Here are the current emoji triggers: \n", emojiTriggerTypeID)
 }
 
 // listTriggers renders a list of triggers in a table contained in a code block
-func (t *Triggerer) listTriggers(header string, triggerTypeID rune) *slackscot.Answer {
+func (t *Triggerer) listTriggers(channelID string, header string, triggerTypeID rune) *slackscot.Answer {
 	triggerType := triggerTypes[triggerTypeID]
 
-	triggersByType, err := t.getTriggersByType()
+	triggersByType, err := t.getTriggersByType(channelID)
 	if err != nil {
 		t.Logger.Printf("Error loading triggers: %v", err)
 		return &slackscot.Answer{Text: fmt.Sprintf("Error loading triggers:\n```%s```", err.Error()), Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
@@ -479,13 +504,25 @@ func (t *Triggerer) listTriggers(header string, triggerTypeID rune) *slackscot.A
 	return &slackscot.Answer{Text: buffer.String(), Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 }
 
-// getTriggers returns all triggers by trigger type. All trigger types are processed
+// getTriggers returns all triggers by trigger type for a given channel ID. All trigger types are processed
 // and callers can safely assume that an entry exists in the returned map for all types even
 // if no triggers exists for it (this would be an empty map of triggers => reaction for that type)
-func (t *Triggerer) getTriggersByType() (byType map[rune]map[string]string, err error) {
-	triggers, err := t.triggerStorer.Scan()
+func (t *Triggerer) getTriggersByType(channelID string) (byType map[rune]map[string]string, err error) {
+	// Start adding global triggers
+	triggers, err := t.triggerStorer.ScanSilo(globalSiloName)
 	if err != nil {
 		return nil, err
+	}
+
+	chTriggers, err := t.triggerStorer.ScanSilo(channelID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add channel-specific triggers, overriding any duplicates so that the channel version
+	// wins
+	for k, v := range chTriggers {
+		triggers[k] = v
 	}
 
 	byType = make(map[rune]map[string]string)
