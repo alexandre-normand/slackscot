@@ -90,15 +90,6 @@ type Matcher func(m *IncomingMessage) bool
 // should return nil
 type Answerer func(m *IncomingMessage) *Answer
 
-// Answer holds data of an Action's Answer: namely, its text and options
-// to use when delivering it
-type Answer struct {
-	Text string
-
-	// Options to apply when sending a message
-	Options []AnswerOption
-}
-
 // ActionDefinitionWithID holds an action definition along with its identifier string
 type ActionDefinitionWithID struct {
 	ActionDefinition
@@ -152,8 +143,8 @@ type IncomingMessage struct {
 type OutgoingMessage struct {
 	*slack.OutgoingMessage
 
-	// sendOpts for the outgoing message. Those are set by applying AnswerOptions
-	sendOpts map[string]string
+	// Answer from plugins/internal commands
+	*Answer
 
 	// The identifier of the source of the outgoing message. The format being: pluginName.c[commandIndex] (for a command) or pluginName.h[actionIndex] (for an hear action)
 	pluginActionID string
@@ -559,17 +550,23 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 
 // sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
 func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, defaultThreadTS string) (rID SlackMessageID, err error) {
+	sendOpts := ApplyAnswerOpts(o.Options...)
 	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
-	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(o.sendOpts[ThreadedReplyOpt]) {
-		if threadTS := cast.ToString(o.sendOpts[ThreadTimestamp]); threadTS != "" {
+	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(sendOpts[ThreadedReplyOpt]) {
+		if threadTS := cast.ToString(sendOpts[ThreadTimestamp]); threadTS != "" {
 			options = append(options, slack.MsgOptionTS(threadTS))
 		} else {
 			options = append(options, slack.MsgOptionTS(defaultThreadTS))
 		}
 
-		if s.config.GetBool(config.BroadcastThreadedRepliesKey) || cast.ToBool(o.sendOpts[BroadcastOpt]) {
+		if s.config.GetBool(config.BroadcastThreadedRepliesKey) || cast.ToBool(sendOpts[BroadcastOpt]) {
 			options = append(options, slack.MsgOptionBroadcast())
 		}
+	}
+
+	// Add any block kit content blocks, if any
+	if len(o.ContentBlocks) > 0 {
+		options = append(options, slack.MsgOptionBlocks(o.ContentBlocks...))
 	}
 
 	channelID, newOutgoingMsgTimestamp, _, err := sender.SendMessage(o.OutgoingMessage.Channel, options...)
@@ -671,7 +668,7 @@ func handleCommand(defaultAnswer Answerer, actions []ActionDefinitionWithID, m *
 
 		slackOutMsg := rs(m, answer)
 
-		outMsg := newOutMessageWithOptions(slackOutMsg, "default", answer.Options...)
+		outMsg := newOutMessageForAnswer(slackOutMsg, "default", answer)
 		return []*OutgoingMessage{outMsg}
 	}
 
@@ -703,7 +700,7 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 				answer.useExistingThreadIfAny(m)
 				slackOutMsg := rs(m, answer)
 
-				outMsg := newOutMessageWithOptions(slackOutMsg, action.id, answer.Options...)
+				outMsg := newOutMessageForAnswer(slackOutMsg, action.id, answer)
 				outMsgs = append(outMsgs, outMsg)
 			}
 		}
@@ -712,12 +709,12 @@ func handleMessage(actions []ActionDefinitionWithID, m *IncomingMessage, rs resp
 	return outMsgs
 }
 
-// newOutMessageWithOptions creates a new internal OutgoingMessage and applies AnswerOptions, if any provided
-func newOutMessageWithOptions(o *slack.OutgoingMessage, id string, opts ...AnswerOption) (om *OutgoingMessage) {
+// newOutMessageForAnswer creates a new internal OutgoingMessage for the given Answer
+func newOutMessageForAnswer(o *slack.OutgoingMessage, id string, answer *Answer) (om *OutgoingMessage) {
 	om = new(OutgoingMessage)
 	om.OutgoingMessage = o
 	om.pluginActionID = id
-	om.sendOpts = ApplyAnswerOpts(opts...)
+	om.Answer = answer
 
 	return om
 }
