@@ -1,16 +1,14 @@
 package plugins
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/store"
+	"github.com/nlopes/slack"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 )
 
 // Karma holds the plugin data for the karma plugin
@@ -25,10 +23,28 @@ const (
 )
 
 var karmaRegex = regexp.MustCompile("(?:\\A|\\W)<?(@?[\\w']+-?[\\w']+)>?\\s?(\\+{2}|\\-{2}).*")
-var topKarmaRegexp = regexp.MustCompile("(?i)\\A(karma top)+ (\\d+).*")
-var worstKarmaRegexp = regexp.MustCompile("(?i)\\A(karma worst)+ (\\d+).*")
-var topGlobalKarmaRegexp = regexp.MustCompile("(?i)\\A(karma global top)+ (\\d+).*")
-var worstGlobalKarmaRegexp = regexp.MustCompile("(?i)\\A(karma global worst)+ (\\d+).*")
+
+// Ranker represents attributes and behavior to process a ranking list
+type ranker struct {
+	name         string
+	regexp       *regexp.Regexp
+	banner       string
+	rankRenderer rankIconRenderer
+	scanner      karmaScanner
+	sorter       karmaSorter
+}
+
+var globalTopRanker ranker
+var topRanker ranker
+var globalWorstRanker ranker
+var worstRanker ranker
+
+func init() {
+	globalTopRanker = ranker{name: "global top", regexp: regexp.MustCompile("(?i)\\A(karma global top)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanGlobalKarma, sorter: sortTop}
+	topRanker = ranker{name: "top", regexp: regexp.MustCompile("(?i)\\A(karma top)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanChannelKarma, sorter: sortTop}
+	globalWorstRanker = ranker{name: "global worst", regexp: regexp.MustCompile("(?i)\\A(karma global worst)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanGlobalKarma, sorter: sortWorst}
+	worstRanker = ranker{name: "worst", regexp: regexp.MustCompile("(?i)\\A(karma worst)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanChannelKarma, sorter: sortWorst}
+}
 
 // NewKarma creates a new instance of the Karma plugin
 func NewKarma(strStorer store.GlobalSiloStringStorer) (karma *Karma) {
@@ -96,25 +112,25 @@ func matchKarmaRecord(m *slackscot.IncomingMessage) bool {
 // matchKarmaTopReport returns true if the message matches a request for top karma with
 // a message such as "karma top <count>"
 func matchKarmaTopReport(m *slackscot.IncomingMessage) bool {
-	return topKarmaRegexp.MatchString(m.NormalizedText)
+	return topRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchKarmaWorstReport returns true if the message matches a request for the worst karma with
 // a message such as "karma worst <count>"
 func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
-	return worstKarmaRegexp.MatchString(m.NormalizedText)
+	return worstRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchGlobalKarmaTopReport returns true if the message matches a request for top global karma with
 // a message such as "global karma top <count>"
 func matchGlobalKarmaTopReport(m *slackscot.IncomingMessage) bool {
-	return topGlobalKarmaRegexp.MatchString(m.NormalizedText)
+	return globalTopRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchGlobalKarmaWorstReport returns true if the message matches a request for the worst global karma with
 // a message such as "global karma worst <count>"
 func matchGlobalKarmaWorstReport(m *slackscot.IncomingMessage) bool {
-	return worstGlobalKarmaRegexp.MatchString(m.NormalizedText)
+	return globalWorstRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchClearKarma returns true if the message matches a request for clearing karma with a
@@ -173,58 +189,71 @@ func (k *Karma) renderThing(thing string) (renderedThing string) {
 	return thing
 }
 
-func (k *Karma) answerKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(topKarmaRegexp, message, "top", k.scanChannelKarma, sortTop)
+// answerKarmaTop returns an answer with the top list of karma entries for the channel the message is received on
+func (k *Karma) answerKarmaTop(m *slackscot.IncomingMessage) *slackscot.Answer {
+	return k.answerKarmaRankList(m, topRanker)
 }
 
-func (k *Karma) answerKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(worstKarmaRegexp, message, "worst", k.scanChannelKarma, sortWorst)
+// answerKarmaTop returns an answer with the list of worst karma entries for the channel the message is received on
+func (k *Karma) answerKarmaWorst(m *slackscot.IncomingMessage) *slackscot.Answer {
+	return k.answerKarmaRankList(m, worstRanker)
 }
 
-func (k *Karma) answerGlobalKarmaTop(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(topGlobalKarmaRegexp, message, "global top", k.scanGlobalKarma, sortTop)
+// answerKarmaTop returns an answer with the top list of karma entries for all channels
+func (k *Karma) answerGlobalKarmaTop(m *slackscot.IncomingMessage) *slackscot.Answer {
+	return k.answerKarmaRankList(m, globalTopRanker)
 }
 
-func (k *Karma) answerGlobalKarmaWorst(message *slackscot.IncomingMessage) *slackscot.Answer {
-	return k.answerKarmaRankList(worstGlobalKarmaRegexp, message, "global worst", k.scanGlobalKarma, sortWorst)
+// answerKarmaTop returns an answer with the list of worst karma entries for all channels
+func (k *Karma) answerGlobalKarmaWorst(m *slackscot.IncomingMessage) *slackscot.Answer {
+	return k.answerKarmaRankList(m, globalWorstRanker)
 }
 
 // clearChannelKarma processes a request to clear karma in a channel (the message's channel is used to tell which one)
-func (k *Karma) clearChannelKarma(message *slackscot.IncomingMessage) *slackscot.Answer {
-	entries, err := k.karmaStorer.ScanSilo(message.Channel)
+func (k *Karma) clearChannelKarma(m *slackscot.IncomingMessage) *slackscot.Answer {
+	entries, err := k.karmaStorer.ScanSilo(m.Channel)
 	if err != nil {
-		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", message.Channel, err.Error())}
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", m.Channel, err.Error())}
 	}
 
 	for thing, _ := range entries {
-		err = k.karmaStorer.DeleteSiloString(message.Channel, thing)
+		err = k.karmaStorer.DeleteSiloString(m.Channel, thing)
 	}
 
 	if err != nil {
-		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", message.Channel, err.Error())}
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", m.Channel, err.Error())}
 	}
 
 	return &slackscot.Answer{Text: "Karma all cleared :white_check_mark::boom:"}
 }
 
+// karmaSorter is a function sorting pairList of karma entries. Used to plug in top/worst sorting
+type karmaSorter func(pl pairList)
+
+// sortWorst sorts karma from the lowest value to the highest
 func sortWorst(pl pairList) {
 	sort.Sort(pl)
 }
 
+// sortWorst sorts karma from the highest to lowest
 func sortTop(pl pairList) {
 	sort.Sort(sort.Reverse(pl))
 }
 
-type karmaSorter func(pl pairList)
+// karmaScanner is a function that returns karma entries for a given channel. It is used
+// to plug in different behaviors like channel scanning and global scanning
+type karmaScanner func(karmaStorer store.GlobalSiloStringStorer, channelID string) (entries map[string]string, err error)
 
-func (k *Karma) scanChannelKarma(channelID string) (entries map[string]string, err error) {
-	return k.karmaStorer.ScanSilo(channelID)
+// scanChannelKarma scans the silo for the given channel id and returns only the entries for that
+// channel
+func scanChannelKarma(karmaStorer store.GlobalSiloStringStorer, channelID string) (entries map[string]string, err error) {
+	return karmaStorer.ScanSilo(channelID)
 }
 
 // scanGlobalKarma invokes a GlobalScan and merges karma over all channels. If there's
 // an error, a nil map is returned along with that error
-func (k *Karma) scanGlobalKarma(channelID string) (entries map[string]string, err error) {
-	entriesByChannel, err := k.karmaStorer.GlobalScan()
+func scanGlobalKarma(karmaStorer store.GlobalSiloStringStorer, channelID string) (entries map[string]string, err error) {
+	entriesByChannel, err := karmaStorer.GlobalScan()
 	if err != nil {
 		return nil, err
 	}
@@ -262,59 +291,100 @@ func mergeKarma(v1 string, v2 string) (merged string, err error) {
 	return strconv.Itoa(val1 + val2), nil
 }
 
-type karmaScanner func(channel string) (entries map[string]string, err error)
-
-func (k *Karma) answerKarmaRankList(regexp *regexp.Regexp, message *slackscot.IncomingMessage, rankingType string, scanner karmaScanner, sorter karmaSorter) *slackscot.Answer {
-	match := regexp.FindAllStringSubmatch(message.NormalizedText, -1)[0]
+// answerKarmaRankList returns an answer for a ranked list request according to the behavior and attributes of the given ranker
+func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker) *slackscot.Answer {
+	match := ranker.regexp.FindAllStringSubmatch(m.NormalizedText, -1)[0]
 
 	rawCount := match[2]
 	count, _ := strconv.Atoi(rawCount)
 
-	values, err := scanner(message.Channel)
+	values, err := ranker.scanner(k.karmaStorer, m.Channel)
 	if err != nil {
-		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", ranker.name, count, err)}
 	}
 
-	pairs, err := getRankedList(values, count, sorter)
+	pairs, err := getRankedList(values, count, ranker.sorter)
 	if err != nil {
-		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", rankingType, count, err)}
+		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get the %s [%d] things for you. If you must know, this happened: %v", ranker.name, count, err)}
 	}
 
 	if len(pairs) > 0 {
-		var buffer bytes.Buffer
+		blocks := make([]slack.Block, 0)
 
-		buffer.WriteString(fmt.Sprintf("Here are the %s %d things: \n", rankingType, min(len(pairs), count)))
-		buffer.WriteString(k.formatList(pairs))
+		blocks = append(blocks, *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.banner, false, false), nil, nil))
+		blocks = append(blocks, k.formatList(pairs, ranker.rankRenderer)...)
 
-		return &slackscot.Answer{Text: buffer.String()}
+		return &slackscot.Answer{Text: "", ContentBlocks: blocks}
 	}
 
 	return &slackscot.Answer{Text: "Sorry, no recorded karma found :disappointed:"}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// rankIconRenderer is a function that returns a BlockObject representing a rank
+type rankIconRenderer func(rank int) (block slack.BlockObject)
+
+// topIconRenderer renders the rank for a "top" listing. Ranks 1 to 3 are special cases and all others are treated the same
+func topIconRenderer(rank int) (block slack.BlockObject) {
+	switch rank {
+	case 1:
+		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", strconv.Itoa(rank))
+	case 2:
+		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", strconv.Itoa(rank))
+	case 3:
+		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272613/Bronze-medal_Juhele_final.png", strconv.Itoa(rank))
+	default:
+		return *slack.NewImageBlockObject("http://media.openclipart.org/people/glitch/128px-misc-pet-rock.png", strconv.Itoa(rank))
 	}
-	return b
 }
 
-func (k *Karma) formatList(pl pairList) string {
-	var b bytes.Buffer
-	b.WriteString("```")
-	w := new(tabwriter.Writer)
-	bufw := bufio.NewWriter(&b)
-	w.Init(bufw, 5, 0, 1, ' ', 0)
+// worstIconRenderer renders the rank for a "worst" listing. Ranks 1 to 3 are special cases and all others are treated the same
+func worstIconRenderer(rank int) (block slack.BlockObject) {
+	switch rank {
+	case 1:
+		return *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", strconv.Itoa(rank))
+	case 2:
+		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", strconv.Itoa(rank))
+	case 3:
+		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259891/Vermilion-Sugar-Skull-Silhouette-No-Background.png", strconv.Itoa(rank))
+	default:
+		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", strconv.Itoa(rank))
+	}
+}
+
+// formatList formats a list of ranked items using the rankRenderer to render the rank icons and returns the resulting block kit blocks
+func (k *Karma) formatList(pl pairList, rankRenderer rankIconRenderer) (blocks []slack.Block) {
+	blocks = make([]slack.Block, 0)
+
+	rank := 1
 	for _, pair := range pl {
-		fmt.Fprintf(w, "%d\t%s\n", pair.Value, k.renderThing(pair.Key))
+		blocks = append(blocks, formatRankedElement(pair, rank, rankRenderer))
+		rank = rank + 1
 	}
-	fmt.Fprintf(w, "```\n")
 
-	bufw.Flush()
-	w.Flush()
-	return b.String()
+	return blocks
 }
 
+// formatRankedElement formats one ranked element in a list. It adds 3 blocks: one for the rank (icon),
+// one for the ranked "thing" and one for its karma value. The 3 block objects are then wrapped in a context block
+func formatRankedElement(p pair, rank int, renderRank rankIconRenderer) (block slack.Block) {
+	iconBlock := renderRank(rank)
+	nameBlock := slack.NewTextBlockObject("mrkdwn", renderThingName(p.Key), false, false)
+	countBlock := slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("`%d`", p.Value), false, false)
+
+	return *slack.NewContextBlock("", iconBlock, *nameBlock, *countBlock)
+}
+
+// renderThingName renders a karma item by formatting a user id with the required symbols such that it looks
+// like <@userId>. For things that aren't user ids, the value is returned as-is
+func renderThingName(thing string) (render string) {
+	if strings.HasPrefix(thing, "@") {
+		return "<" + thing + ">"
+	}
+
+	return thing
+}
+
+// pair holds a key (thing name) and its count
 type pair struct {
 	Key   string
 	Value int

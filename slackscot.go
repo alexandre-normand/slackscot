@@ -577,7 +577,13 @@ func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, def
 
 // updateExistingMessage updates an existing message with the content of a newly triggered OutgoingMessage
 func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessageID, o *OutgoingMessage) (rID SlackMessageID, err error) {
-	channelID, newOutgoingMsgTimestamp, _, err := updater.UpdateMessage(r.channelID, r.timestamp, slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true))
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
+	// Add any block kit content blocks, if any
+	if len(o.ContentBlocks) > 0 {
+		options = append(options, slack.MsgOptionBlocks(o.ContentBlocks...))
+	}
+
+	channelID, newOutgoingMsgTimestamp, _, err := updater.UpdateMessage(r.channelID, r.timestamp, options...)
 	rID = SlackMessageID{channelID: channelID, timestamp: newOutgoingMsgTimestamp}
 
 	return rID, err
