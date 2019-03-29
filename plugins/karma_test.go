@@ -49,6 +49,7 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 5)"},
 		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"},
 		{"<@U21355> ++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 7)"},
+		{"thing ++", "Cgeneral", ""},
 		{"don't++", "Cgeneral", "`don't` just gained a level (`don't`: 1)"},
 		{"under-the-bridge++", "Cgeneral", "`the-bridge` just gained a level (`the-bridge`: 1)"},
 		{"Jean-Michel++", "Cgeneral", "`Jean-Michel` just gained a level (`Jean-Michel`: 1)"},
