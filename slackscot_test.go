@@ -18,6 +18,7 @@ import (
 
 const (
 	botUserID                   = "BotUserID"
+	formattedBotUserID          = "<@" + botUserID + ">"
 	timestamp1                  = "1546833210.036900"
 	timestamp2                  = "1546833214.036900"
 	firstReplyTimestamp         = 1547785956
@@ -159,7 +160,19 @@ func newTestPlugin() (tp *Plugin) {
 		Answer: func(m *IncomingMessage) *Answer {
 			return &Answer{Text: fmt.Sprintf("Make it yourself, @%s", m.User)}
 		},
-	}}
+	},
+		{
+			Match: func(m *IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "block ")
+			},
+			Usage:       "block `<something>`",
+			Description: "Render your expression as a context block",
+			Answer: func(m *IncomingMessage) *Answer {
+				expression := strings.TrimPrefix(m.NormalizedText, "block ")
+				return &Answer{Text: "", ContentBlocks: []slack.Block{*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", expression, false, false))}}
+			},
+		}}
+
 	tp.HearActions = []ActionDefinition{{
 		Hidden: true,
 		Match: func(m *IncomingMessage) bool {
@@ -234,6 +247,34 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 	assert.Equal(t, 0, len(updatedMsgs))
 	assert.Equal(t, 0, len(deletedMsgs))
 	assert.Equal(t, 0, len(rtmSender.SentMessages))
+}
+
+func TestAnswerWithContentBlocks(t *testing.T) {
+	sentMsgs, _, _, _, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Alphonse", timestamp1)),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+}
+
+func TestAnswerUpdateWithContentBlocks(t *testing.T) {
+	sentMsgs, updatedMsgs, _, _, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Ignored", timestamp2, optionChangedMessage(fmt.Sprintf("%s block hello you and everyone else", formattedBotUserID), "Alphonse", timestamp1))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+
+	if assert.Equal(t, 1, len(updatedMsgs)) {
+		assert.Equal(t, 4, len(updatedMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+	}
 }
 
 func TestHandleIncomingThreadedMessageTriggeringResponse(t *testing.T) {
@@ -451,7 +492,7 @@ func TestDirectMessageNotMatchingAnything(t *testing.T) {
 func TestDefaultCommandAnswerInChannel(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		// Trigger the command action
-		newRTMMessageEvent(newMessageEvent("Cgeneral", "<@BotUserID> mistyped command", "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s mistyped command", formattedBotUserID), "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
@@ -467,7 +508,7 @@ func TestDefaultCommandAnswerInChannel(t *testing.T) {
 func TestDefaultCommandAnswerToMsgOnExistingThread(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		// Trigger the command action
-		newRTMMessageEvent(newMessageEvent("Cgeneral", "<@BotUserID> mistyped command", "Alphonse", timestamp1, optionMessageOnThread("1212314125"))),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s mistyped command", formattedBotUserID), "Alphonse", timestamp1, optionMessageOnThread("1212314125"))),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
@@ -483,7 +524,7 @@ func TestDefaultCommandAnswerToMsgOnExistingThread(t *testing.T) {
 func TestAtMessageNotMatchingAnything(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		// At Message but not matching the command
-		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> hey you", botUserID), "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s hey you", formattedBotUserID), "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
