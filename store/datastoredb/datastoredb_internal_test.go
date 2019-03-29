@@ -257,8 +257,11 @@ func TestGlobalScan(t *testing.T) {
 
 	mockDS.On("connect").Return(nil)
 	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
-	vals := make([]*EntryValue, 0)
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(newScanReturner(map[string]map[string]string{"ns1": map[string]string{"renée": "bird"}, "ns2": map[string]string{"renée": "fish"}}), nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery("__namespace__").KeysOnly(), nil).Return(newScanKeysReturner([]string{"ns1", "ns2"}), nil)
+	ns1Vals := make([]*EntryValue, 0)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns1"), &ns1Vals).Return(newScanReturner(map[string]map[string]string{"ns1": map[string]string{"renée": "bird"}}), nil)
+	ns2Vals := make([]*EntryValue, 0)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns2"), &ns2Vals).Return(newScanReturner(map[string]map[string]string{"ns2": map[string]string{"renée": "fish"}}), nil)
 
 	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
 	assert.NoError(t, err)
@@ -296,6 +299,21 @@ func newScanReturner(siloedEntries map[string]map[string]string) func(c context.
 
 		return nil
 	}
+}
+
+// newScanKeysReturner builds a mock function that will return a key scan result (which is only keys)
+func newScanKeysReturner(keyNames []string) func(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key) {
+	return func(c context.Context, query *datastore.Query, dest interface{}) (keys []*datastore.Key) {
+		keys = make([]*datastore.Key, 0)
+
+		for _, kn := range keyNames {
+			keys = append(keys, newKeyWithNamespace(kn, "", kn))
+		}
+
+		return keys
+	}
+
+	return nil
 }
 
 func TestReconnectOnGetAllFailure(t *testing.T) {
@@ -340,7 +358,26 @@ func TestRepeatedFailuresOnGlobalScan(t *testing.T) {
 
 	mockDS.On("connect").Return(nil).Twice()
 	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity).Twice()
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), mock.Anything).Return(nil, fmt.Errorf("rpc error: code = Unauthenticated")).Twice()
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery("__namespace__").KeysOnly(), nil).Return(nil, fmt.Errorf("rpc error: code = Unauthenticated")).Twice()
+
+	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
+	assert.NoError(t, err)
+	if assert.NotNil(t, dsdb) {
+		_, err := dsdb.GlobalScan()
+		if assert.Error(t, err) {
+			assert.Equal(t, "rpc error: code = Unauthenticated", err.Error())
+		}
+	}
+}
+
+func TestRepeatedFailureScanningSiloOnGlobalScan(t *testing.T) {
+	mockDS := mockDatastore{}
+	defer mockDS.AssertExpectations(t)
+
+	mockDS.On("connect").Return(nil).Twice()
+	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity).Twice()
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery("__namespace__").KeysOnly(), nil).Return(newScanKeysReturner([]string{"ns1"}), nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns1"), mock.Anything).Return(nil, fmt.Errorf("rpc error: code = Unauthenticated")).Twice()
 
 	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
 	assert.NoError(t, err)
