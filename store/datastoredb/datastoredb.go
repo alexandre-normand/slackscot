@@ -168,20 +168,61 @@ func (dsdb *DatastoreDB) ScanSilo(silo string) (entries map[string]string, err e
 func (dsdb *DatastoreDB) GlobalScan() (entries map[string]map[string]string, err error) {
 	entries = make(map[string]map[string]string)
 
-	keys, vals, err := dsdb.scan(datastore.NewQuery(dsdb.kind))
+	namespaces, err := dsdb.listNamespaces()
 	if err != nil {
 		return nil, err
 	}
 
-	for i, key := range keys {
-		if _, ok := entries[key.Namespace]; !ok {
-			entries[key.Namespace] = make(map[string]string)
+	for _, ns := range namespaces {
+		keys, vals, err := dsdb.scan(datastore.NewQuery(dsdb.kind).Namespace(ns))
+		if err != nil {
+			return nil, err
 		}
 
-		entries[key.Namespace][key.Name] = vals[i].Value
+		for i, key := range keys {
+			if _, ok := entries[key.Namespace]; !ok {
+				entries[key.Namespace] = make(map[string]string)
+			}
+
+			entries[key.Namespace][key.Name] = vals[i].Value
+		}
 	}
 
 	return entries, nil
+}
+
+// listNamespaces lists all namespaces available
+func (dsdb *DatastoreDB) listNamespaces() (namespaces []string, err error) {
+	q := datastore.NewQuery("__namespace__").KeysOnly()
+	keys, err := dsdb.scanKeys(q)
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces = make([]string, 0)
+
+	for _, nsKey := range keys {
+		namespaces = append(namespaces, nsKey.Name)
+	}
+
+	return namespaces, nil
+}
+
+// scanKeys runs an internal datastore query and returns the raw keys only
+func (dsdb *DatastoreDB) scanKeys(query *datastore.Query) (keys []*datastore.Key, err error) {
+	ctx := context.Background()
+
+	// Run first attempt before looping
+	keys, err = dsdb.GetAll(ctx, query, nil)
+
+	// Retry once and try a reconnect if the error is recoverable (like unauthenticated error)
+	for attempt := 1; attempt < maxAttemptCount && err != nil && shouldRetry(err); attempt = attempt + 1 {
+		dsdb.connect()
+
+		keys, err = dsdb.GetAll(ctx, query, nil)
+	}
+
+	return keys, err
 }
 
 // scan runs an internal datastore query and returns the raw keys and values for post-processing
