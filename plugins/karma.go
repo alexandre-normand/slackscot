@@ -22,7 +22,7 @@ const (
 	KarmaPluginName = "karma"
 )
 
-var karmaRegex = regexp.MustCompile("(?:\\A|\\W)<?(@?[\\w']+-?[\\w']+)>?\\s?(\\+{2}|\\-{2}).*")
+var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(?:<(@[\\w']+)>\\s?)|([\\w']+-?[\\w']+))(\\+{2}|\\-{2}).*")
 
 // Ranker represents attributes and behavior to process a ranking list
 type ranker struct {
@@ -145,7 +145,14 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
 	var format string
+
+	// Depending on if it's a user id or a "normal" thing, the matching group is different so we
+	// check both (only one can ever match)
 	thing := match[1]
+	if len(thing) == 0 {
+		thing = match[2]
+	}
+
 	rawValue, err := k.karmaStorer.GetSiloString(message.Channel, thing)
 	if err != nil {
 		rawValue = "0"
@@ -156,7 +163,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 		karma = 0
 	}
 
-	if match[2] == "++" {
+	if match[3] == "++" {
 		format = "`%s` just gained a level (`%s`: %d)"
 		karma++
 	} else {
