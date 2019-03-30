@@ -19,7 +19,8 @@ type Karma struct {
 
 const (
 	// KarmaPluginName holds identifying name for the karma plugin
-	KarmaPluginName = "karma"
+	KarmaPluginName  = "karma"
+	defaultItemCount = 5
 )
 
 var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(?:<(@[\\w']+)>\\s?)|([\\w']+-?[\\w']+))(\\+{2}|\\-{2}).*")
@@ -40,10 +41,10 @@ var globalWorstRanker ranker
 var worstRanker ranker
 
 func init() {
-	globalTopRanker = ranker{name: "global top", regexp: regexp.MustCompile("(?i)\\A(karma global top)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanGlobalKarma, sorter: sortTop}
-	topRanker = ranker{name: "top", regexp: regexp.MustCompile("(?i)\\A(karma top)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanChannelKarma, sorter: sortTop}
-	globalWorstRanker = ranker{name: "global worst", regexp: regexp.MustCompile("(?i)\\A(karma global worst)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanGlobalKarma, sorter: sortWorst}
-	worstRanker = ranker{name: "worst", regexp: regexp.MustCompile("(?i)\\A(karma worst)+ (\\d+).*"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanChannelKarma, sorter: sortWorst}
+	globalTopRanker = ranker{name: "global top", regexp: regexp.MustCompile("(?i)\\A(karma global top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanGlobalKarma, sorter: sortTop}
+	topRanker = ranker{name: "top", regexp: regexp.MustCompile("(?i)\\A(karma top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanChannelKarma, sorter: sortTop}
+	globalWorstRanker = ranker{name: "global worst", regexp: regexp.MustCompile("(?i)\\A(karma global worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanGlobalKarma, sorter: sortWorst}
+	worstRanker = ranker{name: "worst", regexp: regexp.MustCompile("(?i)\\A(karma worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanChannelKarma, sorter: sortWorst}
 }
 
 // NewKarma creates a new instance of the Karma plugin
@@ -63,36 +64,36 @@ func NewKarma(strStorer store.GlobalSiloStringStorer) (karma *Karma) {
 		{
 			Hidden:      false,
 			Match:       matchKarmaTopReport,
-			Usage:       "karma top <howMany>",
-			Description: "Return the X top things ever recorded in this channel",
+			Usage:       "karma top [count]",
+			Description: fmt.Sprintf("Return the top things ever recorded in this channel (default of %d items)", defaultItemCount),
 			Answer:      k.answerKarmaTop,
 		},
 		{
 			Hidden:      false,
 			Match:       matchKarmaWorstReport,
-			Usage:       "karma worst <howMany>",
-			Description: "Return the X worst things ever recorded in this channel",
+			Usage:       "karma worst [count]",
+			Description: fmt.Sprintf("Return the worst things ever recorded in this channel (default of %d items)", defaultItemCount),
 			Answer:      k.answerKarmaWorst,
 		},
 		{
 			Hidden:      false,
 			Match:       matchGlobalKarmaTopReport,
-			Usage:       "karma global top <howMany>",
-			Description: "Return the X top things ever over all channels",
+			Usage:       "karma global top [count]",
+			Description: fmt.Sprintf("Return the top things ever over all channels (default of %d items)", defaultItemCount),
 			Answer:      k.answerGlobalKarmaTop,
 		},
 		{
 			Hidden:      false,
 			Match:       matchGlobalKarmaWorstReport,
-			Usage:       "karma global worst <howMany>",
-			Description: "Return the X worst things ever over all channels",
+			Usage:       "karma global worst [count]",
+			Description: fmt.Sprintf("Return the worst things ever over all channels (default of %d items)", defaultItemCount),
 			Answer:      k.answerGlobalKarmaWorst,
 		},
 		{
 			Hidden:      false,
 			Match:       matchClearKarma,
-			Usage:       "karma clear",
-			Description: "Clears all recorded karma for the current channel",
+			Usage:       "karma reset",
+			Description: "Resets all recorded karma for the current channel",
 			Answer:      k.clearChannelKarma,
 		},
 	}
@@ -133,10 +134,10 @@ func matchGlobalKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 	return globalWorstRanker.regexp.MatchString(m.NormalizedText)
 }
 
-// matchClearKarma returns true if the message matches a request for clearing karma with a
-// message such as "karma clear"
+// matchClearKarma returns true if the message matches a request for resetting karma with a
+// message such as "karma reset"
 func matchClearKarma(m *slackscot.IncomingMessage) bool {
-	return strings.HasPrefix(m.NormalizedText, "karma clear")
+	return strings.HasPrefix(m.NormalizedText, "karma reset")
 }
 
 // recordKarma records a karma increase or decrease and answers with a message including
@@ -231,7 +232,7 @@ func (k *Karma) clearChannelKarma(m *slackscot.IncomingMessage) *slackscot.Answe
 		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", m.Channel, err.Error())}
 	}
 
-	return &slackscot.Answer{Text: "Karma all cleared :white_check_mark::boom:"}
+	return &slackscot.Answer{Text: "karma all cleared :white_check_mark::boom:"}
 }
 
 // karmaSorter is a function sorting pairList of karma entries. Used to plug in top/worst sorting
@@ -302,8 +303,11 @@ func mergeKarma(v1 string, v2 string) (merged string, err error) {
 func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker) *slackscot.Answer {
 	match := ranker.regexp.FindAllStringSubmatch(m.NormalizedText, -1)[0]
 
+	count := defaultItemCount
 	rawCount := match[2]
-	count, _ := strconv.Atoi(rawCount)
+	if len(rawCount) > 0 {
+		count, _ = strconv.Atoi(rawCount)
+	}
 
 	values, err := ranker.scanner(k.karmaStorer, m.Channel)
 	if err != nil {
@@ -403,7 +407,7 @@ type pairList []pair
 func (p pairList) Len() int { return len(p) }
 
 func (p pairList) Less(i, j int) bool {
-	return p[i].Value < p[j].Value || (p[i].Value == p[j].Value && strings.Compare(p[i].Key, p[j].Key) < 0)
+	return p[i].Value < p[j].Value || (p[i].Value == p[j].Value && strings.Compare(p[i].Key, p[j].Key) > 0)
 }
 
 func (p pairList) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
