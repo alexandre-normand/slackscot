@@ -56,12 +56,10 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"+----------+", "Cgeneral", ""},
 		{"---", "Cgeneral", ""},
 		{"+++", "Cgeneral", ""},
-		{"<@bot> karma worst", "Cgeneral", ""},
-		{"<@bot> karma top", "Cgeneral", ""},
 		{"salmon++", "Coceanlife", "`salmon` just gained a level (`salmon`: 1)"},
 		{"<@bot> karma top 1", "Cother", "Sorry, no recorded karma found :disappointed:"},
 		{"dams--", "Coceanlife", "`dams` just lost a life (`dams`: -1)"},
-		{"<@bot> karma clear", "Coceanlife", "Karma all cleared :white_check_mark::boom:"},
+		{"<@bot> karma reset", "Coceanlife", "karma all cleared :white_check_mark::boom:"},
 		{"<@bot> karma top 1", "Coceanlife", "Sorry, no recorded karma found :disappointed:"},
 	}
 
@@ -88,7 +86,7 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 						return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], tc.expectedAnswer)
 					}
 
-					return assert.Empty(t, answers)
+					return assert.Empty(t, answers, "Reaction to [%s] should be empty but wasn't", tc.text)
 				})
 			})
 		}
@@ -148,7 +146,7 @@ func TestErrorGettingList(t *testing.T) {
 	})
 }
 
-func TestErrorGettingKarmaWhenClearing(t *testing.T) {
+func TestErrorGettingKarmaWhenResetting(t *testing.T) {
 	mockStorer := &mockStorer{}
 	defer mockStorer.AssertExpectations(t)
 
@@ -160,12 +158,12 @@ func TestErrorGettingKarmaWhenClearing(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma clear"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma reset"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get delete karma for channel [myLittleChannel] for you. If you must know, this happened: can't load karma")
 	})
 }
 
-func TestErrorDeletingKarmaWhenClearing(t *testing.T) {
+func TestErrorDeletingKarmaWhenResetting(t *testing.T) {
 	mockStorer := &mockStorer{}
 	defer mockStorer.AssertExpectations(t)
 
@@ -178,7 +176,7 @@ func TestErrorDeletingKarmaWhenClearing(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma clear"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma reset"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get delete karma for channel [myLittleChannel] for you. If you must know, this happened: can't delete")
 	})
 }
@@ -324,6 +322,64 @@ func TestTopFormatting(t *testing.T) {
 	})
 }
 
+func TestTopListingWithoutRequestedCount(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "mountains": "8", "rivers": "9", "@alf": "10"}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
+			*slack.NewSectionBlock(
+				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
+				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
+				*slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272613/Bronze-medal_Juhele_final.png", "3"),
+				*slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/glitch/128px-misc-pet-rock.png", "4"),
+				*slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`8`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/glitch/128px-misc-pet-rock.png", "5"),
+				*slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false))}, answers[0].ContentBlocks)
+	})
+}
+
+func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "mountains": "8", "rivers": "9", "@alf": "10"}}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma global top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
+			*slack.NewSectionBlock(
+				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
+				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
+				*slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272613/Bronze-medal_Juhele_final.png", "3"),
+				*slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/glitch/128px-misc-pet-rock.png", "4"),
+				*slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`8`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/glitch/128px-misc-pet-rock.png", "5"),
+				*slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false))}, answers[0].ContentBlocks)
+	})
+}
+
 func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 	mockStorer := &mockStorer{}
 	defer mockStorer.AssertExpectations(t)
@@ -371,6 +427,64 @@ func TestWorstFormatting(t *testing.T) {
 				*slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", "4"),
 				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false))}, answers[0].ContentBlocks)
+	})
+}
+
+func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "10", "@someone": "-3", "birds": "-9", "mountains": "-8", "rivers": "-9", "@alf": "-10"}}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma global worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
+			*slack.NewSectionBlock(
+				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
+				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),
+				*slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259891/Vermilion-Sugar-Skull-Silhouette-No-Background.png", "3"),
+				*slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", "4"),
+				*slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`-8`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", "5"),
+				*slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-3`", false, false))}, answers[0].ContentBlocks)
+	})
+}
+
+func TestWorstListingWithoutRequestedCount(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "10", "@someone": "-3", "birds": "-9", "mountains": "-8", "rivers": "-9", "@alf": "-10"}, nil)
+
+	var userInfoFinder userInfoFinder
+	k := plugins.NewKarma(mockStorer)
+	k.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
+			*slack.NewSectionBlock(
+				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
+				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),
+				*slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259891/Vermilion-Sugar-Skull-Silhouette-No-Background.png", "3"),
+				*slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", "4"),
+				*slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`-8`", false, false)),
+			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", "5"),
+				*slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-3`", false, false))}, answers[0].ContentBlocks)
 	})
 }
 
