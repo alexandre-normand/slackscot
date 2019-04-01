@@ -264,8 +264,8 @@ func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", nil),
+				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", slack.NewTextBlockObject("plain_text", "thumbs up", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "bird", false, false), *slack.NewTextBlockObject("mrkdwn", "`2`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
@@ -288,8 +288,8 @@ func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global top 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", nil),
+				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", slack.NewTextBlockObject("plain_text", "thumbs up", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`5`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
@@ -312,8 +312,8 @@ func TestTopFormatting(t *testing.T) {
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", nil),
+				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", slack.NewTextBlockObject("plain_text", "thumbs up", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
@@ -340,8 +340,8 @@ func TestTopListingWithoutRequestedCount(t *testing.T) {
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", nil),
+				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", slack.NewTextBlockObject("plain_text", "thumbs up", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
@@ -370,8 +370,8 @@ func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
 	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", nil),
+				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif", "thumbs up", "", slack.NewTextBlockObject("plain_text", "thumbs up", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", "2"),
@@ -401,7 +401,7 @@ func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", slack.NewTextBlockObject("plain_text", "thumbs down", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`-3`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),
@@ -425,7 +425,7 @@ func TestWorstFormatting(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", slack.NewTextBlockObject("plain_text", "thumbs down", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),
@@ -453,7 +453,7 @@ func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", slack.NewTextBlockObject("plain_text", "thumbs down", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),
@@ -483,7 +483,7 @@ func TestWorstListingWithoutRequestedCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", slack.NewTextBlockObject("plain_text", "thumbs down", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),
@@ -513,7 +513,7 @@ func TestLessItemsThanRequestedWorstCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", nil),
+			*slack.NewImageBlock("https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif", "thumbs down", "", slack.NewTextBlockObject("plain_text", "thumbs down", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", "1"),
 				*slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`1`", false, false)),
 			*slack.NewContextBlock("", *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", "2"),

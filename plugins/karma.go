@@ -45,7 +45,7 @@ var worstRanker ranker
 func init() {
 	globalTopRanker = ranker{name: "global top",
 		regexp:           regexp.MustCompile("(?i)\\A(global top)+(?:\\s+(\\d*))*\\z"),
-		bannerText:       "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`",
+		bannerText:       ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:",
 		bannerImgLink:    "https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif",
 		bannerImgAltText: "thumbs up",
 		rankRenderer:     topIconRenderer,
@@ -54,7 +54,7 @@ func init() {
 
 	topRanker = ranker{name: "top",
 		regexp:           regexp.MustCompile("(?i)\\A(top)+(?:\\s+(\\d*))*\\z"),
-		bannerText:       "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`",
+		bannerText:       ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:",
 		bannerImgLink:    "https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif",
 		bannerImgAltText: "thumbs up",
 		rankRenderer:     topIconRenderer,
@@ -356,7 +356,7 @@ func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker)
 		blocks := make([]slack.Block, 0)
 
 		blocks = append(blocks, *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.bannerText, false, false), nil, nil))
-		blocks = append(blocks, *slack.NewImageBlock(ranker.bannerImgLink, ranker.bannerImgAltText, "", nil))
+		blocks = append(blocks, *slack.NewImageBlock(ranker.bannerImgLink, ranker.bannerImgAltText, "", slack.NewTextBlockObject("plain_text", ranker.bannerImgAltText, false, false)))
 		blocks = append(blocks, k.formatList(pairs, ranker.rankRenderer)...)
 
 		return &slackscot.Answer{Text: "", ContentBlocks: blocks}
