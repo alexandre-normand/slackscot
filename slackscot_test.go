@@ -151,6 +151,7 @@ func optionPublicMessageToBot(botUserID string, channelID string) func(e *slack.
 func newTestPlugin() (tp *Plugin) {
 	tp = new(Plugin)
 	tp.Name = "noRules"
+	tp.NamespaceCommands = true
 	tp.Commands = []ActionDefinition{{
 		Match: func(m *IncomingMessage) bool {
 			return strings.HasPrefix(m.NormalizedText, "make")
@@ -249,9 +250,20 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
+func TestAnswerWithNamespacingDisabled(t *testing.T) {
+	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Alphonse", timestamp1)),
+	}, OptionNoPluginNamespacing())
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+	}
+}
+
 func TestAnswerWithContentBlocks(t *testing.T) {
 	sentMsgs, _, _, _, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
-		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s noRules block hello you", formattedBotUserID), "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
@@ -262,8 +274,8 @@ func TestAnswerWithContentBlocks(t *testing.T) {
 
 func TestAnswerUpdateWithContentBlocks(t *testing.T) {
 	sentMsgs, updatedMsgs, _, _, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
-		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Alphonse", timestamp1)),
-		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Ignored", timestamp2, optionChangedMessage(fmt.Sprintf("%s block hello you and everyone else", formattedBotUserID), "Alphonse", timestamp1))),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s noRules block hello you", formattedBotUserID), "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s noRules block hello you", formattedBotUserID), "Ignored", timestamp2, optionChangedMessage(fmt.Sprintf("%s noRules block hello you and everyone else", formattedBotUserID), "Alphonse", timestamp1))),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {

@@ -45,6 +45,9 @@ type Slackscot struct {
 	selfName       string
 	selfUserPrefix string
 
+	// Runtime configuration options
+	commandNamespacing bool
+
 	// Logger
 	log *sLogger
 }
@@ -52,6 +55,29 @@ type Slackscot struct {
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
 type Plugin struct {
 	Name string
+
+	// If true, the plugin's commands are to be namespaced by slackscot. This means that commands will be first checked
+	// for a prefix that matches the plugin name. Since that's all handled by slackscot, a plugin should be written
+	// with matching only considering what comes after the namespace. For example, a plugin with name make would have
+	// a coffee command be something like
+	//      Match: func(m *IncomingMessage) bool {
+	//			return strings.HasPrefix(m.NormalizedText, "coffee ")
+	//		},
+	//		Usage:       "coffee `<when>`",
+	//		Description: "Make coffee",
+	//		Answer: func(m *IncomingMessage) *Answer {
+	//			when := strings.TrimPrefix(m.NormalizedText, "coffee ")
+	//			return &Answer{Text: fmt.Sprintf("coffee will be reading %s", when))}}
+	//		}
+	//
+	// In this example, if namespacing is enabled, a user would trigger the command with a message such as:
+	//   <@slackscotID> make coffee in 10 minutes
+	// Note that the plugin itself doesn't need to concern itself with the namespace in the matching or answering
+	// as the NormalizedText has been formatted to be stripped of namespacing whether or not that's enabled and slackscot
+	// will have made sure the namespace matched if enabled.
+	//
+	// At runtime, instances of slackscot can request to disregard namespacing with OptionNoPluginNamespacing (for example, to run a single plugin and simplify usage).
+	NamespaceCommands bool
 
 	Commands         []ActionDefinition
 	HearActions      []ActionDefinition
@@ -180,6 +206,15 @@ func OptionLog(logger *log.Logger) func(*Slackscot) {
 	}
 }
 
+// OptionNoPluginNamespacing disables plugin command namespacing for this instance. This means
+// that namespacing plugin candidates will run without any extra plugin name matching required
+// This is useful to simplify command usage for instances running a single plugin
+func OptionNoPluginNamespacing() func(*Slackscot) {
+	return func(s *Slackscot) {
+		s.commandNamespacing = false
+	}
+}
+
 // OptionLogfile sets a logfile for Slackscot while using the other default logging prefix and options
 func OptionLogfile(logfile *os.File) func(*Slackscot) {
 	return func(s *Slackscot) {
@@ -198,6 +233,7 @@ func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot,
 
 	s.name = name
 	s.config = v
+	s.commandNamespacing = true
 	s.defaultAction = func(m *IncomingMessage) *Answer {
 		return &Answer{Text: fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
@@ -636,18 +672,21 @@ func (s *Slackscot) routeMessage(me *slack.MessageEvent) (responses []*OutgoingM
 		}
 
 		for _, p := range s.plugins {
-			inMsg := s.newIncomingMsgWithNormalizedText(p, m)
+			matchedNamespace, inMsg := s.newCmdInMsgWithNormalizedText(p, m)
 
-			outMsgs := tryPluginActions(p.Name, commandType, p.Commands, inMsg, replyStrategy)
-			responses = append(responses, outMsgs...)
+			if matchedNamespace {
+				outMsgs := tryPluginActions(p.Name, commandType, p.Commands, inMsg, replyStrategy)
+				responses = append(responses, outMsgs...)
+			}
 		}
 
+		// Use default answer if this was a message formatted as a command for which we didn't have any answer to
 		if len(responses) == 0 {
-			responses = append(responses, defaultAnswer(s.defaultAction, s.newIncomingMsgWithNormalizedText(nil, m), replyStrategy))
+			responses = append(responses, defaultAnswer(s.defaultAction, s.newIncomingMsgWithNormalizedText(m), replyStrategy))
 		}
 	} else {
 		for _, p := range s.plugins {
-			inMsg := s.newIncomingMsgWithNormalizedText(p, m)
+			inMsg := s.newIncomingMsgWithNormalizedText(m)
 
 			outMsgs := tryPluginActions(p.Name, hearActionType, p.HearActions, inMsg, send)
 			responses = append(responses, outMsgs...)
@@ -657,6 +696,7 @@ func (s *Slackscot) routeMessage(me *slack.MessageEvent) (responses []*OutgoingM
 	return responses
 }
 
+// defaultAnswer returns the answer by invocation of the default action
 func defaultAnswer(answerDefault Answerer, inMsg *IncomingMessage, rs responseStrategy) (o *OutgoingMessage) {
 	answer := answerDefault(inMsg)
 	answer.useExistingThreadIfAny(inMsg)
@@ -666,19 +706,36 @@ func defaultAnswer(answerDefault Answerer, inMsg *IncomingMessage, rs responseSt
 	return newOutMessageForAnswer(slackOutMsg, "default", answer)
 }
 
+// newCmdInMsgWithNormalizedText creates a new IncomingMessage for a command and generates the normalized text for plugins
+// to have a normalized view of the message regardless of context. For commands part of a Plugin with NamespaceCommands,
+// the normalized text removes the namespace if the proper namespace is found. If not, matchedNamespace is false
+// and the normalized text is the same as what newIncomingMsgWithNormalizedText would return
+func (s *Slackscot) newCmdInMsgWithNormalizedText(p *Plugin, m *slack.Msg) (matchedNamespace bool, inMsg *IncomingMessage) {
+	inMsg = s.newIncomingMsgWithNormalizedText(m)
+	matchedNamespace = true
+
+	if p != nil && s.commandNamespacing && p.NamespaceCommands {
+		namespacePrefix := fmt.Sprintf("%s ", p.Name)
+		if matchedNamespace = strings.HasPrefix(inMsg.NormalizedText, namespacePrefix); matchedNamespace {
+			inMsg.NormalizedText = strings.TrimPrefix(inMsg.NormalizedText, namespacePrefix)
+		}
+	}
+
+	return matchedNamespace, inMsg
+}
+
 // newIncomingMsgWithNormalizedText creates a new IncomingMessage and generates the normalized text for plugins
 // to have a normalized view of the message regardless of context. This includes having the text stripped of the "<@user>"
 // for commands sent via a directed message on a channel
-// TODO normalize should handle removing the namespace and user id for bot mentions depending on the case
-func (s *Slackscot) newIncomingMsgWithNormalizedText(p *Plugin, m *slack.Msg) (incomingMsg *IncomingMessage) {
-	incomingMsg = new(IncomingMessage)
-	incomingMsg.NormalizedText = m.Text
-	incomingMsg.Msg = *m
+func (s *Slackscot) newIncomingMsgWithNormalizedText(m *slack.Msg) (inMsg *IncomingMessage) {
+	inMsg = new(IncomingMessage)
+	inMsg.NormalizedText = m.Text
+	inMsg.Msg = *m
 	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand && !isDM {
-		incomingMsg.NormalizedText = strings.TrimPrefix(m.Text, s.selfUserPrefix)
+		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.selfUserPrefix)
 	}
 
-	return incomingMsg
+	return inMsg
 }
 
 // isCommand returns true if the slack message is to be interpreted as a command rather than a normal message

@@ -57,10 +57,10 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"---", "Cgeneral", ""},
 		{"+++", "Cgeneral", ""},
 		{"salmon++", "Coceanlife", "`salmon` just gained a level (`salmon`: 1)"},
-		{"<@bot> karma top 1", "Cother", "Sorry, no recorded karma found :disappointed:"},
+		{"<@bot> top 1", "Cother", "Sorry, no recorded karma found :disappointed:"},
 		{"dams--", "Coceanlife", "`dams` just lost a life (`dams`: -1)"},
-		{"<@bot> karma reset", "Coceanlife", "karma all cleared :white_check_mark::boom:"},
-		{"<@bot> karma top 1", "Coceanlife", "Sorry, no recorded karma found :disappointed:"},
+		{"<@bot> reset", "Coceanlife", "karma all cleared :white_check_mark::boom:"},
+		{"<@bot> top 1", "Coceanlife", "Sorry, no recorded karma found :disappointed:"},
 	}
 
 	// Create a temp file that will serve as an invalid storage path
@@ -141,7 +141,7 @@ func TestErrorGettingList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: can't load karma")
 	})
 }
@@ -158,7 +158,7 @@ func TestErrorGettingKarmaWhenResetting(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma reset"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> reset"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get delete karma for channel [myLittleChannel] for you. If you must know, this happened: can't load karma")
 	})
 }
@@ -176,7 +176,7 @@ func TestErrorDeletingKarmaWhenResetting(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma reset"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> reset"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get delete karma for channel [myLittleChannel] for you. If you must know, this happened: can't delete")
 	})
 }
@@ -193,7 +193,7 @@ func TestErrorGettingGlobalList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChan", Text: "<@bot> karma global top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChan", Text: "<@bot> global top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the global top [1] things for you. If you must know, this happened: can't load karma")
 	})
 }
@@ -210,7 +210,7 @@ func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the top [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
 	})
 }
@@ -227,7 +227,7 @@ func TestInvalidSingleStoredKarmaValuesOnGlobalTopList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChannel", Text: "<@bot> karma global top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChannel", Text: "<@bot> global top 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the global top [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
 	})
 }
@@ -244,7 +244,7 @@ func TestInvalidSingleStoredKarmaValuesOnGlobalWorstList(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChannel", Text: "<@bot> karma global worst 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "otherChannel", Text: "<@bot> global worst 1"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Sorry, I couldn't get the global worst [1] things for you. If you must know, this happened: strconv.Atoi: parsing \"abc\": invalid syntax")
 	})
 }
@@ -261,7 +261,7 @@ func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -284,7 +284,7 @@ func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma global top 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global top 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -307,7 +307,7 @@ func TestTopFormatting(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -334,7 +334,7 @@ func TestTopListingWithoutRequestedCount(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -363,7 +363,7 @@ func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma global top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -392,7 +392,7 @@ func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma global worst 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global worst 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -415,7 +415,7 @@ func TestWorstFormatting(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma worst 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> worst 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -442,7 +442,7 @@ func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma global worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -471,7 +471,7 @@ func TestWorstListingWithoutRequestedCount(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),
@@ -500,7 +500,7 @@ func TestLessItemsThanRequestedWorstCount(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> karma worst 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(&k.Plugin, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> worst 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", false, false), nil, nil),

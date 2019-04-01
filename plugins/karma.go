@@ -41,10 +41,10 @@ var globalWorstRanker ranker
 var worstRanker ranker
 
 func init() {
-	globalTopRanker = ranker{name: "global top", regexp: regexp.MustCompile("(?i)\\A(karma global top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanGlobalKarma, sorter: sortTop}
-	topRanker = ranker{name: "top", regexp: regexp.MustCompile("(?i)\\A(karma top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanChannelKarma, sorter: sortTop}
-	globalWorstRanker = ranker{name: "global worst", regexp: regexp.MustCompile("(?i)\\A(karma global worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanGlobalKarma, sorter: sortWorst}
-	worstRanker = ranker{name: "worst", regexp: regexp.MustCompile("(?i)\\A(karma worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanChannelKarma, sorter: sortWorst}
+	globalTopRanker = ranker{name: "global top", regexp: regexp.MustCompile("(?i)\\A(global top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanGlobalKarma, sorter: sortTop}
+	topRanker = ranker{name: "top", regexp: regexp.MustCompile("(?i)\\A(top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanChannelKarma, sorter: sortTop}
+	globalWorstRanker = ranker{name: "global worst", regexp: regexp.MustCompile("(?i)\\A(global worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanGlobalKarma, sorter: sortWorst}
+	worstRanker = ranker{name: "worst", regexp: regexp.MustCompile("(?i)\\A(worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanChannelKarma, sorter: sortWorst}
 }
 
 // NewKarma creates a new instance of the Karma plugin
@@ -64,41 +64,41 @@ func NewKarma(strStorer store.GlobalSiloStringStorer) (karma *Karma) {
 		{
 			Hidden:      false,
 			Match:       matchKarmaTopReport,
-			Usage:       "karma top [count]",
+			Usage:       "top [count]",
 			Description: fmt.Sprintf("Return the top things ever recorded in this channel (default of %d items)", defaultItemCount),
 			Answer:      k.answerKarmaTop,
 		},
 		{
 			Hidden:      false,
 			Match:       matchKarmaWorstReport,
-			Usage:       "karma worst [count]",
+			Usage:       "worst [count]",
 			Description: fmt.Sprintf("Return the worst things ever recorded in this channel (default of %d items)", defaultItemCount),
 			Answer:      k.answerKarmaWorst,
 		},
 		{
 			Hidden:      false,
 			Match:       matchGlobalKarmaTopReport,
-			Usage:       "karma global top [count]",
+			Usage:       "global top [count]",
 			Description: fmt.Sprintf("Return the top things ever over all channels (default of %d items)", defaultItemCount),
 			Answer:      k.answerGlobalKarmaTop,
 		},
 		{
 			Hidden:      false,
 			Match:       matchGlobalKarmaWorstReport,
-			Usage:       "karma global worst [count]",
+			Usage:       "global worst [count]",
 			Description: fmt.Sprintf("Return the worst things ever over all channels (default of %d items)", defaultItemCount),
 			Answer:      k.answerGlobalKarmaWorst,
 		},
 		{
 			Hidden:      false,
-			Match:       matchClearKarma,
-			Usage:       "karma reset",
+			Match:       matchKarmaReset,
+			Usage:       "reset",
 			Description: "Resets all recorded karma for the current channel",
 			Answer:      k.clearChannelKarma,
 		},
 	}
 
-	k.Plugin = slackscot.Plugin{Name: KarmaPluginName, Commands: commands, HearActions: hearActions}
+	k.Plugin = slackscot.Plugin{Name: KarmaPluginName, NamespaceCommands: true, Commands: commands, HearActions: hearActions}
 	k.karmaStorer = strStorer
 
 	return k
@@ -111,33 +111,33 @@ func matchKarmaRecord(m *slackscot.IncomingMessage) bool {
 }
 
 // matchKarmaTopReport returns true if the message matches a request for top karma with
-// a message such as "karma top <count>"
+// a message such as "top <count>"
 func matchKarmaTopReport(m *slackscot.IncomingMessage) bool {
 	return topRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchKarmaWorstReport returns true if the message matches a request for the worst karma with
-// a message such as "karma worst <count>"
+// a message such as "worst <count>"
 func matchKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 	return worstRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchGlobalKarmaTopReport returns true if the message matches a request for top global karma with
-// a message such as "global karma top <count>"
+// a message such as "global top <count>"
 func matchGlobalKarmaTopReport(m *slackscot.IncomingMessage) bool {
 	return globalTopRanker.regexp.MatchString(m.NormalizedText)
 }
 
 // matchGlobalKarmaWorstReport returns true if the message matches a request for the worst global karma with
-// a message such as "global karma worst <count>"
+// a message such as "global worst <count>"
 func matchGlobalKarmaWorstReport(m *slackscot.IncomingMessage) bool {
 	return globalWorstRanker.regexp.MatchString(m.NormalizedText)
 }
 
-// matchClearKarma returns true if the message matches a request for resetting karma with a
-// message such as "karma reset"
-func matchClearKarma(m *slackscot.IncomingMessage) bool {
-	return strings.HasPrefix(m.NormalizedText, "karma reset")
+// matchKarmaReset returns true if the message matches a request for resetting karma with a
+// message such as "reset"
+func matchKarmaReset(m *slackscot.IncomingMessage) bool {
+	return strings.HasPrefix(m.NormalizedText, "reset")
 }
 
 // recordKarma records a karma increase or decrease and answers with a message including
