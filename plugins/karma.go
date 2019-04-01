@@ -27,12 +27,14 @@ var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(?:<(@[\\w']+)>\\s?)|([\\w']+
 
 // Ranker represents attributes and behavior to process a ranking list
 type ranker struct {
-	name         string
-	regexp       *regexp.Regexp
-	banner       string
-	rankRenderer rankIconRenderer
-	scanner      karmaScanner
-	sorter       karmaSorter
+	name             string
+	regexp           *regexp.Regexp
+	bannerText       string
+	bannerImgLink    string
+	bannerImgAltText string
+	rankRenderer     rankIconRenderer
+	scanner          karmaScanner
+	sorter           karmaSorter
 }
 
 var globalTopRanker ranker
@@ -41,10 +43,41 @@ var globalWorstRanker ranker
 var worstRanker ranker
 
 func init() {
-	globalTopRanker = ranker{name: "global top", regexp: regexp.MustCompile("(?i)\\A(global top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanGlobalKarma, sorter: sortTop}
-	topRanker = ranker{name: "top", regexp: regexp.MustCompile("(?i)\\A(top)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: topIconRenderer, scanner: scanChannelKarma, sorter: sortTop}
-	globalWorstRanker = ranker{name: "global worst", regexp: regexp.MustCompile("(?i)\\A(global worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Global Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanGlobalKarma, sorter: sortWorst}
-	worstRanker = ranker{name: "worst", regexp: regexp.MustCompile("(?i)\\A(worst)+(?:\\s+(\\d*))*\\z"), banner: "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :space_invader: *Worst* :space_invader: `**•-:¦:-•:*'\"\"*:•-:¦:-`", rankRenderer: worstIconRenderer, scanner: scanChannelKarma, sorter: sortWorst}
+	globalTopRanker = ranker{name: "global top",
+		regexp:           regexp.MustCompile("(?i)\\A(global top)+(?:\\s+(\\d*))*\\z"),
+		bannerText:       "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Global Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`",
+		bannerImgLink:    "https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif",
+		bannerImgAltText: "thumbs up",
+		rankRenderer:     topIconRenderer,
+		scanner:          scanGlobalKarma,
+		sorter:           sortTop}
+
+	topRanker = ranker{name: "top",
+		regexp:           regexp.MustCompile("(?i)\\A(top)+(?:\\s+(\\d*))*\\z"),
+		bannerText:       "`-:¦:-•:*'\"\"*:•.-:¦:-•**` :trophy: *Top* :trophy: `**•-:¦:-•:*'\"\"*:•-:¦:-`",
+		bannerImgLink:    "https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif",
+		bannerImgAltText: "thumbs up",
+		rankRenderer:     topIconRenderer,
+		scanner:          scanChannelKarma,
+		sorter:           sortTop}
+
+	globalWorstRanker = ranker{name: "global worst",
+		regexp:           regexp.MustCompile("(?i)\\A(global worst)+(?:\\s+(\\d*))*\\z"),
+		bannerText:       ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:",
+		bannerImgLink:    "https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif",
+		bannerImgAltText: "thumbs down",
+		rankRenderer:     worstIconRenderer,
+		scanner:          scanGlobalKarma,
+		sorter:           sortWorst}
+
+	worstRanker = ranker{name: "worst",
+		regexp:           regexp.MustCompile("(?i)\\A(worst)+(?:\\s+(\\d*))*\\z"),
+		bannerText:       ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:",
+		bannerImgLink:    "https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif",
+		bannerImgAltText: "thumbs down",
+		rankRenderer:     worstIconRenderer,
+		scanner:          scanChannelKarma,
+		sorter:           sortWorst}
 }
 
 // NewKarma creates a new instance of the Karma plugin
@@ -322,7 +355,8 @@ func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker)
 	if len(pairs) > 0 {
 		blocks := make([]slack.Block, 0)
 
-		blocks = append(blocks, *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.banner, false, false), nil, nil))
+		blocks = append(blocks, *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.bannerText, false, false), nil, nil))
+		blocks = append(blocks, *slack.NewImageBlock(ranker.bannerImgLink, ranker.bannerImgAltText, "", nil))
 		blocks = append(blocks, k.formatList(pairs, ranker.rankRenderer)...)
 
 		return &slackscot.Answer{Text: "", ContentBlocks: blocks}
