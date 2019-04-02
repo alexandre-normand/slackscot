@@ -53,31 +53,34 @@ type Slackscot struct {
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
+//
+// Set NamespaceCommands to true if the plugin's commands are to be namespaced by slackscot.
+// This means that commands will be first checked for a prefix that matches the plugin name.
+// Since that's all handled by slackscot, a plugin should be written with matching only
+// considering what comes after the namespace. For example, a plugin with name make would have
+// a coffee command be something like
+//
+//   Match: func(m *IncomingMessage) bool {
+//       return strings.HasPrefix(m.NormalizedText, "coffee ")
+//   },
+//   Usage:       "coffee `<when>`",
+//   Description: "Make coffee",
+//   Answer: func(m *IncomingMessage) *Answer {
+//       when := strings.TrimPrefix(m.NormalizedText, "coffee ")
+//       return &Answer{Text: fmt.Sprintf("coffee will be reading %s", when))}}
+//   }
+//
+// In this example, if namespacing is enabled, a user would trigger the command with a message such as:
+//   <@slackscotID> make coffee in 10 minutes
+// Note that the plugin itself doesn't need to concern itself with the namespace in the matching or answering
+// as the NormalizedText has been formatted to be stripped of namespacing whether or not that's enabled and slackscot
+// will have made sure the namespace matched if enabled.
+//
+// At runtime, instances of slackscot can request to disregard namespacing with OptionNoPluginNamespacing (for example, to run a single plugin and simplify usage).
 type Plugin struct {
 	Name string
 
-	// If true, the plugin's commands are to be namespaced by slackscot. This means that commands will be first checked
-	// for a prefix that matches the plugin name. Since that's all handled by slackscot, a plugin should be written
-	// with matching only considering what comes after the namespace. For example, a plugin with name make would have
-	// a coffee command be something like
-	//      Match: func(m *IncomingMessage) bool {
-	//			return strings.HasPrefix(m.NormalizedText, "coffee ")
-	//		},
-	//		Usage:       "coffee `<when>`",
-	//		Description: "Make coffee",
-	//		Answer: func(m *IncomingMessage) *Answer {
-	//			when := strings.TrimPrefix(m.NormalizedText, "coffee ")
-	//			return &Answer{Text: fmt.Sprintf("coffee will be reading %s", when))}}
-	//		}
-	//
-	// In this example, if namespacing is enabled, a user would trigger the command with a message such as:
-	//   <@slackscotID> make coffee in 10 minutes
-	// Note that the plugin itself doesn't need to concern itself with the namespace in the matching or answering
-	// as the NormalizedText has been formatted to be stripped of namespacing whether or not that's enabled and slackscot
-	// will have made sure the namespace matched if enabled.
-	//
-	// At runtime, instances of slackscot can request to disregard namespacing with OptionNoPluginNamespacing (for example, to run a single plugin and simplify usage).
-	NamespaceCommands bool
+	NamespaceCommands bool // Set to true for slackscot-managed namespacing of commands where the namespace/prefix to all commands is set to the plugin name
 
 	Commands         []ActionDefinition
 	HearActions      []ActionDefinition
