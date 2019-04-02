@@ -46,7 +46,7 @@ type Slackscot struct {
 	selfUserPrefix string
 
 	// Runtime configuration options
-	commandNamespacing bool
+	namespaceCommands bool
 
 	// Logger
 	log *sLogger
@@ -211,7 +211,7 @@ func OptionLog(logger *log.Logger) func(*Slackscot) {
 // This is useful to simplify command usage for instances running a single plugin
 func OptionNoPluginNamespacing() func(*Slackscot) {
 	return func(s *Slackscot) {
-		s.commandNamespacing = false
+		s.namespaceCommands = false
 	}
 }
 
@@ -233,7 +233,7 @@ func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot,
 
 	s.name = name
 	s.config = v
-	s.commandNamespacing = true
+	s.namespaceCommands = true
 	s.defaultAction = func(m *IncomingMessage) *Answer {
 		return &Answer{Text: fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
@@ -308,7 +308,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 	go s.watchForTerminationSignalToAbort(termination)
 
 	// Start by adding the help command now that we know all plugins have been registered
-	helpPlugin := newHelpPlugin(s.name, VERSION, s.config, s.plugins)
+	helpPlugin := s.newHelpPlugin(VERSION)
 	s.RegisterPlugin(&helpPlugin.Plugin)
 
 	// Inject services into plugins before starting to process events
@@ -714,7 +714,7 @@ func (s *Slackscot) newCmdInMsgWithNormalizedText(p *Plugin, m *slack.Msg) (matc
 	inMsg = s.newIncomingMsgWithNormalizedText(m)
 	matchedNamespace = true
 
-	if p != nil && s.commandNamespacing && p.NamespaceCommands {
+	if p != nil && s.namespaceCommands && p.NamespaceCommands {
 		namespacePrefix := fmt.Sprintf("%s ", p.Name)
 		if matchedNamespace = strings.HasPrefix(inMsg.NormalizedText, namespacePrefix); matchedNamespace {
 			inMsg.NormalizedText = strings.TrimPrefix(inMsg.NormalizedText, namespacePrefix)

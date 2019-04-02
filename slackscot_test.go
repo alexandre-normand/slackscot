@@ -95,7 +95,7 @@ type userInfoFinder struct {
 }
 
 func (u *userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error) {
-	return &slack.User{ID: botUserID, Name: "Daniel Quinn"}, nil
+	return &slack.User{ID: botUserID, RealName: "Daniel Quinn"}, nil
 }
 
 type emojiReactor struct {

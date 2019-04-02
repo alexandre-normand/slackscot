@@ -3,7 +3,6 @@ package slackscot
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
-	"github.com/spf13/viper"
 	"io"
 	"strings"
 )
@@ -11,10 +10,10 @@ import (
 type helpPlugin struct {
 	Plugin
 
-	v                      *viper.Viper
 	name                   string
 	slackscotVersion       string
-	commands               []ActionDefinition
+	timeLocation           string
+	commands               map[string][]ActionDefinition
 	hearActions            []ActionDefinition
 	pluginScheduledActions []pluginScheduledAction
 }
@@ -29,12 +28,12 @@ type pluginScheduledAction struct {
 	ScheduledActionDefinition
 }
 
-func newHelpPlugin(name string, version string, viper *viper.Viper, plugins []*Plugin) *helpPlugin {
-	commands, hearActions, scheduledActions := findAllActions(plugins)
+func (s *Slackscot) newHelpPlugin(version string) *helpPlugin {
+	commands, hearActions, scheduledActions := findAllActions(s.namespaceCommands, s.plugins)
 
 	helpPlugin := new(helpPlugin)
-	helpPlugin.v = viper
-	helpPlugin.name = name
+	helpPlugin.timeLocation = s.config.GetString(config.TimeLocationKey)
+	helpPlugin.name = s.name
 	helpPlugin.slackscotVersion = version
 	helpPlugin.commands = commands
 	helpPlugin.hearActions = hearActions
@@ -66,33 +65,39 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 		fmt.Fprintf(&b, "🤝 You're `%s` and ", user.RealName)
 	}
 
-	fmt.Fprintf(&b, "I'm `%s` (engine `v%s`). I listen to the team's chat and provides automated functions 🧞‍♂️.\n", h.name, h.slackscotVersion)
+	fmt.Fprintf(&b, "I'm `%s` (engine `v%s`). I listen to the team's chat and provides automated functions :genie:.\n", h.name, h.slackscotVersion)
 
 	if len(h.commands) > 0 {
 		fmt.Fprintf(&b, "\nI currently support the following commands:\n")
 
-		appendActions(&b, h.commands)
+		for n, commands := range h.commands {
+			appendActions(&b, n, commands)
+		}
 	}
 
 	if len(h.hearActions) > 0 {
 		fmt.Fprintf(&b, "\nAnd listen for the following:\n")
 
-		appendActions(&b, h.hearActions)
+		appendActions(&b, "", h.hearActions)
 	}
 
 	if len(h.pluginScheduledActions) > 0 {
 		fmt.Fprintf(&b, "\nAnd do those things periodically:\n")
 
-		appendScheduledActions(&b, h.v.GetString(config.TimeLocationKey), h.pluginScheduledActions)
+		appendScheduledActions(&b, h.timeLocation, h.pluginScheduledActions)
 	}
 
 	return &Answer{Text: b.String(), Options: []AnswerOption{AnswerInThread()}}
 }
 
-func appendActions(w io.Writer, actions []ActionDefinition) {
+func appendActions(w io.Writer, pluginNamespace string, actions []ActionDefinition) {
 	for _, value := range actions {
 		if value.Usage != "" && !value.Hidden {
-			fmt.Fprintf(w, "\t• `%s` - %s\n", value.Usage, value.Description)
+			if len(pluginNamespace) > 0 {
+				fmt.Fprintf(w, "\t• `%s %s` - %s\n", pluginNamespace, value.Usage, value.Description)
+			} else {
+				fmt.Fprintf(w, "\t• `%s` - %s\n", value.Usage, value.Description)
+			}
 		}
 	}
 }
@@ -105,13 +110,22 @@ func appendScheduledActions(w io.Writer, timeLocationName string, scheduledActio
 	}
 }
 
-func findAllActions(plugins []*Plugin) (commands []ActionDefinition, hearActions []ActionDefinition, pluginScheduledActions []pluginScheduledAction) {
-	commands = make([]ActionDefinition, 0)
+func findAllActions(namespaceCommands bool, plugins []*Plugin) (commands map[string][]ActionDefinition, hearActions []ActionDefinition, pluginScheduledActions []pluginScheduledAction) {
+	commands = make(map[string][]ActionDefinition)
 	hearActions = make([]ActionDefinition, 0)
 	pluginScheduledActions = make([]pluginScheduledAction, 0)
 
 	for _, p := range plugins {
-		commands = append(commands, p.Commands...)
+		namespace := ""
+		if namespaceCommands && p.NamespaceCommands {
+			namespace = p.Name
+		}
+
+		if _, ok := commands[namespace]; !ok {
+			commands[namespace] = make([]ActionDefinition, 0)
+		}
+
+		commands[namespace] = append(commands[namespace], p.Commands...)
 		hearActions = append(hearActions, p.HearActions...)
 
 		if p.ScheduledActions != nil {
