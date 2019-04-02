@@ -39,7 +39,7 @@ func newPluginWithActionsOfAllTypes() (p *Plugin) {
 }
 
 func TestHelpWithNamespacingEnabled(t *testing.T) {
-	s, err := NewSlackscot("robert", config.NewViperWithDefaults())
+	s, err := New("robert", config.NewViperWithDefaults())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes())
 
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestHelpWithNamespacingEnabled(t *testing.T) {
 }
 
 func TestHelpWithNamespacingDisabled(t *testing.T) {
-	s, err := NewSlackscot("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
+	s, err := New("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes())
 
 	require.NoError(t, err)
