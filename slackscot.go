@@ -223,7 +223,14 @@ func OptionLogfile(logfile *os.File) func(*Slackscot) {
 }
 
 // NewSlackscot creates a new slackscot from an array of plugins and a name
+//
+// Deprecated: Use New instead. Will be removed in 2.0.0
 func NewSlackscot(name string, v *viper.Viper, options ...Option) (s *Slackscot, err error) {
+	return New(name, v, options...)
+}
+
+// New creates a new slackscot from an array of plugins and a name
+func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err error) {
 	s = new(Slackscot)
 
 	s.triggeringMsgToResponse, err = lru.NewARC(v.GetInt(config.ResponseCacheSizeKey))

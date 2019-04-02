@@ -749,7 +749,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	var userInfoFinder userInfoFinder
 	var emojiReactor emojiReactor
 
-	s, err := NewSlackscot("chickadee", v, options...)
+	s, err := New("chickadee", v, options...)
 	s.RegisterPlugin(plugin)
 
 	assert.Nil(t, err)

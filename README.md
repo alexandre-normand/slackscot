@@ -231,7 +231,7 @@ func main() {
 		options = append(options, slackscot.OptionLogfile(*logfile))
 	}
 
-	youppi, err := slackscot.NewSlackscot("youppi", v, options...)
+	youppi, err := slackscot.New("youppi", v, options...)
 	if err != nil {
 		log.Fatal(err)
 	}
