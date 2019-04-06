@@ -9,7 +9,7 @@ type ActionBuilder struct {
 	action slackscot.ActionDefinition
 }
 
-func New() (ab *ActionBuilder) {
+func newAction() (ab *ActionBuilder) {
 	ab = new(ActionBuilder)
 	ab.action = slackscot.ActionDefinition{Hidden: false}
 
@@ -23,6 +23,16 @@ func New() (ab *ActionBuilder) {
 	}
 
 	return ab
+}
+
+// NewCommand returns a new ActionBuilder to build a new command
+func NewCommand() (ab *ActionBuilder) {
+	return newAction()
+}
+
+// NewHearAction returns a new ActionBuilder to build a new hear action
+func NewHearAction() (ab *ActionBuilder) {
+	return newAction()
 }
 
 func (ab *ActionBuilder) WithMatcher(matcher slackscot.Matcher) *ActionBuilder {

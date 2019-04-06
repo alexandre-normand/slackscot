@@ -124,16 +124,30 @@ func NewTriggerer(storer store.GlobalSiloStringStorer) (p *slackscot.Plugin) {
 	t.triggerRegexes = make(map[string]*regexp.Regexp)
 
 	t.Plugin = plugin.New(TriggererPluginName).
-		WithHearAction(
-			actions.New().Hidden().WithMatcher(t.matchTriggers).WithUsage("say something that includes the trigger").WithDescription("Stays alert to react on registered triggers and react accordingly").WithAnswerer(t.reactOnTriggers).Build(),
+		WithHearAction(actions.NewHearAction().
+			Hidden().
+			WithMatcher(t.matchTriggers).
+			WithUsage("say something that includes the trigger").
+			WithDescription("Stays alert to react on registered triggers and react accordingly").
+			WithAnswerer(t.reactOnTriggers).
+			Build(),
 		).
 		WithCommand(
-			actions.New().WithMatcher(matchNewStandardTrigger).WithUsage("trigger [anywhere] on <trigger string> with <reaction string>").WithDescription("Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`").WithAnswerer(t.registerStandardTrigger).Build(),
+			actions.NewCommand().
+				WithMatcher(matchNewStandardTrigger).
+				WithUsage("trigger [anywhere] on <trigger string> with <reaction string>").
+				WithDescription("Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`").
+				WithAnswerer(t.registerStandardTrigger).
+				Build(),
 		).
-		WithCommand(
-			actions.New().WithMatcher(matchDeleteStandardTrigger).WithUsage("forget trigger on <trigger string>").WithDescription("Delete a trigger on `trigger string`").WithAnswerer(t.deleteStandardTrigger).Build(),
+		WithCommand(actions.NewCommand().
+			WithMatcher(matchDeleteStandardTrigger).
+			WithUsage("forget trigger on <trigger string>").
+			WithDescription("Delete a trigger on `trigger string`").
+			WithAnswerer(t.deleteStandardTrigger).
+			Build(),
 		).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "list triggers")
 			}).
@@ -141,13 +155,21 @@ func NewTriggerer(storer store.GlobalSiloStringStorer) (p *slackscot.Plugin) {
 			WithDescription("Lists all registered triggers").
 			WithAnswerer(t.listStandardTriggers).
 			Build()).
-		WithCommand(
-			actions.New().WithMatcher(matchNewEmojiTrigger).WithUsage("emoji trigger [anywhere] on <trigger string> with <reaction emojis>").WithDescription("Register an emoji trigger which will instruct me to emoji react with `reaction emojis` when someone says `trigger string`").WithAnswerer(t.registerEmojiTrigger).Build(),
+		WithCommand(actions.NewCommand().
+			WithMatcher(matchNewEmojiTrigger).
+			WithUsage("emoji trigger [anywhere] on <trigger string> with <reaction emojis>").
+			WithDescription("Register an emoji trigger which will instruct me to emoji react with `reaction emojis` when someone says `trigger string`").
+			WithAnswerer(t.registerEmojiTrigger).
+			Build(),
 		).
-		WithCommand(
-			actions.New().WithMatcher(matchDeleteEmojiTrigger).WithUsage("forget emoji trigger on <trigger string>").WithDescription("Delete an emoji trigger on `trigger string`").WithAnswerer(t.deleteEmojiTrigger).Build(),
+		WithCommand(actions.NewCommand().
+			WithMatcher(matchDeleteEmojiTrigger).
+			WithUsage("forget emoji trigger on <trigger string>").
+			WithDescription("Delete an emoji trigger on `trigger string`").
+			WithAnswerer(t.deleteEmojiTrigger).
+			Build(),
 		).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "list emoji triggers")
 			}).

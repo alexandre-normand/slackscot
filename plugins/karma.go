@@ -88,37 +88,37 @@ func NewKarma(storer store.GlobalSiloStringStorer) (karma *slackscot.Plugin) {
 
 	k.Plugin = plugin.New(KarmaPluginName).
 		WithCommandNamespacing().
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(matchKarmaTopReport).
 			WithUsage("top [count]").
 			WithDescriptionf("Return the top things ever recorded in this channel (default of %d items)", defaultItemCount).
 			WithAnswerer(k.answerKarmaTop).
 			Build()).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(matchKarmaWorstReport).
 			WithUsage("worst [count]").
 			WithDescriptionf("Return the worst things ever recorded in this channel (default of %d items)", defaultItemCount).
 			WithAnswerer(k.answerKarmaWorst).
 			Build()).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(matchGlobalKarmaTopReport).
 			WithUsage("global top [count]").
 			WithDescriptionf("Return the top things ever over all channels (default of %d items)", defaultItemCount).
 			WithAnswerer(k.answerGlobalKarmaTop).
 			Build()).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(matchGlobalKarmaWorstReport).
 			WithUsage("global worst [count]").
 			WithDescriptionf("Return the worst things ever over all channels (default of %d items)", defaultItemCount).
 			WithAnswerer(k.answerGlobalKarmaWorst).
 			Build()).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(matchKarmaReset).
 			WithUsage("reset").
 			WithDescription("Resets all recorded karma for the current channel").
 			WithAnswerer(k.clearChannelKarma).
 			Build()).
-		WithHearAction(actions.New().
+		WithHearAction(actions.NewCommand().
 			WithMatcher(matchKarmaRecord).
 			WithUsage("thing++ or thing--").
 			WithDescription("Keep track of karma").

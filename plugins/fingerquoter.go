@@ -47,7 +47,7 @@ func NewFingerQuoter(config *config.PluginConfig) (p *slackscot.Plugin, err erro
 	f.frequency = config.GetInt(frequencyKey)
 
 	f.Plugin = plugin.New(FingerQuoterPluginName).
-		WithHearAction(actions.New().
+		WithHearAction(actions.NewHearAction().
 			Hidden().
 			WithMatcher(f.trigger).
 			WithUsage("just converse").

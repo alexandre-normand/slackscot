@@ -17,7 +17,7 @@ const (
 // NewVersionner creates a new instance of the versionner plugin
 func NewVersionner(name string, version string) (p *slackscot.Plugin) {
 	p = plugin.New(versionnerPluginName).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "version")
 			}).
