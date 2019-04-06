@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/actions"
+	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/alexandre-normand/slackscot/store"
 	"github.com/nlopes/slack"
 	"regexp"
@@ -17,14 +19,14 @@ import (
 // The triggerer plugin consists of a command to register a new trigger with its answer along
 // with a hear action that will listen and react if one of the registered triggers is said
 type Triggerer struct {
-	slackscot.Plugin
+	*slackscot.Plugin
 	triggerStorer  store.GlobalSiloStringStorer
 	triggerRegexes map[string]*regexp.Regexp
 }
 
 const (
-	// triggererPluginName holds identifying name for the triggerer plugin
-	triggererPluginName = "triggerer"
+	// TriggererPluginName holds identifying name for the triggerer plugin
+	TriggererPluginName = "triggerer"
 	emojiDelimiter      = ","
 	globalSiloName      = ""
 )
@@ -116,77 +118,47 @@ func init() {
 }
 
 // NewTriggerer creates a new instance of the Triggerer plugin
-func NewTriggerer(storer store.GlobalSiloStringStorer) (triggerer *Triggerer) {
+func NewTriggerer(storer store.GlobalSiloStringStorer) (p *slackscot.Plugin) {
 	t := new(Triggerer)
-
-	hearActions := []slackscot.ActionDefinition{
-		{
-			Hidden:      true,
-			Match:       t.matchTriggers,
-			Usage:       "say something that includes the trigger",
-			Description: "Stays alert to react on registered triggers and react accordingly",
-			Answer:      t.reactOnTriggers,
-		}}
-
-	commands := pluginCommands(t)
-
-	t.Plugin = slackscot.Plugin{Name: triggererPluginName, Commands: commands, HearActions: hearActions}
 	t.triggerStorer = storer
 	t.triggerRegexes = make(map[string]*regexp.Regexp)
 
-	return t
-}
-
-// pluginCommands assembles the commands for the plugin
-func pluginCommands(t *Triggerer) []slackscot.ActionDefinition {
-	return []slackscot.ActionDefinition{
-		{
-			Hidden:      false,
-			Match:       matchNewStandardTrigger,
-			Usage:       "trigger [anywhere] on <trigger string> with <reaction string>",
-			Description: "Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`",
-			Answer:      t.registerStandardTrigger,
-		},
-		{
-			Hidden:      false,
-			Match:       matchDeleteStandardTrigger,
-			Usage:       "forget trigger on <trigger string>",
-			Description: "Delete a trigger on `trigger string`",
-			Answer:      t.deleteStandardTrigger,
-		},
-		{
-			Hidden: false,
-			Match: func(m *slackscot.IncomingMessage) bool {
+	t.Plugin = plugin.New(TriggererPluginName).
+		WithHearAction(
+			actions.New().Hidden().WithMatcher(t.matchTriggers).WithUsage("say something that includes the trigger").WithDescription("Stays alert to react on registered triggers and react accordingly").WithAnswerer(t.reactOnTriggers).Build(),
+		).
+		WithCommand(
+			actions.New().WithMatcher(matchNewStandardTrigger).WithUsage("trigger [anywhere] on <trigger string> with <reaction string>").WithDescription("Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`").WithAnswerer(t.registerStandardTrigger).Build(),
+		).
+		WithCommand(
+			actions.New().WithMatcher(matchDeleteStandardTrigger).WithUsage("forget trigger on <trigger string>").WithDescription("Delete a trigger on `trigger string`").WithAnswerer(t.deleteStandardTrigger).Build(),
+		).
+		WithCommand(actions.New().
+			WithMatcher(func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "list triggers")
-			},
-			Usage:       "list triggers",
-			Description: "Lists all registered triggers",
-			Answer:      t.listStandardTriggers,
-		},
-		{
-			Hidden:      false,
-			Match:       matchNewEmojiTrigger,
-			Usage:       "emoji trigger [anywhere] on <trigger string> with <reaction emojis>",
-			Description: "Register an emoji trigger which will instruct me to emoji react with `reaction emojis` when someone says `trigger string`",
-			Answer:      t.registerEmojiTrigger,
-		},
-		{
-			Hidden:      false,
-			Match:       matchDeleteEmojiTrigger,
-			Usage:       "forget emoji trigger on <trigger string>",
-			Description: "Delete an emoji trigger on `trigger string`",
-			Answer:      t.deleteEmojiTrigger,
-		},
-		{
-			Hidden: false,
-			Match: func(m *slackscot.IncomingMessage) bool {
+			}).
+			WithUsage("list triggers").
+			WithDescription("Lists all registered triggers").
+			WithAnswerer(t.listStandardTriggers).
+			Build()).
+		WithCommand(
+			actions.New().WithMatcher(matchNewEmojiTrigger).WithUsage("emoji trigger [anywhere] on <trigger string> with <reaction emojis>").WithDescription("Register an emoji trigger which will instruct me to emoji react with `reaction emojis` when someone says `trigger string`").WithAnswerer(t.registerEmojiTrigger).Build(),
+		).
+		WithCommand(
+			actions.New().WithMatcher(matchDeleteEmojiTrigger).WithUsage("forget emoji trigger on <trigger string>").WithDescription("Delete an emoji trigger on `trigger string`").WithAnswerer(t.deleteEmojiTrigger).Build(),
+		).
+		WithCommand(actions.New().
+			WithMatcher(func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "list emoji triggers")
-			},
-			Usage:       "list emoji triggers",
-			Description: "Lists all registered emoji triggers",
-			Answer:      t.listEmojiTriggers,
-		},
-	}
+			}).
+			WithUsage("list emoji triggers").
+			WithDescription("Lists all registered emoji triggers").
+			WithAnswerer(t.listEmojiTriggers).
+			Build(),
+		).
+		Build()
+
+	return t.Plugin
 }
 
 // matchNewTrigger returns true if the message matches the trigger registration regex
@@ -327,12 +299,12 @@ func (t *Triggerer) registerTrigger(m *slackscot.IncomingMessage, triggerTypeID 
 	err = t.triggerStorer.PutSiloString(silo, encodedTrigger, encodedReaction)
 	if err != nil {
 		answerMsg = fmt.Sprintf("Error persisting %s trigger [`%s` => %s]: `%s`", triggerType.Name, trigger, renderedReaction, err.Error())
-		t.Logger.Printf("[%s] %s", triggererPluginName, answerMsg)
+		t.Logger.Printf("[%s] %s", TriggererPluginName, answerMsg)
 
 		return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 	}
 
-	t.Logger.Debugf("[%s] %s", triggererPluginName, answerMsg)
+	t.Logger.Debugf("[%s] %s", TriggererPluginName, answerMsg)
 
 	return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 }
@@ -461,13 +433,13 @@ func (t *Triggerer) deleteChannelTrigger(channel string, trigger string, ttype t
 		err = t.triggerStorer.DeleteSiloString(channel, encodedTrigger)
 		if err != nil {
 			answerMsg := fmt.Sprintf("Error removing %s trigger [`%s` => %s]: `%s`", ttype.Name, trigger, existingReactionRender, err.Error())
-			t.Logger.Printf("[%s] %s", triggererPluginName, answerMsg)
+			t.Logger.Printf("[%s] %s", TriggererPluginName, answerMsg)
 
 			return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 		}
 
 		answerMsg := fmt.Sprintf("Deleted %s trigger [`%s` => %s]", ttype.Name, trigger, existingReactionRender)
-		t.Logger.Debugf("[%s] %s", triggererPluginName, answerMsg)
+		t.Logger.Debugf("[%s] %s", TriggererPluginName, answerMsg)
 
 		return &slackscot.Answer{Text: answerMsg, Options: []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}}
 	}
