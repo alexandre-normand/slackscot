@@ -5,27 +5,28 @@ package plugins
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/actions"
+	"github.com/alexandre-normand/slackscot/plugin"
 	"strings"
 )
 
-// Versioner holds the plugin data for the karma plugin
-type Versioner struct {
-	slackscot.Plugin
-}
-
 const (
-	versionerPluginName = "versionner"
+	versionnerPluginName = "versionner"
 )
 
-// NewVersionner creates a new instance of the versioner plugin
-func NewVersionner(name string, version string) *Versioner {
-	return &Versioner{Plugin: slackscot.Plugin{Name: versionerPluginName, Commands: []slackscot.ActionDefinition{{
-		Match: func(m *slackscot.IncomingMessage) bool {
-			return strings.HasPrefix(m.NormalizedText, "version")
-		},
-		Usage:       "version",
-		Description: fmt.Sprintf("Reply with `%s`'s `version` number", name),
-		Answer: func(m *slackscot.IncomingMessage) *slackscot.Answer {
-			return &slackscot.Answer{Text: fmt.Sprintf("I'm `%s`, version `%s`", name, version)}
-		}}}, HearActions: nil}}
+// NewVersionner creates a new instance of the versionner plugin
+func NewVersionner(name string, version string) (p *slackscot.Plugin) {
+	p = plugin.New(versionnerPluginName).
+		WithCommand(actions.New().
+			WithMatcher(func(m *slackscot.IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "version")
+			}).
+			WithUsage("version").
+			WithDescriptionf("Reply with `%s`'s `version` number", name).
+			WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
+				return &slackscot.Answer{Text: fmt.Sprintf("I'm `%s`, version `%s`", name, version)}
+			}).
+			Build()).
+		Build()
+	return p
 }
