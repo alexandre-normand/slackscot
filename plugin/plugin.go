@@ -33,6 +33,12 @@ func (pb *PluginBuilder) WithHearAction(hearAction slackscot.ActionDefinition) *
 	return pb
 }
 
+// WithCommandNamespacing enables command namespacing for that plugin
+func (pb *PluginBuilder) WithCommandNamespacing() *PluginBuilder {
+	pb.plugin.NamespaceCommands = true
+	return pb
+}
+
 // WithScheduledAction adds a scheduled action to the plugin
 func (pb *PluginBuilder) ScheduledAction(scheduledAction slackscot.ScheduledActionDefinition) *PluginBuilder {
 	pb.plugin.ScheduledActions = append(pb.plugin.ScheduledActions, scheduledAction)

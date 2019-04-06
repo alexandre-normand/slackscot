@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"fmt"
 	"github.com/alexandre-normand/slackscot"
 )
 
@@ -36,6 +37,11 @@ func (ab *ActionBuilder) WithUsage(usage string) *ActionBuilder {
 
 func (ab *ActionBuilder) WithDescription(description string) *ActionBuilder {
 	ab.action.Description = description
+	return ab
+}
+
+func (ab *ActionBuilder) WithDescriptionf(format string, a ...interface{}) *ActionBuilder {
+	ab.action.Description = fmt.Sprintf(format, a...)
 	return ab
 }
 
