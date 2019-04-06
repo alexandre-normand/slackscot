@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/figlet4go"
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/actions"
 	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/pkg/errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -29,13 +32,13 @@ const (
 
 // EmojiBannerMaker holds the plugin data for the emoji banner maker plugin
 type EmojiBannerMaker struct {
-	slackscot.Plugin
+	*slackscot.Plugin
 	tempDirFontPath string
 }
 
 // NewEmojiBannerMaker creates a new instance of the plugin. Note that since it creates a temporary
 // directory to store fonts, the caller should make sure to defer Close on shutdown
-func NewEmojiBannerMaker(c *config.PluginConfig) (emojiBannerPlugin *EmojiBannerMaker, err error) {
+func NewEmojiBannerMaker(c *config.PluginConfig) (toClose io.Closer, emojiBannerPlugin *slackscot.Plugin, err error) {
 	emojiBannerRegex := regexp.MustCompile("(?i)(emoji banner) (.*)")
 
 	options := figlet4go.NewRenderOptions()
@@ -44,7 +47,7 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (emojiBannerPlugin *EmojiBanner
 	tempDirFontPath, err := ioutil.TempDir("", EmojiBannerPluginName)
 	if err != nil {
 		os.RemoveAll(tempDirFontPath)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Download all fonts and write them in the fontPath
@@ -53,33 +56,39 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (emojiBannerPlugin *EmojiBanner
 		fontName, err := downloadFontToDir(fontURL, tempDirFontPath)
 		if err != nil {
 			os.RemoveAll(tempDirFontPath)
-			return nil, err
+			return nil, nil, err
 		}
 
 		err = renderer.LoadFont(tempDirFontPath)
 		if err != nil {
 			os.RemoveAll(tempDirFontPath)
-			return nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", EmojiBannerPluginName, tempDirFontPath, err)
+			return nil, nil, fmt.Errorf("[%s] Can't load fonts from [%s]: %v", EmojiBannerPluginName, tempDirFontPath, err)
 		}
 
 		options.FontName = fontName
 	}
 
-	return &EmojiBannerMaker{Plugin: slackscot.Plugin{Name: EmojiBannerPluginName, Commands: []slackscot.ActionDefinition{{
-		Match: func(m *slackscot.IncomingMessage) bool {
-			return strings.HasPrefix(m.NormalizedText, "emoji banner")
-		},
-		Usage:       "emoji banner <word of 5 characters or less> <emoji>",
-		Description: "Renders a single-word banner with the provided emoji",
-		Answer: func(m *slackscot.IncomingMessage) *slackscot.Answer {
-			return validateAndRenderEmoji(m.Text, emojiBannerRegex, renderer, options)
-		},
-	}}, HearActions: nil}, tempDirFontPath: tempDirFontPath}, nil
+	ebm := new(EmojiBannerMaker)
+	ebm.Plugin = plugin.New(EmojiBannerPluginName).
+		WithCommand(actions.New().
+			WithMatcher(func(m *slackscot.IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "emoji banner")
+			}).
+			WithUsage("emoji banner <word of 5 characters or less> <emoji>").
+			WithDescription("Renders a single-word banner with the provided emoji").
+			WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
+				return validateAndRenderEmoji(m.NormalizedText, emojiBannerRegex, renderer, options)
+			}).
+			Build()).
+		Build()
+	ebm.tempDirFontPath = tempDirFontPath
+
+	return ebm, ebm.Plugin, nil
 }
 
 // Close cleans up resources (temp font directory) used by the plugin
-func (e *EmojiBannerMaker) Close() {
-	os.RemoveAll(e.tempDirFontPath)
+func (e *EmojiBannerMaker) Close() (err error) {
+	return os.RemoveAll(e.tempDirFontPath)
 }
 
 func downloadFontToDir(fontURL string, fontPath string) (fontName string, err error) {
