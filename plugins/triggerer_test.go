@@ -25,26 +25,26 @@ func TestRegisterNewTrigger(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Register new trigger
-	if assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	if assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => `http://dealwithit.gif`]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, answers) && assert.Empty(t, emojis)
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with itself"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with itself"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, answers) && assert.Empty(t, emojis)
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://dealwithit.gif") && assertanswer.HasOptions(t, answers[0])
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://dealwithit.gif") && assertanswer.HasOptions(t, answers[0])
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "don't tell me to deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "don't tell me to deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://dealwithit.gif") && assertanswer.HasOptions(t, answers[0])
 		})
 
@@ -60,7 +60,7 @@ func TestTriggerReactionWithCollidingGlobalAndChannelTriggers(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://channel.gif") && assertanswer.HasOptions(t, answers[0])
 	})
 }
@@ -74,7 +74,7 @@ func TestTriggerReactionWithOnlyGlobalTrigger(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "otherChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "otherChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://global.gif") && assertanswer.HasOptions(t, answers[0])
 	})
 }
@@ -91,14 +91,14 @@ func TestRegisterNewMultilineReactionTrigger(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Register new trigger
-	if assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with ```{\n\"attributes\"=1.0\n}\n```"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	if assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with ```{\n\"attributes\"=1.0\n}\n```"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new standard trigger [`deal with it` => ```{\n\"attributes\"=1.0\n}\n```]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "```{\n\"attributes\"=1.0\n}\n```") && assertanswer.HasOptions(t, answers[0])
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "```{\n\"attributes\"=1.0\n}\n```") && assertanswer.HasOptions(t, answers[0])
 		})
 	}
@@ -115,22 +115,22 @@ func TestRegisterNewEmojiTrigger(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	if assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> emoji trigger on deal with it with :boom::cat:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	if assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> emoji trigger on deal with it with :boom::cat:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Registered new emoji trigger [`deal with it` => :boom:, :cat:]") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with nothing"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, emojis) && assert.Empty(t, answers)
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with itself"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with itself"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, emojis) && assert.Empty(t, answers)
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, answers) && assert.Contains(t, emojis, "boom", "cat")
 		})
 
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "DEAL WITH IT"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, answers) && assert.Contains(t, emojis, "boom", "cat")
 		})
 	}
@@ -142,7 +142,7 @@ func TestRegisterNewEmojiTriggerWithoutEmojis(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> emoji trigger on deal with it with what are emojis?"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> emoji trigger on deal with it with what are emojis?"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Invalid reaction for emoji trigger: `<reaction emojis>` doesn't include any emojis") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
 }
@@ -158,7 +158,7 @@ func TestErrorGettingTriggersWhenReacting(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Validate trigger reaction is absent because of the error listing triggers
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, answers) && assert.Empty(t, emojis)
 	})
 }
@@ -174,7 +174,7 @@ func TestErrorGettingGlobalTriggersWhenReacting(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Validate trigger reaction is absent because of the error listing triggers
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, answers) && assert.Empty(t, emojis)
 	})
 }
@@ -221,7 +221,7 @@ func TestNoAnswersAndNoEmojisWhenNoTriggers(t *testing.T) {
 	triggerer := plugins.NewTriggerer(mockStorer)
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, answers) && assert.Empty(t, emojis)
 	})
 }
@@ -237,7 +237,7 @@ func TestErrorOnRegisterNewTrigger(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Register new trigger and get an error persisting it
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://dealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error persisting standard trigger [`deal with it` => `http://dealwithit.gif`]: `Mock error`") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -255,11 +255,11 @@ func TestUpdateTrigger(t *testing.T) {
 	triggerer := plugins.NewTriggerer(mockStorer)
 	assertplugin := assertplugin.New(t, "bot")
 
-	if assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://betterdealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	if assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://betterdealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Replaced standard trigger reaction for [`deal with it`] with [`http://betterdealwithit.gif`] (was [`http://dealwithit.gif`] previously)") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// Validate updated trigger reaction
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "http://betterdealwithit.gif") && assertanswer.HasOptions(t, answers[0])
 		})
 	}
@@ -277,11 +277,11 @@ func TestUpdateEmojiTrigger(t *testing.T) {
 	triggerer := plugins.NewTriggerer(mockStorer)
 	assertplugin := assertplugin.New(t, "bot")
 
-	if assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> emoji trigger on deal with it with :boom:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	if assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> emoji trigger on deal with it with :boom:"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Replaced emoji trigger reaction for [`deal with it`] with [:boom:] (was [:man-in-suit:] previously)") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// Validate updated trigger reaction
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, answers) && assert.Contains(t, emojis, "boom")
 		})
 	}
@@ -298,7 +298,7 @@ func TestErrorOnUpdateTrigger(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Attempt to update trigger and expect error message
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://betterdealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> trigger on deal with it with http://betterdealwithit.gif"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error persisting standard trigger [`deal with it` => `http://betterdealwithit.gif`]: `Mock error`") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -315,7 +315,7 @@ func TestDeleteTrigger(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Deleted standard trigger [`deal with it` => `http://dealwithit.gif`]") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -334,7 +334,7 @@ func TestDeleteGlobalTrigger(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Deleted standard trigger [`deal with it` => `http://global.gif`]") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -352,12 +352,12 @@ func TestDeleteEmojiTrigger(t *testing.T) {
 	triggerer := plugins.NewTriggerer(mockStorer)
 	assertplugin := assertplugin.New(t, "bot")
 
-	if assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget emoji trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	if assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget emoji trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Deleted emoji trigger [`deal with it` => :boom:]") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	}) {
 		// Validate no reaction
-		assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 			return assert.Empty(t, emojis) && assert.Empty(t, answers)
 		})
 	}
@@ -375,7 +375,7 @@ func TestDeleteTriggerNotFound(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// Delete trigger
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "No standard trigger found on `deal with it`") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -391,7 +391,7 @@ func TestErrorOnDeleteTrigger(t *testing.T) {
 	triggerer := plugins.NewTriggerer(mockStorer)
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error removing standard trigger [`deal with it` => `http://dealwithit.gif`]: `Mock error`") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -408,7 +408,7 @@ func TestErrorOnDeleteGlobalTrigger(t *testing.T) {
 	triggerer := plugins.NewTriggerer(mockStorer)
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> forget trigger on deal with it"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error removing standard trigger [`deal with it` => `http://funnygif.gif`]: `Mock error`") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -425,7 +425,7 @@ func TestListTriggers(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// List triggers
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current triggers: \n     • `deal with it` => `http://dealwithit.gif`\n     • `suddenly`     => ```{\n\"attributes\"=1.0\n}\n```\n\n") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -442,7 +442,7 @@ func TestListEmojiTriggers(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// List triggers
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> list emoji triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> list emoji triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Here are the current emoji triggers: \n     • `deal with it` => :sunglasses:\n     • `suddenly`     => :scream:, :ghost:\n\n") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
@@ -458,7 +458,7 @@ func TestErrorOnListTriggers(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	// List triggers
-	assertplugin.AnswersAndReacts(&triggerer.Plugin, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(triggerer, &slack.Msg{Channel: "myLittleChan", Text: "<@bot> list triggers"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, emojis) && assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Error loading triggers:\n```Mock error```") &&
 			assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.ThreadedReplyOpt, Value: "true"}, assertanswer.ResolvedAnswerOption{Key: slackscot.BroadcastOpt, Value: "false"})
 	})
