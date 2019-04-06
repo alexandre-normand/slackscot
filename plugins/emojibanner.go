@@ -70,7 +70,7 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (toClose io.Closer, emojiBanner
 
 	ebm := new(EmojiBannerMaker)
 	ebm.Plugin = plugin.New(EmojiBannerPluginName).
-		WithCommand(actions.New().
+		WithCommand(actions.NewCommand().
 			WithMatcher(func(m *slackscot.IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "emoji banner")
 			}).
