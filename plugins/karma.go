@@ -3,6 +3,8 @@ package plugins
 import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/actions"
+	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/alexandre-normand/slackscot/store"
 	"github.com/nlopes/slack"
 	"regexp"
@@ -13,7 +15,7 @@ import (
 
 // Karma holds the plugin data for the karma plugin
 type Karma struct {
-	slackscot.Plugin
+	*slackscot.Plugin
 	karmaStorer store.GlobalSiloStringStorer
 }
 
@@ -81,60 +83,52 @@ func init() {
 }
 
 // NewKarma creates a new instance of the Karma plugin
-func NewKarma(strStorer store.GlobalSiloStringStorer) (karma *Karma) {
+func NewKarma(storer store.GlobalSiloStringStorer) (karma *slackscot.Plugin) {
 	k := new(Karma)
 
-	hearActions := []slackscot.ActionDefinition{
-		{
-			Hidden:      false,
-			Match:       matchKarmaRecord,
-			Usage:       "thing++ or thing--",
-			Description: "Keep track of karma",
-			Answer:      k.recordKarma,
-		}}
+	k.Plugin = plugin.New(KarmaPluginName).
+		WithCommandNamespacing().
+		WithCommand(actions.New().
+			WithMatcher(matchKarmaTopReport).
+			WithUsage("top [count]").
+			WithDescriptionf("Return the top things ever recorded in this channel (default of %d items)", defaultItemCount).
+			WithAnswerer(k.answerKarmaTop).
+			Build()).
+		WithCommand(actions.New().
+			WithMatcher(matchKarmaWorstReport).
+			WithUsage("worst [count]").
+			WithDescriptionf("Return the worst things ever recorded in this channel (default of %d items)", defaultItemCount).
+			WithAnswerer(k.answerKarmaWorst).
+			Build()).
+		WithCommand(actions.New().
+			WithMatcher(matchGlobalKarmaTopReport).
+			WithUsage("global top [count]").
+			WithDescriptionf("Return the top things ever over all channels (default of %d items)", defaultItemCount).
+			WithAnswerer(k.answerGlobalKarmaTop).
+			Build()).
+		WithCommand(actions.New().
+			WithMatcher(matchGlobalKarmaWorstReport).
+			WithUsage("global worst [count]").
+			WithDescriptionf("Return the worst things ever over all channels (default of %d items)", defaultItemCount).
+			WithAnswerer(k.answerGlobalKarmaWorst).
+			Build()).
+		WithCommand(actions.New().
+			WithMatcher(matchKarmaReset).
+			WithUsage("reset").
+			WithDescription("Resets all recorded karma for the current channel").
+			WithAnswerer(k.clearChannelKarma).
+			Build()).
+		WithHearAction(actions.New().
+			WithMatcher(matchKarmaRecord).
+			WithUsage("thing++ or thing--").
+			WithDescription("Keep track of karma").
+			WithAnswerer(k.recordKarma).
+			Build()).
+		Build()
 
-	commands := []slackscot.ActionDefinition{
-		{
-			Hidden:      false,
-			Match:       matchKarmaTopReport,
-			Usage:       "top [count]",
-			Description: fmt.Sprintf("Return the top things ever recorded in this channel (default of %d items)", defaultItemCount),
-			Answer:      k.answerKarmaTop,
-		},
-		{
-			Hidden:      false,
-			Match:       matchKarmaWorstReport,
-			Usage:       "worst [count]",
-			Description: fmt.Sprintf("Return the worst things ever recorded in this channel (default of %d items)", defaultItemCount),
-			Answer:      k.answerKarmaWorst,
-		},
-		{
-			Hidden:      false,
-			Match:       matchGlobalKarmaTopReport,
-			Usage:       "global top [count]",
-			Description: fmt.Sprintf("Return the top things ever over all channels (default of %d items)", defaultItemCount),
-			Answer:      k.answerGlobalKarmaTop,
-		},
-		{
-			Hidden:      false,
-			Match:       matchGlobalKarmaWorstReport,
-			Usage:       "global worst [count]",
-			Description: fmt.Sprintf("Return the worst things ever over all channels (default of %d items)", defaultItemCount),
-			Answer:      k.answerGlobalKarmaWorst,
-		},
-		{
-			Hidden:      false,
-			Match:       matchKarmaReset,
-			Usage:       "reset",
-			Description: "Resets all recorded karma for the current channel",
-			Answer:      k.clearChannelKarma,
-		},
-	}
+	k.karmaStorer = storer
 
-	k.Plugin = slackscot.Plugin{Name: KarmaPluginName, NamespaceCommands: true, Commands: commands, HearActions: hearActions}
-	k.karmaStorer = strStorer
-
-	return k
+	return k.Plugin
 }
 
 // matchKarmaRecord returns true if the message matches karma++ or karma-- (karma being any word)
