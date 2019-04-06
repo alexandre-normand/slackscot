@@ -11,31 +11,31 @@ import (
 )
 
 func TestSendValidVersionMessage(t *testing.T) {
-	v := plugins.NewVersionner("little-red", "1.0.0")
-	assert.NotNil(t, v)
+	p := plugins.NewVersionner("little-red", "1.0.0")
+	assert.NotNil(t, p)
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&v.Plugin, &slack.Msg{Text: "<@bot> version"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(p, &slack.Msg{Text: "<@bot> version"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "I'm `little-red`, version `1.0.0`")
 	})
 }
 
 func TestMatchOnVersionCommand(t *testing.T) {
-	v := plugins.NewVersionner("little-red", "1.0.0")
-	assert.NotNil(t, v)
+	p := plugins.NewVersionner("little-red", "1.0.0")
+	assert.NotNil(t, p)
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(&v.Plugin, &slack.Msg{Text: "<@bot> version"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(p, &slack.Msg{Text: "<@bot> version"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1)
 	})
 
-	assertplugin.AnswersAndReacts(&v.Plugin, &slack.Msg{Text: "<@bot>  version"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(p, &slack.Msg{Text: "<@bot>  version"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 0)
 	})
 
-	assertplugin.AnswersAndReacts(&v.Plugin, &slack.Msg{Text: "<@bot> version "}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(p, &slack.Msg{Text: "<@bot> version "}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Len(t, answers, 1)
 	})
 }
