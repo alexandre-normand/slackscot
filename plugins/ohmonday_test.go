@@ -16,13 +16,13 @@ func TestSendValidGreetingEachTimeCalled(t *testing.T) {
 	pc.Set("channelIDs", []string{"channel1", "channel2"})
 	pc.Set("atTime", "09:00")
 
-	o, err := plugins.NewOhMonday(pc)
+	p, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
 
 	for i := 0; i < 100; i++ {
-		assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "09:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
+		assertplugin.RunsOnSchedule(p, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "09:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 			return assert.Contains(t, sentMsgs, "channel1") && assert.Len(t, sentMsgs["channel1"], 1) && assert.Contains(t, sentMsgs["channel1"][0], "https://") &&
 				assert.Contains(t, sentMsgs, "channel2") && assert.Len(t, sentMsgs["channel2"], 1) && assert.Contains(t, sentMsgs["channel2"][0], "https://")
 		})
@@ -33,11 +33,11 @@ func TestDefaultAtTime(t *testing.T) {
 	pc := viper.New()
 	pc.Set("channelIDs", "testChannel")
 
-	o, err := plugins.NewOhMonday(pc)
+	p, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
+	assertplugin.RunsOnSchedule(p, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return true
 	})
 }
@@ -45,11 +45,11 @@ func TestDefaultAtTime(t *testing.T) {
 func TestMissingChannelIDs(t *testing.T) {
 	pc := viper.New()
 
-	o, err := plugins.NewOhMonday(pc)
+	p, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
+	assertplugin.RunsOnSchedule(p, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return assert.Empty(t, sentMsgs)
 	})
 }
@@ -58,11 +58,11 @@ func TestEmptyChannels(t *testing.T) {
 	pc := viper.New()
 	pc.Set("channelIDs", "")
 
-	o, err := plugins.NewOhMonday(pc)
+	p, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
+	assertplugin.RunsOnSchedule(p, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "10:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return assert.Empty(t, sentMsgs)
 	})
 }
@@ -72,11 +72,11 @@ func TestAtTimeOverride(t *testing.T) {
 	pc.Set("channelIDs", "testChannel")
 	pc.Set("atTime", "11:00")
 
-	o, err := plugins.NewOhMonday(pc)
+	p, err := plugins.NewOhMonday(pc)
 	assert.NoError(t, err)
 
 	assertplugin := assertplugin.New(t, "bot")
-	assertplugin.RunsOnSchedule(&o.Plugin, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
+	assertplugin.RunsOnSchedule(p, schedule.Definition{Interval: 1, Weekday: time.Monday.String(), Unit: schedule.Weeks, AtTime: "11:00"}, func(t *testing.T, sentMsgs map[string][]string, fileUploads []slack.FileUploadParameters) bool {
 		return true
 	})
 }

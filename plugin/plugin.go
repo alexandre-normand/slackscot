@@ -40,7 +40,7 @@ func (pb *PluginBuilder) WithCommandNamespacing() *PluginBuilder {
 }
 
 // WithScheduledAction adds a scheduled action to the plugin
-func (pb *PluginBuilder) ScheduledAction(scheduledAction slackscot.ScheduledActionDefinition) *PluginBuilder {
+func (pb *PluginBuilder) WithScheduledAction(scheduledAction slackscot.ScheduledActionDefinition) *PluginBuilder {
 	pb.plugin.ScheduledActions = append(pb.plugin.ScheduledActions, scheduledAction)
 	return pb
 }

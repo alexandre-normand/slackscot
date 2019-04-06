@@ -5,6 +5,7 @@ package plugins
 import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/config"
+	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/alexandre-normand/slackscot/schedule"
 	"math/rand"
 	"time"
@@ -72,22 +73,25 @@ var selectionRandom = rand.New(rand.NewSource(time.Now().Unix()))
 
 // OhMonday holds the plugin data for the Oh Monday plugin
 type OhMonday struct {
-	slackscot.Plugin
+	*slackscot.Plugin
 	channels []string
 }
 
 // NewOhMonday creates a new instance of the OhMonday plugin
-func NewOhMonday(c *config.PluginConfig) (o *OhMonday, err error) {
+func NewOhMonday(c *config.PluginConfig) (p *slackscot.Plugin, err error) {
 	c.SetDefault(atTimeKey, defaultAtTime)
 
 	scheduleDefinition := schedule.Definition{Interval: 1, Unit: schedule.Weeks, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
 
-	o = new(OhMonday)
-	o.Name = OhMondayPluginName
+	o := new(OhMonday)
 	o.channels = c.GetStringSlice(ohMondayChannelIDsKey)
-	o.ScheduledActions = []slackscot.ScheduledActionDefinition{{Schedule: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: o.sendGreeting}}
 
-	return o, nil
+	// TODO Come back to this and use to-be-added scheduled action fluent building api
+	o.Plugin = plugin.New(OhMondayPluginName).
+		WithScheduledAction(slackscot.ScheduledActionDefinition{Schedule: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: o.sendGreeting}).
+		Build()
+
+	return o.Plugin, nil
 }
 
 func (o *OhMonday) sendGreeting() {
