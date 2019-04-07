@@ -1,10 +1,50 @@
+/*
+Package plugin provides a fluent API for creating slackscot plugins. Typical usages
+will also involve using the actions fluent API from github.com/alexandre-normand/slackscot/actions.
+
+Plugin examples using this API can be found in github.com/alexandre-normand/slackscot/plugins but
+a quick one could look like:
+
+	import (
+		"github.com/alexandre-normand/slackscot"
+		"github.com/alexandre-normand/slackscot/plugin"
+		"github.com/alexandre-normand/slackscot/actions"
+	)
+
+	func newPlugin() (p *slackscot.Plugin) {
+		p = plugin.New("maker").
+		    WithCommand(actions.NewCommand().
+				WithMatcher(func(m *slackscot.IncomingMessage) bool {
+					return strings.HasPrefix(m.NormalizedText, "make")
+				}).
+				WithUsage("make <something>").
+				WithDescription("Make the `<something>` you need").
+				WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
+					return &slackscot.Answer{Text: fmt.Sprintf(":white_check_mark: It's ready for you!")}
+				}).
+				Build()).
+			WithHearAction(actions.NewHearAction().
+				Hidden().
+				WithMatcher(func(m *slackscot.IncomingMessage) bool {
+					return strings.HasPrefix(m.NormalizedText, "chirp")
+				}).
+				WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
+					return &slackscot.Answer{Text: "Did I hear a bird?"}
+				}).
+				Build()
+		     ).
+			Build()
+		return p
+	}
+*/
 package plugin
 
 import (
 	"github.com/alexandre-normand/slackscot"
 )
 
-// PluginBuilder holds a plugin to build
+// PluginBuilder holds a plugin to build. This is used to set up
+// a plugin that can be returned using Build
 type PluginBuilder struct {
 	plugin *slackscot.Plugin
 }
