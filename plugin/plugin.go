@@ -22,7 +22,8 @@ a quick one could look like:
 				WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
 					return &slackscot.Answer{Text: fmt.Sprintf(":white_check_mark: It's ready for you!")}
 				}).
-				Build()).
+				Build()
+			 ).
 			WithHearAction(actions.NewHearAction().
 				Hidden().
 				WithMatcher(func(m *slackscot.IncomingMessage) bool {
@@ -31,6 +32,12 @@ a quick one could look like:
 				WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
 					return &slackscot.Answer{Text: "Did I hear a bird?"}
 				}).
+				Build()
+		     ).
+		    WithScheduledAction(actions.NewScheduledAction().
+				WithSchedule(schedule.New().Every(time.Monday.string()).AtTime("10:00").Build()).
+				WithDescription("Start the week off").
+				WithAction(weeklyKickoff).
 				Build()
 		     ).
 			Build()

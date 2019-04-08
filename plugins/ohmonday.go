@@ -4,6 +4,7 @@ package plugins
 
 import (
 	"github.com/alexandre-normand/slackscot"
+	"github.com/alexandre-normand/slackscot/actions"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/alexandre-normand/slackscot/schedule"
@@ -81,14 +82,18 @@ type OhMonday struct {
 func NewOhMonday(c *config.PluginConfig) (p *slackscot.Plugin, err error) {
 	c.SetDefault(atTimeKey, defaultAtTime)
 
-	scheduleDefinition := schedule.Definition{Interval: 1, Unit: schedule.Weeks, Weekday: time.Monday.String(), AtTime: c.GetString(atTimeKey)}
-
 	o := new(OhMonday)
 	o.channels = c.GetStringSlice(ohMondayChannelIDsKey)
 
-	// TODO Come back to this and use to-be-added scheduled action fluent building api
 	o.Plugin = plugin.New(OhMondayPluginName).
-		WithScheduledAction(slackscot.ScheduledActionDefinition{Schedule: scheduleDefinition, Description: "Start the week off with a nice greeting", Action: o.sendGreeting}).
+		WithScheduledAction(actions.NewScheduledAction().
+			WithSchedule(schedule.New().
+				Every(time.Monday.String()).
+				AtTime(c.GetString(atTimeKey)).
+				Build()).
+			WithDescription("Start the week off with a nice greeting").
+			WithAction(o.sendGreeting).
+			Build()).
 		Build()
 
 	return o.Plugin, nil
