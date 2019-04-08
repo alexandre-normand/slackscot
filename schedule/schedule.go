@@ -14,7 +14,7 @@ type Definition struct {
 	Interval uint64
 
 	// Must be set explicitly or implicitly ("weeks" is implicitly set when "Weekday" is set). Valid time units are: "weeks", "hours", "days", "minutes", "seconds"
-	Unit string
+	Unit IntervalUnit
 
 	// Optional day of the week. If set, unit and interval are ignored and implicitly considered to be "every 1 week"
 	Weekday string
@@ -23,13 +23,16 @@ type Definition struct {
 	AtTime string
 }
 
+type DayOfWeek string
+type IntervalUnit string
+
 // Unit values
 const (
-	Weeks   = "weeks"
-	Hours   = "hours"
-	Days    = "days"
-	Minutes = "minutes"
-	Seconds = "seconds"
+	Weeks   = IntervalUnit("weeks")
+	Hours   = IntervalUnit("hours")
+	Days    = IntervalUnit("days")
+	Minutes = IntervalUnit("minutes")
+	Seconds = IntervalUnit("seconds")
 )
 
 var weekdayToNumeral = map[string]time.Weekday{
@@ -51,7 +54,7 @@ func (d Definition) String() string {
 	if d.Weekday != "" {
 		fmt.Fprintf(&b, "%s", d.Weekday)
 	} else if d.Interval == 1 {
-		fmt.Fprintf(&b, "%s", strings.TrimSuffix(d.Unit, "s"))
+		fmt.Fprintf(&b, "%s", strings.TrimSuffix(string(d.Unit), "s"))
 	} else {
 		fmt.Fprintf(&b, "%d %s", d.Interval, d.Unit)
 	}
@@ -61,6 +64,49 @@ func (d Definition) String() string {
 	}
 
 	return b.String()
+}
+
+// ScheduleDefinitionBuilder holds a schedule Definition to build
+type ScheduleDefinitionBuilder struct {
+	definition Definition
+}
+
+// New creates a new ScheduleDefinitionBuilder to set up a schedule Definition
+func New() (sdb *ScheduleDefinitionBuilder) {
+	sdb = new(ScheduleDefinitionBuilder)
+	sdb.definition = Definition{Interval: 1}
+
+	return sdb
+}
+
+// WithInterval sets the schedule interval and unit (every week would be interval 1 and unit Weeks)
+func (sdb *ScheduleDefinitionBuilder) WithInterval(interval uint64, unit IntervalUnit) *ScheduleDefinitionBuilder {
+	sdb.definition.Interval = interval
+	sdb.definition.Unit = unit
+	return sdb
+}
+
+// WithUnit sets the schedule interval unit. Can't be set along with weekday (via Every)
+func (sdb *ScheduleDefinitionBuilder) WithUnit(unit IntervalUnit) *ScheduleDefinitionBuilder {
+	sdb.definition.Unit = unit
+	return sdb
+}
+
+// Every sets the day of the week to run on. Use time.<Day>.String() values. Can't be set along with WithUnit
+func (sdb *ScheduleDefinitionBuilder) Every(weekday string) *ScheduleDefinitionBuilder {
+	sdb.definition.Weekday = weekday
+	return sdb
+}
+
+// AtTime sets the time of the day to run. Only makes sense for schedules with an interval larger than 1 day
+func (sdb *ScheduleDefinitionBuilder) AtTime(atTime string) *ScheduleDefinitionBuilder {
+	sdb.definition.AtTime = atTime
+	return sdb
+}
+
+// Build returns the schedule Definition
+func (sdb *ScheduleDefinitionBuilder) Build() Definition {
+	return sdb.definition
 }
 
 // Option defines an option for a Slackscot
@@ -89,7 +135,7 @@ func optionWeekday(weekday string) func(j *gocron.Job) {
 }
 
 // optionUnit sets the unit of a recurring job
-func optionUnit(unit string) func(j *gocron.Job) {
+func optionUnit(unit IntervalUnit) func(j *gocron.Job) {
 	return func(j *gocron.Job) {
 		switch unit {
 		case Weeks:
@@ -126,6 +172,10 @@ func NewJob(s *gocron.Scheduler, def Definition) (j *gocron.Job, err error) {
 	}
 
 	if def.AtTime != "" {
+		if def.Unit == Minutes || def.Unit == Hours || def.Unit == Seconds {
+			return nil, fmt.Errorf("Can't run job on schedule [%s] with AtTime in conjunction with a sub-day IntervalUnit", def)
+		}
+
 		scheduleOptions = append(scheduleOptions, optionAtTime(def.AtTime))
 	}
 

@@ -42,35 +42,53 @@ func TestScheduleDefinitionString(t *testing.T) {
 	}
 }
 
+func TestScheduleDefinitionBuilder(t *testing.T) {
+	scheduleDefinitionToString := []struct {
+		sd             schedule.Definition
+		friendlyString string
+	}{
+		{schedule.New().Every(time.Monday.String()).AtTime("10:00").Build(), "Every Monday at 10:00"},
+		{schedule.New().WithUnit(schedule.Seconds).Build(), "Every second"},
+		{schedule.New().WithInterval(2, schedule.Seconds).Build(), "Every 2 seconds"},
+		{schedule.New().Every(time.Monday.String()).Build(), "Every Monday"},
+	}
+
+	for _, testCase := range scheduleDefinitionToString {
+		t.Run(testCase.friendlyString, func(t *testing.T) {
+			friendlyStr := testCase.sd.String()
+			assert.Equalf(t, testCase.friendlyString, friendlyStr, "Expected different string value for schedule definition: %v", testCase.sd)
+		})
+	}
+}
+
 func TestNewScheduledJobFromScheduleDefinition(t *testing.T) {
 	scheduleDefinitionToResult := []struct {
 		sd           schedule.Definition
-		valid        bool
 		errorMessage string
 	}{
-		{schedule.Definition{Interval: 1, Weekday: time.Monday.String(), AtTime: "10:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Weekday: time.Tuesday.String(), AtTime: "09:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Weekday: time.Wednesday.String(), AtTime: "08:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Weekday: time.Thursday.String(), AtTime: "07:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Weekday: time.Friday.String(), AtTime: "06:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Weekday: time.Saturday.String(), AtTime: "05:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Weekday: time.Sunday.String(), AtTime: "04:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Unit: schedule.Seconds}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Seconds}, true, ""},
-		{schedule.Definition{Interval: 1, Unit: schedule.Minutes}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Minutes}, true, ""},
-		{schedule.Definition{Interval: 1, Unit: schedule.Hours}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Hours}, true, ""},
-		{schedule.Definition{Interval: 1, Unit: schedule.Days}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Days}, true, ""},
-		{schedule.Definition{Interval: 1, Unit: schedule.Days, AtTime: "10:00"}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Days, AtTime: "10:00"}, true, ""},
-		{schedule.Definition{Interval: 1, Unit: schedule.Weeks}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Weeks}, true, ""},
-		{schedule.Definition{Interval: 2, Unit: schedule.Weeks, Weekday: time.Monday.String()}, true, ""}, // When we have a weekday, we ignore units so it's still valid
-		{schedule.Definition{Interval: 1, Unit: schedule.Seconds, AtTime: "10:00"}, true, ""},             // gocron just ignores AtTime when not relevant to the unit
-		{schedule.Definition{Interval: 1, Unit: schedule.Minutes, AtTime: "10:00"}, true, ""},             // gocron just ignores AtTime when not relevant to the unit
-		{schedule.Definition{Interval: 1, Unit: schedule.Hours, AtTime: "10:00"}, true, ""},               // gocron just ignores AtTime when not relevant to the unit
+		{schedule.Definition{Interval: 1, Weekday: time.Monday.String(), AtTime: "10:00"}, ""},
+		{schedule.Definition{Interval: 1, Weekday: time.Tuesday.String(), AtTime: "09:00"}, ""},
+		{schedule.Definition{Interval: 1, Weekday: time.Wednesday.String(), AtTime: "08:00"}, ""},
+		{schedule.Definition{Interval: 1, Weekday: time.Thursday.String(), AtTime: "07:00"}, ""},
+		{schedule.Definition{Interval: 1, Weekday: time.Friday.String(), AtTime: "06:00"}, ""},
+		{schedule.Definition{Interval: 1, Weekday: time.Saturday.String(), AtTime: "05:00"}, ""},
+		{schedule.Definition{Interval: 1, Weekday: time.Sunday.String(), AtTime: "04:00"}, ""},
+		{schedule.Definition{Interval: 1, Unit: schedule.Seconds}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Seconds}, ""},
+		{schedule.Definition{Interval: 1, Unit: schedule.Minutes}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Minutes}, ""},
+		{schedule.Definition{Interval: 1, Unit: schedule.Hours}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Hours}, ""},
+		{schedule.Definition{Interval: 1, Unit: schedule.Days}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Days}, ""},
+		{schedule.Definition{Interval: 1, Unit: schedule.Days, AtTime: "10:00"}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Days, AtTime: "10:00"}, ""},
+		{schedule.Definition{Interval: 1, Unit: schedule.Weeks}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Weeks}, ""},
+		{schedule.Definition{Interval: 2, Unit: schedule.Weeks, Weekday: time.Monday.String()}, ""}, // When we have a weekday, we ignore units so it's still valid
+		{schedule.Definition{Interval: 1, Unit: schedule.Seconds, AtTime: "10:00"}, "Can't run job on schedule [Every second at 10:00] with AtTime in conjunction with a sub-day IntervalUnit"},
+		{schedule.Definition{Interval: 1, Unit: schedule.Minutes, AtTime: "10:00"}, "Can't run job on schedule [Every minute at 10:00] with AtTime in conjunction with a sub-day IntervalUnit"},
+		{schedule.Definition{Interval: 1, Unit: schedule.Hours, AtTime: "10:00"}, "Can't run job on schedule [Every hour at 10:00] with AtTime in conjunction with a sub-day IntervalUnit"},
 	}
 
 	scheduler := gocron.NewScheduler()
@@ -79,11 +97,11 @@ func TestNewScheduledJobFromScheduleDefinition(t *testing.T) {
 
 			_, err := schedule.NewJob(scheduler, testCase.sd)
 
-			if testCase.valid {
+			if testCase.errorMessage == "" {
 				assert.Nilf(t, err, "Expected valid job to be created for schedule definition: %v", testCase.sd)
 			} else {
-				if assert.NotNil(t, err) {
-					assert.Contains(t, err.Error(), testCase.errorMessage)
+				if assert.Error(t, err) {
+					assert.Equal(t, testCase.errorMessage, err.Error())
 				}
 			}
 		})
