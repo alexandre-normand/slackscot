@@ -261,6 +261,21 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	return s, nil
 }
 
+// Close closes all closers of this slackscot. The first error that occurs
+// during a Close is returned but regardless, all closers are attempted
+// to be closed
+func (s *Slackscot) Close() (err error) {
+	for _, c := range s.closers {
+		if err == nil {
+			err = c.Close()
+		} else {
+			c.Close()
+		}
+	}
+
+	return err
+}
+
 // RegisterPlugin registers a plugin with the Slackscot engine. This should be invoked
 // prior to calling Run
 func (s *Slackscot) RegisterPlugin(p *Plugin) {

@@ -768,6 +768,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 
 	<-termination
 
+	s.Close()
 	return inMemoryChatDriver.sentMsgs, inMemoryChatDriver.updatedMsgs, inMemoryChatDriver.deletedMsgs, rtmSenderCaptor
 }
 
