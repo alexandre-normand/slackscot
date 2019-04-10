@@ -71,9 +71,7 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (toClose io.Closer, emojiBanner
 	ebm := new(EmojiBannerMaker)
 	ebm.Plugin = plugin.New(EmojiBannerPluginName).
 		WithCommand(actions.NewCommand().
-			WithMatcher(func(m *slackscot.IncomingMessage) bool {
-				return strings.HasPrefix(m.NormalizedText, "emoji banner")
-			}).
+			WithMatcher(matchBannerCommand).
 			WithUsage("emoji banner <word of 5 characters or less> <emoji>").
 			WithDescription("Renders a single-word banner with the provided emoji").
 			WithAnswerer(func(m *slackscot.IncomingMessage) *slackscot.Answer {
@@ -84,6 +82,11 @@ func NewEmojiBannerMaker(c *config.PluginConfig) (toClose io.Closer, emojiBanner
 	ebm.tempDirFontPath = tempDirFontPath
 
 	return ebm, ebm.Plugin, nil
+}
+
+// matchBannerCommand returns true if the incoming message starts with emoji banner
+func matchBannerCommand(m *slackscot.IncomingMessage) bool {
+	return strings.HasPrefix(m.NormalizedText, "emoji banner")
 }
 
 // Close cleans up resources (temp font directory) used by the plugin

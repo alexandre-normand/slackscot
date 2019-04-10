@@ -94,6 +94,61 @@ func TestNewSlackscotWithCloserAndErr(t *testing.T) {
 	assert.Nil(t, b)
 }
 
+func TestNewSlackscotWithConfigurablePluginMissingConfig(t *testing.T) {
+	b, err := slackscot.NewBot("jane", config.NewViperWithDefaults()).
+		WithConfigurablePluginErr("tester", func(c *config.PluginConfig) (p *slackscot.Plugin, err error) { return newPluginWithErr("") }).
+		WithConfigurablePluginErr("testerClone", func(c *config.PluginConfig) (p *slackscot.Plugin, err error) { return newPluginWithErr("") }).
+		Build()
+
+	require.Error(t, err)
+	assert.EqualError(t, err, "Missing plugin configuration for plugin [tester] at [plugins.tester]")
+	assert.Nil(t, b)
+}
+
+func TestNewSlackscotWithConfigurablePluginValidConfig(t *testing.T) {
+	c := config.NewViperWithDefaults()
+	c.Set("plugins.tester", map[string]string{"enabled": "true"})
+
+	b, err := slackscot.NewBot("jane", c).
+		WithConfigurablePluginErr("tester", func(c *config.PluginConfig) (p *slackscot.Plugin, err error) { return newPluginWithErr("") }).
+		Build()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, b)
+}
+
+func TestNewSlackscotWithConfigurableCloserPluginMissingConfig(t *testing.T) {
+	b, err := slackscot.NewBot("jane", config.NewViperWithDefaults()).
+		WithConfigurablePluginCloserErr("tester", func(conf *config.PluginConfig) (c io.Closer, p *slackscot.Plugin, err error) {
+			p, err = newPluginWithErr("")
+			return CloseTester{}, p, err
+		}).
+		WithConfigurablePluginCloserErr("testerClone", func(conf *config.PluginConfig) (c io.Closer, p *slackscot.Plugin, err error) {
+			p, err = newPluginWithErr("")
+			return CloseTester{}, p, err
+		}).
+		Build()
+
+	require.Error(t, err)
+	assert.EqualError(t, err, "Missing plugin configuration for plugin [tester] at [plugins.tester]")
+	assert.Nil(t, b)
+}
+
+func TestNewSlackscotWithConfigurableCloserPluginValidConfig(t *testing.T) {
+	c := config.NewViperWithDefaults()
+	c.Set("plugins.tester", map[string]string{"enabled": "true"})
+
+	b, err := slackscot.NewBot("jane", c).
+		WithConfigurablePluginCloserErr("tester", func(conf *config.PluginConfig) (c io.Closer, p *slackscot.Plugin, err error) {
+			p, err = newPluginWithErr("")
+			return CloseTester{}, p, err
+		}).
+		Build()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, b)
+}
+
 // newPlugin returns a new tester plugin
 func newPlugin() (p *slackscot.Plugin) {
 	p = new(slackscot.Plugin)

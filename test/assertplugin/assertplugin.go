@@ -98,18 +98,22 @@ func (a *Asserter) AnswersAndReactsWithUploads(p *slackscot.Plugin, m *slack.Msg
 // run all actions scheduled to run every hour) and collects all the sent messages. Once all have been collected,
 // the results are passed to the ScheduleResultValidator as a map[string][]string where the key is the channel id
 // and the value holds the messages sent to that channel
-func (a *Asserter) RunsOnSchedule(p *slackscot.Plugin, schedule schedule.Definition, validate ScheduleResultValidator) (valid bool) {
+func (a *Asserter) RunsOnSchedule(p *slackscot.Plugin, expected schedule.Definition, validate ScheduleResultValidator) (valid bool) {
 	_, fileUploadCaptor, rtmSender := a.injectServices(p)
 
 	didOneRun := false
+	schedules := make([]schedule.Definition, 0)
+
 	for _, action := range p.ScheduledActions {
-		if action.Schedule == schedule {
+		schedules = append(schedules, action.Schedule)
+
+		if action.Schedule == expected {
 			action.Action()
 			didOneRun = true
 		}
 	}
 
-	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did", schedule) && validate(a.t, rtmSender.SentMessages, fileUploadCaptor.FileUploads)
+	return assert.Truef(a.t, didOneRun, "Expected at least one action to run on schedule [%s] but none did. Actual plugin action schedules: %s", expected, schedules) && validate(a.t, rtmSender.SentMessages, fileUploadCaptor.FileUploads)
 }
 
 // DoesNotRunOnSchedule drives a plugin's scheduled actions and validate that none of the

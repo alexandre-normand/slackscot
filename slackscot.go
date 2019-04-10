@@ -1,7 +1,3 @@
-// Package slackscot provides the building blocks to create a slack bot. It is
-// easily extendable via plugins that can combine commands, hear actions (listeners) as well
-// as scheduled actions. It also supports updating of triggered responses on message updates as well
-// as deleting triggered responses when the triggering messages are deleted by users.
 package slackscot
 
 import (
