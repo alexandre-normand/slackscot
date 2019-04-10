@@ -30,9 +30,9 @@ Example code (from https://github.com/alexandre-normand/youppi):
 		youppi, err := slackscot.NewBot("youppi", v, options...).
 			WithPlugin(plugins.NewKarma(karmaStorer)).
 			WithPlugin(plugins.NewTriggerer(triggererStorer)).
-			WithConfigurablePluginErr(plugins.FingerQuoterPluginName, func(conf *config.PluginConfig) (p *slackscot.Plugin, err) { plugins.NewFingerQuoter(c) }).
-			WithConfigurablePluginCloserErr(plugins.EmojiBannerPluginName, func(conf *config.PluginConfig) (c io.Closer, p *slackscot.Plugin, err) { plugins.NewEmojiBannerMaker(c) }).
-			WithConfigurablePluginErr(plugins.OhMondayPluginName, func(conf *config.PluginConfig) (p *slackscot.Plugin, err) { plugins.NewOhMonday(c) }).
+			WithConfigurablePluginErr(plugins.FingerQuoterPluginName, func(conf *config.PluginConfig) (p *slackscot.Plugin, err) { return plugins.NewFingerQuoter(c) }).
+			WithConfigurablePluginCloserErr(plugins.EmojiBannerPluginName, func(conf *config.PluginConfig) (c io.Closer, p *slackscot.Plugin, err) { return plugins.NewEmojiBannerMaker(c) }).
+			WithConfigurablePluginErr(plugins.OhMondayPluginName, func(conf *config.PluginConfig) (p *slackscot.Plugin, err) { return plugins.NewOhMonday(c) }).
 			WithPlugin(plugins.NewVersionner(name, version)).
 			Build()
 		defer youppi.Close()
