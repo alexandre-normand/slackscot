@@ -132,13 +132,12 @@ func NewTriggerer(storer store.GlobalSiloStringStorer) (p *slackscot.Plugin) {
 			WithAnswerer(t.reactOnTriggers).
 			Build(),
 		).
-		WithCommand(
-			actions.NewCommand().
-				WithMatcher(matchNewStandardTrigger).
-				WithUsage("trigger [anywhere] on <trigger string> with <reaction string>").
-				WithDescription("Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`").
-				WithAnswerer(t.registerStandardTrigger).
-				Build(),
+		WithCommand(actions.NewCommand().
+			WithMatcher(matchNewStandardTrigger).
+			WithUsage("trigger [anywhere] on <trigger string> with <reaction string>").
+			WithDescription("Register a trigger which will instruct me to react with `reaction string` when someone says `trigger string`").
+			WithAnswerer(t.registerStandardTrigger).
+			Build(),
 		).
 		WithCommand(actions.NewCommand().
 			WithMatcher(matchDeleteStandardTrigger).
@@ -148,9 +147,7 @@ func NewTriggerer(storer store.GlobalSiloStringStorer) (p *slackscot.Plugin) {
 			Build(),
 		).
 		WithCommand(actions.NewCommand().
-			WithMatcher(func(m *slackscot.IncomingMessage) bool {
-				return strings.HasPrefix(m.NormalizedText, "list triggers")
-			}).
+			WithMatcher(func(m *slackscot.IncomingMessage) bool { return strings.HasPrefix(m.NormalizedText, "list triggers") }).
 			WithUsage("list triggers").
 			WithDescription("Lists all registered triggers").
 			WithAnswerer(t.listStandardTriggers).
