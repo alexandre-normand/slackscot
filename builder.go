@@ -32,6 +32,8 @@ func (sb *Builder) WithPlugin(p *Plugin) *Builder {
 		return sb
 	}
 
+	sb.bot.RegisterPlugin(p)
+
 	return sb
 }
 
