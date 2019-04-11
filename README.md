@@ -178,10 +178,8 @@ new implementation of the [storer interfaces](https://godoc.org/github.com/alexa
 
 ## Assembling the Parts and Bringing Your `slackscot` to Life
 
-Here's an example of how [youppi](https://github.com/alexandre-normand/youppi) 
-[does it](https://github.com/alexandre-normand/youppi/blob/master/youppi.go) 
-(apologies for the verbose and repetitive error handling when 
-creating instances of plugins but it looks worse than it is):
+Here's an abbreviated example of how [youppi](https://github.com/alexandre-normand/youppi) 
+[does it](https://github.com/alexandre-normand/youppi/blob/master/youppi.go):
 
 ```go
 package main
@@ -195,15 +193,10 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"os"
-)
-
-var (
-	configurationPath = kingpin.Flag("configuration", "The path to the configuration file.").Required().String()
-	logfile           = kingpin.Flag("log", "The path to the log file").OpenFile(os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	"io"
 )
 
 const (
-	storagePathKey = "storagePath" // Root directory for the file-based leveldb storage
 	name           = "youppi"
 )
 
@@ -211,78 +204,26 @@ func main() {
 	kingpin.Version(VERSION)
 	kingpin.Parse()
 
-	v := config.NewViperWithDefaults()
-	// Enable getting configuration from the environment, especially useful for the slack token
-	v.AutomaticEnv()
-	// Bind the token key config to the env variable SLACK_TOKEN (case sensitive)
-	v.BindEnv(config.TokenKey, "SLACK_TOKEN")
+	// TODO: initialize storer implementations required by plugins and do any other initialization 
+	// required
+	...
 
-	v.SetConfigFile(*configurationPath)
-	err := v.ReadInConfig()
-	if err != nil {
-		log.Fatalf("Error loading configuration file [%s]: %v", *configurationPath, err)
-	}
+	// This is the where we create youppi with all of its plugins
+	youppi, err := slackscot.NewBot(name, v, options...).
+		WithPlugin(plugins.NewKarma(karmaStorer)).
+		WithPlugin(plugins.NewTriggerer(triggererStorer)).
+		WithConfigurablePluginErr(plugins.FingerQuoterPluginName, func(conf *config.PluginConfig) (p *slackscot.Plugin, err error) { return plugins.NewFingerQuoter(conf) }).
+		WithConfigurablePluginCloserErr(plugins.EmojiBannerPluginName, func(conf *config.PluginConfig) (c io.Closer, p *slackscot.Plugin, err error) {
+			return plugins.NewEmojiBannerMaker(conf)
+		}).
+		WithConfigurablePluginErr(plugins.OhMondayPluginName, func(conf *config.PluginConfig) (p *slackscot.Plugin, err error) { return plugins.NewOhMonday(conf) }).
+		WithPlugin(plugins.NewVersionner(name, version)).
+		Build()
+	defer youppi.Close()
 
-	// Do this only so that we can get a global debug flag available to everything
-	viper.Set(config.DebugKey, v.GetBool(config.DebugKey))
-
-	options := make([]slackscot.Option, 0)
-	if *logfile != nil {
-		options = append(options, slackscot.OptionLogfile(*logfile))
-	}
-
-	youppi, err := slackscot.New("youppi", v, options...)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	if !v.IsSet(storagePathKey) {
-		log.Fatalf("Missing [%s] configuration key in the top value configuration", storagePathKey)
-	}
-
-	storagePath := v.GetString(storagePathKey)
-	strStorer, err := store.NewLevelDB(name, storagePath)
-	if err != nil {
-		log.Fatalf("Opening [%s] db failed with path [%s]", name, storagePath)
-	}
-	defer strStorer.Close()
-
-	karma := plugins.NewKarma(strStorer)
-	youppi.RegisterPlugin(&karma.Plugin)
-
-	fingerQuoterConf, err := config.GetPluginConfig(v, plugins.FingerQuoterPluginName)
-	if err != nil {
-		log.Fatalf("Error initializing finger quoter plugin: %v", err)
-	}
-	fingerQuoter, err := plugins.NewFingerQuoter(fingerQuoterConf)
-	if err != nil {
-		log.Fatalf("Error initializing finger quoter plugin: %v", err)
-	}
-	youppi.RegisterPlugin(&fingerQuoter.Plugin)
-
-	emojiBannerConf, err := config.GetPluginConfig(v, plugins.EmojiBannerPluginName)
-	if err != nil {
-		log.Fatalf("Error initializing emoji banner plugin: %v", err)
-	}
-	emojiBanner, err := plugins.NewEmojiBannerMaker(emojiBannerConf)
-	if err != nil {
-		log.Fatalf("Error initializing emoji banner plugin: %v", err)
-	}
-	defer emojiBanner.Close()
-	youppi.RegisterPlugin(&emojiBanner.Plugin)
-
-	ohMondayConf, err := config.GetPluginConfig(v, plugins.OhMondayPluginName)
-	if err != nil {
-		log.Fatalf("Error initializing oh monday plugin: %v", err)
-	}
-	ohMonday, err := plugins.NewOhMonday(ohMondayConf)
-	if err != nil {
-		log.Fatalf("Error initializing oh monday plugin: %v", err)
-	}
-	youppi.RegisterPlugin(&ohMonday.Plugin)
-
-	versioner := plugins.NewVersioner("youppi", VERSION)
-	youppi.RegisterPlugin(&versioner.Plugin)
 
 	err = youppi.Run()
 	if err != nil {
