@@ -67,7 +67,7 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 
 	fmt.Fprintf(&b, "I'm `%s` (engine `v%s`). I listen to the team's chat and provides automated functions :genie:.\n", h.name, h.slackscotVersion)
 
-	if len(h.commands) > 0 {
+	if lenCommands(h.commands) > 0 {
 		fmt.Fprintf(&b, "\nI currently support the following commands:\n")
 
 		for n, commands := range h.commands {
@@ -88,6 +88,17 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 	}
 
 	return &Answer{Text: b.String(), Options: []AnswerOption{AnswerInThread()}}
+}
+
+// lenCommands returns the length of a map of string to array of values by summing
+// up the length of all array values
+func lenCommands(entries map[string][]ActionDefinition) (length int) {
+	length = 0
+	for _, v := range entries {
+		length = length + len(v)
+	}
+
+	return length
 }
 
 func appendActions(w io.Writer, pluginNamespace string, actions []ActionDefinition) {
@@ -125,15 +136,33 @@ func findAllActions(namespaceCommands bool, plugins []*Plugin) (commands map[str
 			commands[namespace] = make([]ActionDefinition, 0)
 		}
 
-		commands[namespace] = append(commands[namespace], p.Commands...)
-		hearActions = append(hearActions, p.HearActions...)
-
-		if p.ScheduledActions != nil {
-			for _, sa := range p.ScheduledActions {
-				pluginScheduledActions = append(pluginScheduledActions, pluginScheduledAction{plugin: p.Name, ScheduledActionDefinition: sa})
-			}
-		}
+		commands[namespace] = append(commands[namespace], filterNonHiddenActions(p.Commands)...)
+		hearActions = append(hearActions, filterNonHiddenActions(p.HearActions)...)
+		pluginScheduledActions = append(pluginScheduledActions, filterNonHiddenScheduledActions(p.Name, p.ScheduledActions)...)
 	}
 
 	return commands, hearActions, pluginScheduledActions
+}
+
+func filterNonHiddenActions(actions []ActionDefinition) (visibleActions []ActionDefinition) {
+	visibleActions = make([]ActionDefinition, 0)
+	for _, a := range actions {
+		if !a.Hidden {
+			visibleActions = append(visibleActions, a)
+		}
+	}
+
+	return visibleActions
+}
+
+func filterNonHiddenScheduledActions(pluginName string, actions []ScheduledActionDefinition) (visibleActions []pluginScheduledAction) {
+	visibleActions = make([]pluginScheduledAction, 0)
+
+	for _, sa := range actions {
+		if !sa.Hidden {
+			visibleActions = append(visibleActions, pluginScheduledAction{plugin: pluginName, ScheduledActionDefinition: sa})
+		}
+	}
+
+	return visibleActions
 }
