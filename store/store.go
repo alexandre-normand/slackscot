@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// GlobalScan is implemented by any value that has all the SiloStringStorer methods
+// GlobalSiloStringStorer is implemented by any value that has all the SiloStringStorer methods
 // and the GlobalScanSilo method
 type GlobalSiloStringStorer interface {
 	SiloStringStorer

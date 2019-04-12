@@ -37,7 +37,7 @@ func (sb *Builder) WithPlugin(p *Plugin) *Builder {
 	return sb
 }
 
-// WithPlugin adds a plugin that has a creation function returning (Plugin, error) to the slackscot instance
+// WithPluginErr adds a plugin that has a creation function returning (Plugin, error) to the slackscot instance
 func (sb *Builder) WithPluginErr(p *Plugin, err error) *Builder {
 	if sb.err == nil && err != nil {
 		sb.err = err
@@ -52,7 +52,7 @@ func (sb *Builder) WithPluginErr(p *Plugin, err error) *Builder {
 	return sb
 }
 
-// WithPlugin adds a plugin that has a creation function returning (io.Closer, Plugin, error) to the slackscot instance
+// WithPluginCloserErr adds a plugin that has a creation function returning (io.Closer, Plugin, error) to the slackscot instance
 func (sb *Builder) WithPluginCloserErr(closer io.Closer, p *Plugin, err error) *Builder {
 	if sb.err == nil && err != nil {
 		sb.err = err
@@ -81,7 +81,7 @@ func (sb *Builder) WithConfigurablePluginErr(name string, newInstance PluginInst
 	return sb
 }
 
-// WithConfigurablePluginCloser adds a closer plugin to the slackscot instance by first checking and
+// WithConfigurablePluginCloserErr adds a closer plugin to the slackscot instance by first checking and
 // getting its configuration
 func (sb *Builder) WithConfigurablePluginCloserErr(name string, newInstance CloserPluginInstantiator) *Builder {
 	if pc, exists := sb.loadPluginConfig(name); exists {
