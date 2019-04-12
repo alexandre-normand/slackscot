@@ -206,5 +206,5 @@ func TestGlobalScan(t *testing.T) {
 	m, err := sstorer.GlobalScan()
 	require.NoError(t, err)
 
-	assert.Equal(t, map[string]map[string]string{"ns1": map[string]string{"testKey": "value1"}, "ns2": map[string]string{"testKey2": "value2"}, "": map[string]string{"testKey": "value2"}}, m)
+	assert.Equal(t, map[string]map[string]string{"ns1": {"testKey": "value1"}, "ns2": {"testKey2": "value2"}, "": {"testKey": "value2"}}, m)
 }

@@ -132,7 +132,7 @@ func TestNewWithErrorLoadingPersistentContent(t *testing.T) {
 }
 
 func TestGetWithPersistedExistingContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -147,7 +147,7 @@ func TestGetWithPersistedExistingContent(t *testing.T) {
 }
 
 func TestGetSiloValueWithPersistedExistingContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"ns1": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"ns1": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -162,7 +162,7 @@ func TestGetSiloValueWithPersistedExistingContent(t *testing.T) {
 }
 
 func TestScanExistingContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -177,7 +177,7 @@ func TestScanExistingContent(t *testing.T) {
 }
 
 func TestGlobalScanExistingContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1", "key2": "value2"}, "ns1": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1", "key2": "value2"}, "ns1": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -187,12 +187,12 @@ func TestGlobalScanExistingContent(t *testing.T) {
 		ms.data[""]["key3"] = "should not be visible in the scan results"
 
 		assert.Nil(t, err)
-		assert.Equal(t, map[string]map[string]string{"": map[string]string{"key1": "value1", "key2": "value2"}, "ns1": map[string]string{"key1": "value1", "key2": "value2"}}, elements)
+		assert.Equal(t, map[string]map[string]string{"": {"key1": "value1", "key2": "value2"}, "ns1": {"key1": "value1", "key2": "value2"}}, elements)
 	}
 }
 
 func TestUpdateExistingContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -211,7 +211,7 @@ func TestUpdateExistingContent(t *testing.T) {
 }
 
 func TestUpdateExistingContentInSilo(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"ns1": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"ns1": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -248,7 +248,7 @@ func TestPutFirstSiloKeyValue(t *testing.T) {
 	}
 }
 func TestDeleteExistingContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -267,7 +267,7 @@ func TestDeleteExistingContent(t *testing.T) {
 }
 
 func TestDeleteExistingSiloContent(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"ns1": map[string]string{"key1": "value1", "key2": "value2"}})
+	ms := newMockStorer(map[string]map[string]string{"ns1": {"key1": "value1", "key2": "value2"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -320,7 +320,7 @@ func TestCloseClosesPersistentStorage(t *testing.T) {
 }
 
 func TestErrorWithPersistentStorageOnGet(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {
@@ -339,7 +339,7 @@ func TestErrorWithPersistentStorageOnGet(t *testing.T) {
 }
 
 func TestErrorWithPersistentStorageOnScan(t *testing.T) {
-	ms := newMockStorer(map[string]map[string]string{"": map[string]string{"key1": "value1"}})
+	ms := newMockStorer(map[string]map[string]string{"": {"key1": "value1"}})
 
 	imdb, err := inmemorydb.New(ms)
 	if assert.Nil(t, err) {

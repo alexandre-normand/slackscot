@@ -23,10 +23,13 @@ type Definition struct {
 	AtTime string
 }
 
+// DayOfWeek is the type definition for a string value of days of the week (based on time.Day.String())
 type DayOfWeek string
+
+// IntervalUnit is the type definition for a string value representing an interval unit
 type IntervalUnit string
 
-// Unit values
+// IntervalUnit values
 const (
 	Weeks   = IntervalUnit("weeks")
 	Hours   = IntervalUnit("hours")

@@ -251,7 +251,7 @@ func (k *Karma) clearChannelKarma(m *slackscot.IncomingMessage) *slackscot.Answe
 		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", m.Channel, err.Error())}
 	}
 
-	for thing, _ := range entries {
+	for thing := range entries {
 		err = k.karmaStorer.DeleteSiloString(m.Channel, thing)
 	}
 

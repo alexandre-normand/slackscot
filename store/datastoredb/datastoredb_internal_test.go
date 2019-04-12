@@ -222,7 +222,7 @@ func TestSuccessfulScan(t *testing.T) {
 	mockDS.On("connect").Return(nil)
 	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
 	vals := make([]*EntryValue, 0)
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(newScanReturner(map[string]map[string]string{"": map[string]string{"renée": "bird"}}), nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName), &vals).Return(newScanReturner(map[string]map[string]string{"": {"renée": "bird"}}), nil)
 
 	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
 	assert.NoError(t, err)
@@ -240,7 +240,7 @@ func TestSiloScan(t *testing.T) {
 	mockDS.On("connect").Return(nil)
 	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
 	vals := make([]*EntryValue, 0)
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("myLittleChannel"), &vals).Return(newScanReturner(map[string]map[string]string{"": map[string]string{"renée": "bird"}}), nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("myLittleChannel"), &vals).Return(newScanReturner(map[string]map[string]string{"": {"renée": "bird"}}), nil)
 
 	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
 	assert.NoError(t, err)
@@ -259,16 +259,16 @@ func TestGlobalScan(t *testing.T) {
 	mockDS.On("Get", mock.Anything, datastore.NameKey(testEntityName, "testConnectivity", nil), mock.Anything).Return(datastore.ErrNoSuchEntity)
 	mockDS.On("GetAll", mock.Anything, datastore.NewQuery("__namespace__").KeysOnly(), nil).Return(newScanKeysReturner([]string{"ns1", "ns2"}), nil)
 	ns1Vals := make([]*EntryValue, 0)
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns1"), &ns1Vals).Return(newScanReturner(map[string]map[string]string{"ns1": map[string]string{"renée": "bird"}}), nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns1"), &ns1Vals).Return(newScanReturner(map[string]map[string]string{"ns1": {"renée": "bird"}}), nil)
 	ns2Vals := make([]*EntryValue, 0)
-	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns2"), &ns2Vals).Return(newScanReturner(map[string]map[string]string{"ns2": map[string]string{"renée": "fish"}}), nil)
+	mockDS.On("GetAll", mock.Anything, datastore.NewQuery(testEntityName).Namespace("ns2"), &ns2Vals).Return(newScanReturner(map[string]map[string]string{"ns2": {"renée": "fish"}}), nil)
 
 	dsdb, err := newWithDatastorer(testEntityName, &mockDS)
 	assert.NoError(t, err)
 	if assert.NotNil(t, dsdb) {
 		v, err := dsdb.GlobalScan()
 		assert.NoError(t, err)
-		assert.Equal(t, map[string]map[string]string{"ns1": map[string]string{"renée": "bird"}, "ns2": map[string]string{"renée": "fish"}}, v)
+		assert.Equal(t, map[string]map[string]string{"ns1": {"renée": "bird"}, "ns2": {"renée": "fish"}}, v)
 	}
 }
 
@@ -312,8 +312,6 @@ func newScanKeysReturner(keyNames []string) func(c context.Context, query *datas
 
 		return keys
 	}
-
-	return nil
 }
 
 func TestReconnectOnGetAllFailure(t *testing.T) {
