@@ -1,4 +1,17 @@
 // Package assertanswer provides testing functions to validate a plugin's answer
+//
+// This package is most useful when used in combination with github.com/alexandre-normand/slackscot/test/assertplugin but
+// can be used alone to test individual slackscot Actions.
+//
+// Example of a typical usage also using assertplugin:
+//    func TestPlugin(t *testing.T) {
+//        assertplugin := assertplugin.New(t, "bot")
+//        yourPlugin := newPlugin()
+//
+//        assertplugin.AnswersAndReacts(yourPlugin, &slack.Msg{Text: "are you up?"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+// 	          return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "I'm 😴, you?")
+//        }))
+//    }
 package assertanswer
 
 import (
