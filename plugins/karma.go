@@ -361,10 +361,7 @@ func (k *Karma) formatList(pl pairList) (blocks []slack.Block) {
 // formatRankedElement formats one ranked element in a list. It adds 3 blocks: one for the rank (icon),
 // one for the ranked "thing" and one for its karma value. The 3 block objects are then wrapped in a context block
 func formatRankedElement(p pair, rank int) (block slack.Block) {
-	nameBlock := slack.NewTextBlockObject("mrkdwn", renderThingName(p.Key), false, false)
-	countBlock := slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("`%d`", p.Value), false, false)
-
-	return *slack.NewContextBlock("", *nameBlock, *countBlock)
+	return *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("• %s `%d`", renderThingName(p.Key), p.Value), false, false), nil, nil)
 }
 
 // renderThingName renders a karma item by formatting a user id with the required symbols such that it looks

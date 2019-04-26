@@ -265,8 +265,8 @@ func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "bird", false, false), *slack.NewTextBlockObject("mrkdwn", "`2`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`1`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• bird `2`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `1`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -286,8 +286,8 @@ func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`5`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `5`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -307,10 +307,10 @@ func TestTopFormatting(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `-10`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -330,11 +330,11 @@ func TestTopListingWithoutRequestedCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`8`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `8`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -354,11 +354,11 @@ func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`8`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `8`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -378,8 +378,8 @@ func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`-3`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-2`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `-3`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `-2`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -399,10 +399,10 @@ func TestWorstFormatting(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`3`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`10`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `-10`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -422,11 +422,11 @@ func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`-8`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-3`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `-10`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `-9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `-9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `-8`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `-3`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
 
@@ -446,11 +446,12 @@ func TestWorstListingWithoutRequestedCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@alf>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-10`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "rivers", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "birds", false, false), *slack.NewTextBlockObject("mrkdwn", "`-9`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "mountains", false, false), *slack.NewTextBlockObject("mrkdwn", "`-8`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "<@someone>", false, false), *slack.NewTextBlockObject("mrkdwn", "`-3`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `-10`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `-9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `-9`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `-8`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `-3`", false, false), nil, nil),
+		}, answers[0].ContentBlocks)
 	})
 }
 
@@ -470,7 +471,7 @@ func TestLessItemsThanRequestedWorstCount(t *testing.T) {
 		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
 			*slack.NewSectionBlock(
 				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "thing", false, false), *slack.NewTextBlockObject("mrkdwn", "`1`", false, false)),
-			*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", "bird", false, false), *slack.NewTextBlockObject("mrkdwn", "`2`", false, false))}, answers[0].ContentBlocks)
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `1`", false, false), nil, nil),
+			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• bird `2`", false, false), nil, nil)}, answers[0].ContentBlocks)
 	})
 }
