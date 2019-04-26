@@ -34,7 +34,6 @@ type ranker struct {
 	bannerText       string
 	bannerImgLink    string
 	bannerImgAltText string
-	rankRenderer     rankIconRenderer
 	scanner          karmaScanner
 	sorter           karmaSorter
 }
@@ -46,40 +45,28 @@ var worstRanker ranker
 
 func init() {
 	globalTopRanker = ranker{name: "global top",
-		regexp:           regexp.MustCompile("(?i)\\A(global top)+(?:\\s+(\\d*))*\\z"),
-		bannerText:       ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:",
-		bannerImgLink:    "https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif",
-		bannerImgAltText: "thumbs up",
-		rankRenderer:     topIconRenderer,
-		scanner:          scanGlobalKarma,
-		sorter:           sortTop}
+		regexp:     regexp.MustCompile("(?i)\\A(global top)+(?:\\s+(\\d*))*\\z"),
+		bannerText: ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:",
+		scanner:    scanGlobalKarma,
+		sorter:     sortTop}
 
 	topRanker = ranker{name: "top",
-		regexp:           regexp.MustCompile("(?i)\\A(top)+(?:\\s+(\\d*))*\\z"),
-		bannerText:       ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:",
-		bannerImgLink:    "https://media.giphy.com/media/fdONfPtQXrGPLq3u3B/giphy.gif",
-		bannerImgAltText: "thumbs up",
-		rankRenderer:     topIconRenderer,
-		scanner:          scanChannelKarma,
-		sorter:           sortTop}
+		regexp:     regexp.MustCompile("(?i)\\A(top)+(?:\\s+(\\d*))*\\z"),
+		bannerText: ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:",
+		scanner:    scanChannelKarma,
+		sorter:     sortTop}
 
 	globalWorstRanker = ranker{name: "global worst",
-		regexp:           regexp.MustCompile("(?i)\\A(global worst)+(?:\\s+(\\d*))*\\z"),
-		bannerText:       ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:",
-		bannerImgLink:    "https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif",
-		bannerImgAltText: "thumbs down",
-		rankRenderer:     worstIconRenderer,
-		scanner:          scanGlobalKarma,
-		sorter:           sortWorst}
+		regexp:     regexp.MustCompile("(?i)\\A(global worst)+(?:\\s+(\\d*))*\\z"),
+		bannerText: ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:",
+		scanner:    scanGlobalKarma,
+		sorter:     sortWorst}
 
 	worstRanker = ranker{name: "worst",
-		regexp:           regexp.MustCompile("(?i)\\A(worst)+(?:\\s+(\\d*))*\\z"),
-		bannerText:       ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:",
-		bannerImgLink:    "https://media.giphy.com/media/2aNMNew3m5fy0zNDW2/giphy.gif",
-		bannerImgAltText: "thumbs down",
-		rankRenderer:     worstIconRenderer,
-		scanner:          scanChannelKarma,
-		sorter:           sortWorst}
+		regexp:     regexp.MustCompile("(?i)\\A(worst)+(?:\\s+(\\d*))*\\z"),
+		bannerText: ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:",
+		scanner:    scanChannelKarma,
+		sorter:     sortWorst}
 }
 
 // NewKarma creates a new instance of the Karma plugin
@@ -251,7 +238,7 @@ func (k *Karma) clearChannelKarma(m *slackscot.IncomingMessage) *slackscot.Answe
 		return &slackscot.Answer{Text: fmt.Sprintf("Sorry, I couldn't get delete karma for channel [%s] for you. If you must know, this happened: %s", m.Channel, err.Error())}
 	}
 
-	for thing := range entries {
+	for thing, _ := range entries {
 		err = k.karmaStorer.DeleteSiloString(m.Channel, thing)
 	}
 
@@ -350,8 +337,7 @@ func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker)
 		blocks := make([]slack.Block, 0)
 
 		blocks = append(blocks, *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.bannerText, false, false), nil, nil))
-		blocks = append(blocks, *slack.NewImageBlock(ranker.bannerImgLink, ranker.bannerImgAltText, "", slack.NewTextBlockObject("plain_text", ranker.bannerImgAltText, false, false)))
-		blocks = append(blocks, k.formatList(pairs, ranker.rankRenderer)...)
+		blocks = append(blocks, k.formatList(pairs)...)
 
 		return &slackscot.Answer{Text: "", ContentBlocks: blocks}
 	}
@@ -359,44 +345,13 @@ func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker)
 	return &slackscot.Answer{Text: "Sorry, no recorded karma found :disappointed:"}
 }
 
-// rankIconRenderer is a function that returns a BlockObject representing a rank
-type rankIconRenderer func(rank int) (block slack.BlockObject)
-
-// topIconRenderer renders the rank for a "top" listing. Ranks 1 to 3 are special cases and all others are treated the same
-func topIconRenderer(rank int) (block slack.BlockObject) {
-	switch rank {
-	case 1:
-		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272611/Gold-medal_Juhele_final.png", strconv.Itoa(rank))
-	case 2:
-		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272612/Silver-medal_Juhele_final.png", strconv.Itoa(rank))
-	case 3:
-		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/272613/Bronze-medal_Juhele_final.png", strconv.Itoa(rank))
-	default:
-		return *slack.NewImageBlockObject("http://media.openclipart.org/people/glitch/128px-misc-pet-rock.png", strconv.Itoa(rank))
-	}
-}
-
-// worstIconRenderer renders the rank for a "worst" listing. Ranks 1 to 3 are special cases and all others are treated the same
-func worstIconRenderer(rank int) (block slack.BlockObject) {
-	switch rank {
-	case 1:
-		return *slack.NewImageBlockObject("http://media.openclipart.org/people/GDJ/128px-Polished-Copper-Sugar-Skull-Silhouette-No-Background.png", strconv.Itoa(rank))
-	case 2:
-		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259919/Chrome-Sugar-Skull-Silhouette-No-Background.png", strconv.Itoa(rank))
-	case 3:
-		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/259891/Vermilion-Sugar-Skull-Silhouette-No-Background.png", strconv.Itoa(rank))
-	default:
-		return *slack.NewImageBlockObject("https://openclipart.org/image/128px/svg_to_png/308296/1539641554.png", strconv.Itoa(rank))
-	}
-}
-
 // formatList formats a list of ranked items using the rankRenderer to render the rank icons and returns the resulting block kit blocks
-func (k *Karma) formatList(pl pairList, rankRenderer rankIconRenderer) (blocks []slack.Block) {
+func (k *Karma) formatList(pl pairList) (blocks []slack.Block) {
 	blocks = make([]slack.Block, 0)
 
 	rank := 1
 	for _, pair := range pl {
-		blocks = append(blocks, formatRankedElement(pair, rank, rankRenderer))
+		blocks = append(blocks, formatRankedElement(pair, rank))
 		rank = rank + 1
 	}
 
@@ -405,12 +360,11 @@ func (k *Karma) formatList(pl pairList, rankRenderer rankIconRenderer) (blocks [
 
 // formatRankedElement formats one ranked element in a list. It adds 3 blocks: one for the rank (icon),
 // one for the ranked "thing" and one for its karma value. The 3 block objects are then wrapped in a context block
-func formatRankedElement(p pair, rank int, renderRank rankIconRenderer) (block slack.Block) {
-	iconBlock := renderRank(rank)
+func formatRankedElement(p pair, rank int) (block slack.Block) {
 	nameBlock := slack.NewTextBlockObject("mrkdwn", renderThingName(p.Key), false, false)
 	countBlock := slack.NewTextBlockObject("mrkdwn", fmt.Sprintf("`%d`", p.Value), false, false)
 
-	return *slack.NewContextBlock("", iconBlock, *nameBlock, *countBlock)
+	return *slack.NewContextBlock("", *nameBlock, *countBlock)
 }
 
 // renderThingName renders a karma item by formatting a user id with the required symbols such that it looks
