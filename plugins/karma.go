@@ -25,7 +25,7 @@ const (
 	defaultItemCount = 5
 )
 
-var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(?:<(@[\\w']+)>\\s?)|([\\w']+-?[\\w']+))(\\+{2}|\\-{2}).*")
+var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(?:<(@[\\w']+)>\\s?)|([\\w']+-?[\\w']+))(\\+{2,6}|\\-{2,6}).*")
 
 // Ranker represents attributes and behavior to process a ranking list
 type ranker struct {
@@ -100,6 +100,7 @@ func NewKarma(storer store.GlobalSiloStringStorer) (karma *slackscot.Plugin) {
 			WithAnswerer(k.answerGlobalKarmaWorst).
 			Build()).
 		WithCommand(actions.NewCommand().
+			Hidden().
 			WithMatcher(matchKarmaReset).
 			WithUsage("reset").
 			WithDescription("Resets all recorded karma for the current channel").
@@ -108,7 +109,7 @@ func NewKarma(storer store.GlobalSiloStringStorer) (karma *slackscot.Plugin) {
 		WithHearAction(actions.NewCommand().
 			WithMatcher(matchKarmaRecord).
 			WithUsage("thing++ or thing--").
-			WithDescription("Keep track of karma").
+			WithDescription("Keep track of karma. Increments larger than `1` (up to `5`) can be achieved with extra `+` or `-` signs").
 			WithAnswerer(k.recordKarma).
 			Build()).
 		Build()
@@ -159,12 +160,15 @@ func matchKarmaReset(m *slackscot.IncomingMessage) bool {
 func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answer {
 	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
-	var format string
-
 	// Depending on if it's a user id or a "normal" thing, the matching group is different so we
 	// check both (only one can ever match)
 	thing := match[1]
-	if len(thing) == 0 {
+	if len(thing) > 0 {
+		// Prevent a user from attributing karma to self
+		if strings.TrimPrefix(thing, "@") == message.User {
+			return &slackscot.Answer{Text: "Attributing yourself karma is frown upon :face_with_raised_eyebrow:", Options: []slackscot.AnswerOption{slackscot.AnswerEphemeral(message.User)}}
+		}
+	} else {
 		thing = match[2]
 	}
 
@@ -178,12 +182,30 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 		karma = 0
 	}
 
-	if match[3] == "++" {
-		format = "`%s` just gained a level (`%s`: %d)"
-		karma++
+	answerText := ""
+	renderedThing := k.renderThing(thing)
+
+	if strings.HasPrefix(match[3], "+") {
+		incrementSymbols := strings.TrimPrefix(match[3], "+")
+		increment := len(incrementSymbols)
+		karma = karma + increment
+
+		if increment == 1 {
+			answerText = fmt.Sprintf("`%s` just gained a level (`%s`: %d)", renderedThing, renderedThing, karma)
+		} else {
+			answerText = fmt.Sprintf("`%s` just gained %d levels (`%s`: %d)", renderedThing, increment, renderedThing, karma)
+		}
+
 	} else {
-		format = "`%s` just lost a life (`%s`: %d)"
-		karma--
+		decrementSymbols := strings.TrimPrefix(match[3], "-")
+		decrement := len(decrementSymbols)
+		karma = karma - decrement
+
+		if decrement == 1 {
+			answerText = fmt.Sprintf("`%s` just lost a life (`%s`: %d)", renderedThing, renderedThing, karma)
+		} else {
+			answerText = fmt.Sprintf("`%s` just lost %d lives (`%s`: %d)", renderedThing, decrement, renderedThing, karma)
+		}
 	}
 
 	// Store new value
@@ -193,7 +215,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 		return nil
 	}
 
-	return &slackscot.Answer{Text: fmt.Sprintf(format, k.renderThing(thing), k.renderThing(thing), karma)}
+	return &slackscot.Answer{Text: answerText}
 }
 
 // renderThing renders the thing value. In most cases, it should just return the value

@@ -39,8 +39,18 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 2)"},
 		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 3)"},
 		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 4)"},
+		{"salmon+++", "Cgeneral", "`salmon` just gained 2 levels (`salmon`: 6)"},
+		{"salmon++++", "Cgeneral", "`salmon` just gained 3 levels (`salmon`: 9)"},
+		{"salmon+++++", "Cgeneral", "`salmon` just gained 4 levels (`salmon`: 13)"},
+		{"salmon++++++", "Cgeneral", "`salmon` just gained 5 levels (`salmon`: 18)"},
+		{"salmon+++++++", "Cgeneral", "`salmon` just gained 5 levels (`salmon`: 23)"},
 		{"dams--", "Cgeneral", "`dams` just lost a life (`dams`: -1)"},
 		{"dams--", "Cgeneral", "`dams` just lost a life (`dams`: -2)"},
+		{"dams---", "Cgeneral", "`dams` just lost 2 lives (`dams`: -4)"},
+		{"dams----", "Cgeneral", "`dams` just lost 3 lives (`dams`: -7)"},
+		{"dams-----", "Cgeneral", "`dams` just lost 4 lives (`dams`: -11)"},
+		{"dams------", "Cgeneral", "`dams` just lost 5 lives (`dams`: -16)"},
+		{"dams-------", "Cgeneral", "`dams` just lost 5 lives (`dams`: -21)"},
 		{"<@bot> karma", "Cgeneral", ""},
 		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 1)"},
 		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 2)"},
@@ -108,6 +118,21 @@ func TestErrorStoringKarmaRecord(t *testing.T) {
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, answers)
+	})
+}
+
+func TestInvalidSelfKarma(t *testing.T) {
+	mockStorer := &mockStorer{}
+	defer mockStorer.AssertExpectations(t)
+
+	var userInfoFinder userInfoFinder
+	p := plugins.NewKarma(mockStorer)
+	p.UserInfoFinder = userInfoFinder
+
+	assertplugin := assertplugin.New(t, "bot")
+
+	assertplugin.AnswersAndReacts(p, &slack.Msg{User: "U123", Channel: "myLittleChannel", Text: "<@U123>++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Attributing yourself karma is frown upon :face_with_raised_eyebrow:") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.EphemeralAnswerToOpt, Value: "U123"})
 	})
 }
 

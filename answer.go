@@ -11,6 +11,8 @@ const (
 	BroadcastOpt = "broadcast"
 	// ThreadTimestamp is the name of the option indicating the explicit timestamp of the thread to reply to
 	ThreadTimestamp = "threadTimestamp"
+	// EphemeralAnswerToOpt marks an answer to be sent as an ephemeral message to the provided userID
+	EphemeralAnswerToOpt = "ephemeralMsgToUserID"
 )
 
 // Answer holds data of an Action's Answer: namely, its text and options
@@ -63,6 +65,13 @@ func AnswerInThreadWithoutBroadcast() func(sendOpts map[string]string) {
 func AnswerWithoutThreading() func(sendOpts map[string]string) {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "false"
+	}
+}
+
+// AnswerEphemeral sends the answer as an ephemeral message to the provided userID
+func AnswerEphemeral(userID string) func(sendOpts map[string]string) {
+	return func(sendOpts map[string]string) {
+		sendOpts[EphemeralAnswerToOpt] = userID
 	}
 }
 
