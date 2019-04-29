@@ -159,7 +159,7 @@ func newTestPlugin() (tp *Plugin) {
 		Usage:       "make `<something>`",
 		Description: "Have the test bot make something for you",
 		Answer: func(m *IncomingMessage) *Answer {
-			return &Answer{Text: fmt.Sprintf("Make it yourself, @%s", m.User)}
+			return &Answer{Text: fmt.Sprintf("Make it yourself, @%s", m.User), Options: []AnswerOption{AnswerEphemeral(m.User)}}
 		},
 	},
 		{
@@ -472,11 +472,11 @@ func TestIncomingTriggeringMessageUpdatedToNotTriggerAnymore(t *testing.T) {
 func TestDirectMessageMatchingCommand(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		// Trigger the command action
-		newRTMMessageEvent(newMessageEvent("DFromUser", "make me happy", "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("DFromUser", "noRules make me happy", "Alphonse", timestamp1)),
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
-		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "DFromUser", sentMsgs[0].channelID)
 	}
 
@@ -554,14 +554,14 @@ func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) 
 		// Trigger the hear action
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
 		// Update the message to now trigger the command instead of the hear action
-		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp2, optionChangedMessage(fmt.Sprintf("<@%s> make me laugh", botUserID), "Alphonse", timestamp1))),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp2, optionChangedMessage(fmt.Sprintf("<@%s> noRules make me laugh", botUserID), "Alphonse", timestamp1))),
 	})
 
 	if assert.Equal(t, 2, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
 
-		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, 4, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[1].channelID)
 	}
 
