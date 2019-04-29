@@ -18,6 +18,7 @@ func TestApplyAnswerOptions(t *testing.T) {
 		{"threadedReplyWithoutBroadcast", []slackscot.AnswerOption{slackscot.AnswerInThreadWithoutBroadcast()}, map[string]string{slackscot.ThreadedReplyOpt: "true", slackscot.BroadcastOpt: "false"}},
 		{"noThreading", []slackscot.AnswerOption{slackscot.AnswerWithoutThreading()}, map[string]string{slackscot.ThreadedReplyOpt: "false"}},
 		{"threadReplyOnExistingThread", []slackscot.AnswerOption{slackscot.AnswerInExistingThread("1000")}, map[string]string{slackscot.ThreadedReplyOpt: "true", slackscot.ThreadTimestamp: "1000"}},
+		{"ephemeralAnswer", []slackscot.AnswerOption{slackscot.AnswerEphemeral("U12321")}, map[string]string{slackscot.EphemeralAnswerToOpt: "U12321"}},
 	}
 
 	for _, tc := range testCases {
