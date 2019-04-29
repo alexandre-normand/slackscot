@@ -614,6 +614,11 @@ func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, def
 		}
 	}
 
+	// Add ephemeral option if present
+	if userID, ok := sendOpts[EphemeralAnswerToOpt]; ok {
+		options = append(options, slack.MsgOptionPostEphemeral(userID))
+	}
+
 	// Add any block kit content blocks, if any
 	if len(o.ContentBlocks) > 0 {
 		options = append(options, slack.MsgOptionBlocks(o.ContentBlocks...))
