@@ -108,7 +108,7 @@ func (e *emojiReactor) AddReaction(name string, item slack.ItemRef) error {
 // Option type for building a message with additional options for specific test cases
 type testMsgOption func(e *slack.MessageEvent)
 
-func optionChangedMessage(text string, user string, originalTs string) func(e *slack.MessageEvent) {
+func optionChangedMessage(text string, user string, originalTs string) testMsgOption {
 	return func(e *slack.MessageEvent) {
 		e.SubType = "message_changed"
 		e.SubMessage = &slack.Msg{Text: text, User: user, Timestamp: originalTs}
@@ -121,7 +121,7 @@ func optionMessageReplied() func(e *slack.MessageEvent) {
 	}
 }
 
-func optionDeletedMessage(channelID string, timestamp string) func(e *slack.MessageEvent) {
+func optionDeletedMessage(channelID string, timestamp string) testMsgOption {
 	return func(e *slack.MessageEvent) {
 		e.SubType = "message_deleted"
 		e.DeletedTimestamp = timestamp
@@ -129,19 +129,19 @@ func optionDeletedMessage(channelID string, timestamp string) func(e *slack.Mess
 	}
 }
 
-func optionMessageOnThread(ts string) func(e *slack.MessageEvent) {
+func optionMessageOnThread(ts string) testMsgOption {
 	return func(e *slack.MessageEvent) {
 		e.ThreadTimestamp = ts
 	}
 }
 
-func optionDirectMessage(botUserID string) func(e *slack.MessageEvent) {
+func optionDirectMessage(botUserID string) testMsgOption {
 	return func(e *slack.MessageEvent) {
 		e.Channel = fmt.Sprintf("D%s", botUserID)
 	}
 }
 
-func optionPublicMessageToBot(botUserID string, channelID string) func(e *slack.MessageEvent) {
+func optionPublicMessageToBot(botUserID string, channelID string) testMsgOption {
 	return func(e *slack.MessageEvent) {
 		e.Channel = channelID
 		e.Text = fmt.Sprintf("<@%s> %s", botUserID, e.Text)

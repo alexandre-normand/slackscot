@@ -166,7 +166,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 	if len(thing) > 0 {
 		// Prevent a user from attributing karma to self
 		if strings.TrimPrefix(thing, "@") == message.User {
-			return &slackscot.Answer{Text: "Attributing yourself karma is frown upon :face_with_raised_eyebrow:", Options: []slackscot.AnswerOption{slackscot.AnswerEphemeral(message.User)}}
+			return &slackscot.Answer{Text: "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:", Options: []slackscot.AnswerOption{slackscot.AnswerEphemeral(message.User)}}
 		}
 	} else {
 		thing = match[2]

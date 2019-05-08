@@ -132,7 +132,7 @@ func TestInvalidSelfKarma(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{User: "U123", Channel: "myLittleChannel", Text: "<@U123>++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "Attributing yourself karma is frown upon :face_with_raised_eyebrow:") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.EphemeralAnswerToOpt, Value: "U123"})
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.EphemeralAnswerToOpt, Value: "U123"})
 	})
 }
 

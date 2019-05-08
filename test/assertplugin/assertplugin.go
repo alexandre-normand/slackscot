@@ -61,7 +61,7 @@ type Option func(*Asserter)
 
 // OptionLog sets a logger for the asserter such that this logger is attached to the plugin when driven by
 // the asserter
-func OptionLog(logger *log.Logger) func(*Asserter) {
+func OptionLog(logger *log.Logger) Option {
 	return func(a *Asserter) {
 		a.logger = logger
 	}

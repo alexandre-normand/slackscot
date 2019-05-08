@@ -116,7 +116,7 @@ func (sdb *ScheduleDefinitionBuilder) Build() Definition {
 type scheduleOption func(j *gocron.Job)
 
 // optionWeekday sets the weekday of a recurring job
-func optionWeekday(weekday string) func(j *gocron.Job) {
+func optionWeekday(weekday string) scheduleOption {
 	return func(j *gocron.Job) {
 		switch weekday {
 		case time.Monday.String():
@@ -138,7 +138,7 @@ func optionWeekday(weekday string) func(j *gocron.Job) {
 }
 
 // optionUnit sets the unit of a recurring job
-func optionUnit(unit IntervalUnit) func(j *gocron.Job) {
+func optionUnit(unit IntervalUnit) scheduleOption {
 	return func(j *gocron.Job) {
 		switch unit {
 		case Weeks:
@@ -156,7 +156,7 @@ func optionUnit(unit IntervalUnit) func(j *gocron.Job) {
 }
 
 // optionAtTime sets the AtTime of a recurring job
-func optionAtTime(atTime string) func(j *gocron.Job) {
+func optionAtTime(atTime string) scheduleOption {
 	return func(j *gocron.Job) {
 		j = j.At(atTime)
 	}

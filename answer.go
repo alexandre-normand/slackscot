@@ -31,14 +31,14 @@ type Answer struct {
 type AnswerOption func(sendOpts map[string]string)
 
 // AnswerInThread sets threaded replying
-func AnswerInThread() func(sendOpts map[string]string) {
+func AnswerInThread() AnswerOption {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "true"
 	}
 }
 
 // AnswerInExistingThread sets threaded replying with the existing thread timestamp
-func AnswerInExistingThread(threadTimestamp string) func(sendOpts map[string]string) {
+func AnswerInExistingThread(threadTimestamp string) AnswerOption {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "true"
 		sendOpts[ThreadTimestamp] = threadTimestamp
@@ -46,7 +46,7 @@ func AnswerInExistingThread(threadTimestamp string) func(sendOpts map[string]str
 }
 
 // AnswerInThreadWithBroadcast sets threaded replying with broadcast enabled
-func AnswerInThreadWithBroadcast() func(sendOpts map[string]string) {
+func AnswerInThreadWithBroadcast() AnswerOption {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "true"
 		sendOpts[BroadcastOpt] = "true"
@@ -54,7 +54,7 @@ func AnswerInThreadWithBroadcast() func(sendOpts map[string]string) {
 }
 
 // AnswerInThreadWithoutBroadcast sets threaded replying with broadcast disabled
-func AnswerInThreadWithoutBroadcast() func(sendOpts map[string]string) {
+func AnswerInThreadWithoutBroadcast() AnswerOption {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "true"
 		sendOpts[BroadcastOpt] = "false"
@@ -62,14 +62,14 @@ func AnswerInThreadWithoutBroadcast() func(sendOpts map[string]string) {
 }
 
 // AnswerWithoutThreading sets an answer to threading (and implicitly, broadcast) disabled
-func AnswerWithoutThreading() func(sendOpts map[string]string) {
+func AnswerWithoutThreading() AnswerOption {
 	return func(sendOpts map[string]string) {
 		sendOpts[ThreadedReplyOpt] = "false"
 	}
 }
 
 // AnswerEphemeral sends the answer as an ephemeral message to the provided userID
-func AnswerEphemeral(userID string) func(sendOpts map[string]string) {
+func AnswerEphemeral(userID string) AnswerOption {
 	return func(sendOpts map[string]string) {
 		sendOpts[EphemeralAnswerToOpt] = userID
 	}
