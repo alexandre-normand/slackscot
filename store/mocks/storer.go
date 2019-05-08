@@ -1,4 +1,5 @@
-package plugins_test
+// Package mocks contains a mock of the store package interfaces
+package mocks
 
 import (
 	"github.com/stretchr/testify/mock"

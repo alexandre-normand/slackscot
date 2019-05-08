@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
+	"github.com/alexandre-normand/slackscot/store/mocks"
 	"github.com/alexandre-normand/slackscot/test/assertanswer"
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
@@ -14,7 +15,7 @@ import (
 )
 
 func TestRegisterNewTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	triggerer := plugins.NewTriggerer(mockStorer)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("", fmt.Errorf("not found"))
@@ -52,7 +53,7 @@ func TestRegisterNewTrigger(t *testing.T) {
 }
 
 func TestTriggerReactionWithCollidingGlobalAndChannelTriggers(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	triggerer := plugins.NewTriggerer(mockStorer)
 
 	mockStorer.On("ScanSilo", "").Return(map[string]string{"Sdeal with it": "http://global.gif"}, nil)
@@ -66,7 +67,7 @@ func TestTriggerReactionWithCollidingGlobalAndChannelTriggers(t *testing.T) {
 }
 
 func TestTriggerReactionWithOnlyGlobalTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	triggerer := plugins.NewTriggerer(mockStorer)
 
 	mockStorer.On("ScanSilo", "otherChan").Return(map[string]string{}, nil)
@@ -80,7 +81,7 @@ func TestTriggerReactionWithOnlyGlobalTrigger(t *testing.T) {
 }
 
 func TestRegisterNewMultilineReactionTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	triggerer := plugins.NewTriggerer(mockStorer)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("", fmt.Errorf("not found"))
@@ -105,7 +106,7 @@ func TestRegisterNewMultilineReactionTrigger(t *testing.T) {
 }
 
 func TestRegisterNewEmojiTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	triggerer := plugins.NewTriggerer(mockStorer)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Edeal with it").Return("", fmt.Errorf("not found"))
@@ -137,7 +138,7 @@ func TestRegisterNewEmojiTrigger(t *testing.T) {
 }
 
 func TestRegisterNewEmojiTriggerWithoutEmojis(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	triggerer := plugins.NewTriggerer(mockStorer)
 
 	assertplugin := assertplugin.New(t, "bot")
@@ -148,7 +149,7 @@ func TestRegisterNewEmojiTriggerWithoutEmojis(t *testing.T) {
 }
 
 func TestErrorGettingTriggersWhenReacting(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
 	mockStorer.On("ScanSilo", "myLittleChan").Return(map[string]string{}, fmt.Errorf("error getting triggers"))
@@ -164,7 +165,7 @@ func TestErrorGettingTriggersWhenReacting(t *testing.T) {
 }
 
 func TestErrorGettingGlobalTriggersWhenReacting(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, fmt.Errorf("error getting triggers"))
@@ -182,7 +183,7 @@ func TestErrorGettingGlobalTriggersWhenReacting(t *testing.T) {
 // This case interacts directly with the hear action since it's a little harder to an error listing triggers when Answering if we go through the usual
 // MatchesAndAnswers flow. But since it's possible for no error to happen on Match and then an error to suddenly happen on Answer, we test that case here
 func TestErrorGettingTriggersWhenAnswering(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
 	mockStorer.On("ScanSilo", "myLittleChan").Return(map[string]string{}, fmt.Errorf("error getting triggers"))
@@ -199,7 +200,7 @@ func TestErrorGettingTriggersWhenAnswering(t *testing.T) {
 // This case interacts directly with the hear action since it's a little harder to simulate a case of Answer getting called without a matching trigger.
 // But since it can still happen (a race condition and a trigger being deleted between Match and Answer being called), we want to test it
 func TestNoReactionWhenNoTriggers(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
 	mockStorer.On("ScanSilo", "myLittleChan").Return(map[string]string{}, nil)
@@ -213,7 +214,7 @@ func TestNoReactionWhenNoTriggers(t *testing.T) {
 }
 
 func TestNoAnswersAndNoEmojisWhenNoTriggers(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
 	mockStorer.On("ScanSilo", "myLittleChan").Return(map[string]string{}, nil)
@@ -227,7 +228,7 @@ func TestNoAnswersAndNoEmojisWhenNoTriggers(t *testing.T) {
 }
 
 func TestErrorOnRegisterNewTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("", fmt.Errorf("not found"))
@@ -244,7 +245,7 @@ func TestErrorOnRegisterNewTrigger(t *testing.T) {
 }
 
 func TestUpdateTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("http://dealwithit.gif", nil)
@@ -266,7 +267,7 @@ func TestUpdateTrigger(t *testing.T) {
 }
 
 func TestUpdateEmojiTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Edeal with it").Return("man-in-suit", nil)
@@ -288,7 +289,7 @@ func TestUpdateEmojiTrigger(t *testing.T) {
 }
 
 func TestErrorOnUpdateTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("http://dealwithit.gif", nil)
@@ -305,7 +306,7 @@ func TestErrorOnUpdateTrigger(t *testing.T) {
 }
 
 func TestDeleteTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("http://dealwithit.gif", nil)
@@ -322,7 +323,7 @@ func TestDeleteTrigger(t *testing.T) {
 }
 
 func TestDeleteGlobalTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	// No channel trigger
@@ -341,7 +342,7 @@ func TestDeleteGlobalTrigger(t *testing.T) {
 }
 
 func TestDeleteEmojiTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Edeal with it").Return("boom", nil)
@@ -364,7 +365,7 @@ func TestDeleteEmojiTrigger(t *testing.T) {
 }
 
 func TestDeleteTriggerNotFound(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("", fmt.Errorf("not found"))
@@ -382,7 +383,7 @@ func TestDeleteTriggerNotFound(t *testing.T) {
 }
 
 func TestErrorOnDeleteTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("http://dealwithit.gif", nil)
@@ -398,7 +399,7 @@ func TestErrorOnDeleteTrigger(t *testing.T) {
 }
 
 func TestErrorOnDeleteGlobalTrigger(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChan", "Sdeal with it").Return("", fmt.Errorf("not found"))
@@ -415,7 +416,7 @@ func TestErrorOnDeleteGlobalTrigger(t *testing.T) {
 }
 
 func TestListTriggers(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
@@ -432,7 +433,7 @@ func TestListTriggers(t *testing.T) {
 }
 
 func TestListEmojiTriggers(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
@@ -449,7 +450,7 @@ func TestListEmojiTriggers(t *testing.T) {
 }
 
 func TestErrorOnListTriggers(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 	mockStorer.On("ScanSilo", "").Return(map[string]string{}, nil)
 	mockStorer.On("ScanSilo", "myLittleChan").Return(map[string]string{}, fmt.Errorf("Mock error"))
