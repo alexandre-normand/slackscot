@@ -29,7 +29,7 @@ type UploadOption func(params *slack.FileUploadParameters)
 
 // UploadInThreadOption sets the file upload thread timestamp to an existing thread timestamp if
 // the incoming message triggering this is on an existing thread
-func UploadInThreadOption(m *IncomingMessage) func(params *slack.FileUploadParameters) {
+func UploadInThreadOption(m *IncomingMessage) UploadOption {
 	return func(p *slack.FileUploadParameters) {
 		if threadTimestamp, inThread := resolveThreadTimestamp(&m.Msg); inThread {
 			p.ThreadTimestamp = threadTimestamp

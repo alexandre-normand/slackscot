@@ -203,7 +203,7 @@ type runDependencies struct {
 type Option func(*Slackscot)
 
 // OptionLog sets a logger for Slackscot
-func OptionLog(logger *log.Logger) func(*Slackscot) {
+func OptionLog(logger *log.Logger) Option {
 	return func(s *Slackscot) {
 		s.log.logger = logger
 	}
@@ -212,14 +212,14 @@ func OptionLog(logger *log.Logger) func(*Slackscot) {
 // OptionNoPluginNamespacing disables plugin command namespacing for this instance. This means
 // that namespacing plugin candidates will run without any extra plugin name matching required
 // This is useful to simplify command usage for instances running a single plugin
-func OptionNoPluginNamespacing() func(*Slackscot) {
+func OptionNoPluginNamespacing() Option {
 	return func(s *Slackscot) {
 		s.namespaceCommands = false
 	}
 }
 
 // OptionLogfile sets a logfile for Slackscot while using the other default logging prefix and options
-func OptionLogfile(logfile *os.File) func(*Slackscot) {
+func OptionLogfile(logfile *os.File) Option {
 	return func(s *Slackscot) {
 		s.log.logger = log.New(logfile, defaultLogPrefix, defaultLogFlag)
 	}
