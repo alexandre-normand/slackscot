@@ -5,6 +5,7 @@ import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/alexandre-normand/slackscot/store"
+	"github.com/alexandre-normand/slackscot/store/mocks"
 	"github.com/alexandre-normand/slackscot/test/assertanswer"
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
@@ -104,7 +105,7 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 }
 
 func TestErrorStoringKarmaRecord(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChannel", "thing").Return("", fmt.Errorf("not found"))
@@ -122,7 +123,7 @@ func TestErrorStoringKarmaRecord(t *testing.T) {
 }
 
 func TestInvalidSelfKarma(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	var userInfoFinder userInfoFinder
@@ -137,7 +138,7 @@ func TestInvalidSelfKarma(t *testing.T) {
 }
 
 func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GetSiloString", "myLittleChannel", "thing").Return("abc", nil)
@@ -155,7 +156,7 @@ func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
 }
 
 func TestErrorGettingList(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{}, fmt.Errorf("can't load karma"))
@@ -172,7 +173,7 @@ func TestErrorGettingList(t *testing.T) {
 }
 
 func TestErrorGettingKarmaWhenResetting(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{}, fmt.Errorf("can't load karma"))
@@ -189,7 +190,7 @@ func TestErrorGettingKarmaWhenResetting(t *testing.T) {
 }
 
 func TestErrorDeletingKarmaWhenResetting(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "abc"}, nil)
@@ -207,7 +208,7 @@ func TestErrorDeletingKarmaWhenResetting(t *testing.T) {
 }
 
 func TestErrorGettingGlobalList(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{}, fmt.Errorf("can't load karma"))
@@ -224,7 +225,7 @@ func TestErrorGettingGlobalList(t *testing.T) {
 }
 
 func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "abc"}, nil)
@@ -241,7 +242,7 @@ func TestInvalidStoredKarmaValuesOnTopList(t *testing.T) {
 }
 
 func TestInvalidSingleStoredKarmaValuesOnGlobalTopList(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "abc"}, "myOtherChannel": map[string]string{"thing": "1"}}, nil)
@@ -258,7 +259,7 @@ func TestInvalidSingleStoredKarmaValuesOnGlobalTopList(t *testing.T) {
 }
 
 func TestInvalidSingleStoredKarmaValuesOnGlobalWorstList(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "1"}, "myOtherChannel": map[string]string{"thing": "abc"}}, nil)
@@ -275,7 +276,7 @@ func TestInvalidSingleStoredKarmaValuesOnGlobalWorstList(t *testing.T) {
 }
 
 func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "1", "bird": "2"}, nil)
@@ -296,7 +297,7 @@ func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 }
 
 func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "1", "@someone": "3"}, "myOtherChannel": map[string]string{"thing": "4"}}, nil)
@@ -317,7 +318,7 @@ func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
 }
 
 func TestTopFormatting(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "@alf": "10"}, nil)
@@ -340,7 +341,7 @@ func TestTopFormatting(t *testing.T) {
 }
 
 func TestTopListingWithoutRequestedCount(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "mountains": "8", "rivers": "9", "@alf": "10"}, nil)
@@ -364,7 +365,7 @@ func TestTopListingWithoutRequestedCount(t *testing.T) {
 }
 
 func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "mountains": "8", "rivers": "9", "@alf": "10"}}, nil)
@@ -388,7 +389,7 @@ func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
 }
 
 func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "-4", "@someone": "-2"}, "myOtherChannel": map[string]string{"thing": "1"}}, nil)
@@ -409,7 +410,7 @@ func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 }
 
 func TestWorstFormatting(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "@alf": "10"}, nil)
@@ -432,7 +433,7 @@ func TestWorstFormatting(t *testing.T) {
 }
 
 func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "10", "@someone": "-3", "birds": "-9", "mountains": "-8", "rivers": "-9", "@alf": "-10"}}, nil)
@@ -456,7 +457,7 @@ func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
 }
 
 func TestWorstListingWithoutRequestedCount(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "10", "@someone": "-3", "birds": "-9", "mountains": "-8", "rivers": "-9", "@alf": "-10"}, nil)
@@ -481,7 +482,7 @@ func TestWorstListingWithoutRequestedCount(t *testing.T) {
 }
 
 func TestLessItemsThanRequestedWorstCount(t *testing.T) {
-	mockStorer := &mockStorer{}
+	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
 	mockStorer.On("ScanSilo", "myLittleChannel").Return(map[string]string{"thing": "1", "bird": "2"}, nil)

@@ -3,5 +3,5 @@ package slackscot
 // GENERATED and MANAGED by giddyup (https://github.com/alexandre-normand/giddyup)
 const (
 	// VERSION represents the current slackscot version
-	VERSION = "1.33.2"
+	VERSION = "1.34.0"
 )
