@@ -1,6 +1,7 @@
 package plugins_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/plugins"
@@ -10,6 +11,7 @@ import (
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
 	"github.com/nlopes/slack"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -288,11 +290,12 @@ func TestLessItemsThanRequestedTopCountReturnsAllInOrder(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• bird `2`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `1`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• bird `2`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• thing `1`\"}}]", string(render))
 	})
 }
 
@@ -309,11 +312,12 @@ func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global top 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `5`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• thing `5`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `3`\"}}]", string(render))
 	})
 }
 
@@ -330,13 +334,12 @@ func TestTopFormatting(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `-10`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@alf\\u003e `10`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• birds `9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `3`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• thing `-10`\"}}]", string(render))
 	})
 }
 
@@ -353,14 +356,12 @@ func TestTopListingWithoutRequestedCount(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `8`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":leaves::leaves::leaves::trophy: *Top* :trophy::leaves::leaves::leaves:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@alf\\u003e `10`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• birds `9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• rivers `9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• mountains `8`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `3`\"}}]", string(render))
 	})
 }
 
@@ -377,14 +378,12 @@ func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global top"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `8`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":leaves::leaves::leaves::trophy: *Global Top* :trophy::leaves::leaves::leaves:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@alf\\u003e `10`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• birds `9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• rivers `9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• mountains `8`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `3`\"}}]", string(render))
 	})
 }
 
@@ -401,11 +400,12 @@ func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global worst 2"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `-3`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `-2`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• thing `-3`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `-2`\"}}]", string(render))
 	})
 }
 
@@ -422,13 +422,12 @@ func TestWorstFormatting(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> worst 4"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `-10`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `3`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `10`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• thing `-10`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `3`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• birds `9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@alf\\u003e `10`\"}}]", string(render))
 	})
 }
 
@@ -445,14 +444,12 @@ func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> global worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `-10`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `-9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `-9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `-8`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `-3`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Global Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@alf\\u003e `-10`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• rivers `-9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• birds `-9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• mountains `-8`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `-3`\"}}]", string(render))
 	})
 }
 
@@ -469,15 +466,12 @@ func TestWorstListingWithoutRequestedCount(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> worst"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@alf> `-10`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• rivers `-9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• birds `-9`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• mountains `-8`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• <@someone> `-3`", false, false), nil, nil),
-		}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@alf\\u003e `-10`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• rivers `-9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• birds `-9`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• mountains `-8`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• \\u003c@someone\\u003e `-3`\"}}]", string(render))
 	})
 }
 
@@ -494,10 +488,11 @@ func TestLessItemsThanRequestedWorstCount(t *testing.T) {
 	assertplugin := assertplugin.New(t, "bot")
 
 	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@bot> worst 3"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "") && assert.Equal(t, []slack.Block{
-			*slack.NewSectionBlock(
-				slack.NewTextBlockObject("mrkdwn", ":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• thing `1`", false, false), nil, nil),
-			*slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", "• bird `2`", false, false), nil, nil)}, answers[0].ContentBlocks)
+		require.Len(t, answers, 1)
+
+		render, err := json.Marshal(answers[0].ContentBlocks)
+		require.NoError(t, err)
+
+		return assertanswer.HasText(t, answers[0], "") && assert.Equal(t, "[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\":fallen_leaf::fallen_leaf::fallen_leaf::space_invader: *Worst* :space_invader::fallen_leaf::fallen_leaf::fallen_leaf:\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• thing `1`\"}},{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":\"• bird `2`\"}}]", string(render))
 	})
 }

@@ -358,7 +358,7 @@ func (k *Karma) answerKarmaRankList(m *slackscot.IncomingMessage, ranker ranker)
 	if len(pairs) > 0 {
 		blocks := make([]slack.Block, 0)
 
-		blocks = append(blocks, *slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.bannerText, false, false), nil, nil))
+		blocks = append(blocks, slack.NewSectionBlock(slack.NewTextBlockObject("mrkdwn", ranker.bannerText, false, false), nil, nil))
 		blocks = append(blocks, k.formatList(pairs)...)
 
 		return &slackscot.Answer{Text: "", ContentBlocks: blocks}
