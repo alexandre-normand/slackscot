@@ -14,6 +14,7 @@ before_script:
 
 script:
   - go test -coverprofile c.out ./...
+  - go test ./plugins/ -slow
 
 after_script:
   - test-reporter after-build --prefix github.com/alexandre-normand/slackscot/ --debug --exit-code $TRAVIS_TEST_RESULT

@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"flag"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
@@ -12,17 +13,21 @@ const (
 	maxGifSizeInBytes = 10000000
 )
 
+var slow = flag.Bool("slow", false, "Enable execution of slow tests")
+
 // TestPicturesSmallerThan10MB checks that all urls are for GIFs smaller than 10MB
 // The main use is for contributions to the curated list to be confirmed by PR builds
 // to be of acceptable size
 func TestPicturesSmallerThan10MB(t *testing.T) {
-	for _, url := range mondayPictures {
-		t.Run(url, func(t *testing.T) {
-			size, err := getGifSize(url)
-			assert.Nil(t, err)
+	if *slow {
+		for _, url := range mondayPictures {
+			t.Run(url, func(t *testing.T) {
+				size, err := getGifSize(url)
+				assert.Nil(t, err)
 
-			assert.Conditionf(t, func() bool { return size <= maxGifSizeInBytes }, "Gif file size should be <= %d bytes but was %d bytes for [%s]", maxGifSizeInBytes, size, url)
-		})
+				assert.Conditionf(t, func() bool { return size <= maxGifSizeInBytes }, "Gif file size should be <= %d bytes but was %d bytes for [%s]", maxGifSizeInBytes, size, url)
+			})
+		}
 	}
 }
 
