@@ -8,8 +8,11 @@ import (
 // The main purpose is a slight decoupling of the slack.RTM in order for plugins to be able to write
 // tests more easily if all they do is send new messages on a channel
 type RealTimeMessageSender interface {
-	// NewOutgoingMessage is the function that sends a new message to the specified channelID
+	// NewOutgoingMessage is the function that creates a new message to send. See https://godoc.org/github.com/nlopes/slack#RTM.NewOutgoingMessage for more details
 	NewOutgoingMessage(text string, channelID string, options ...slack.RTMsgOption) *slack.OutgoingMessage
+
+	// SendMessage is the function that sends a new real time message. See https://godoc.org/github.com/nlopes/slack#RTM.SendMessage for more details
+	SendMessage(outMsg *slack.OutgoingMessage)
 }
 
 // messageSender is implemented by any value that has the SendMessage method. Note that the difference between the RealTimeMessageSender

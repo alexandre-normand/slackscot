@@ -83,7 +83,8 @@ func heyAnswerer(m *slackscot.IncomingMessage) *slackscot.Answer {
 }
 
 func (mlt *myLittleTester) healthStatus() {
-	mlt.RealTimeMsgSender.NewOutgoingMessage("healthy", "test")
+	om := mlt.RealTimeMsgSender.NewOutgoingMessage("healthy", "test")
+	mlt.RealTimeMsgSender.SendMessage(om)
 	mlt.FileUploader.UploadFile(slack.FileUploadParameters{Filename: "healthStatus.png", Filetype: "image/png", Title: "healthy"})
 }
 
