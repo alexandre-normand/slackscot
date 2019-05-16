@@ -104,6 +104,7 @@ func (o *OhMonday) sendGreeting() {
 		message := mondayPictures[selectionRandom.Intn(len(mondayPictures))]
 		o.Logger.Debugf("[%s] Sending morning greeting message [%s] to [%s]", OhMondayPluginName, message, c)
 
-		o.RealTimeMsgSender.NewOutgoingMessage(message, c)
+		om := o.RealTimeMsgSender.NewOutgoingMessage(message, c)
+		o.RealTimeMsgSender.SendMessage(om)
 	}
 }

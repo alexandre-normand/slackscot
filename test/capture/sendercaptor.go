@@ -18,13 +18,17 @@ func NewRealTimeSender() (rtms *RealTimeSenderCaptor) {
 	return rtms
 }
 
-// NewOutgoingMessage captures the details of a sent message (the message itself and the channel it's sent to)
+// NewOutgoingMessage creates an approximation of a message to send (the message itself and the channel it's sent to)
 // The returned OutgoingMessage has only the channel ID and text set on it
 func (rtms *RealTimeSenderCaptor) NewOutgoingMessage(text string, channelID string, options ...slack.RTMsgOption) *slack.OutgoingMessage {
 	if _, ok := rtms.SentMessages[channelID]; !ok {
 		rtms.SentMessages[channelID] = make([]string, 0)
 	}
 
-	rtms.SentMessages[channelID] = append(rtms.SentMessages[channelID], text)
 	return &slack.OutgoingMessage{Channel: channelID, Text: text}
+}
+
+// SendMessage captures the sent message
+func (rtms *RealTimeSenderCaptor) SendMessage(outMsg *slack.OutgoingMessage) {
+	rtms.SentMessages[outMsg.Channel] = append(rtms.SentMessages[outMsg.Channel], outMsg.Text)
 }

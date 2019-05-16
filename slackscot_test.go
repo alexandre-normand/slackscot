@@ -680,7 +680,8 @@ func TestScheduledAction(t *testing.T) {
 	beatPlugin := new(Plugin)
 	beatPlugin.Name = "beat"
 	beatPlugin.ScheduledActions = []ScheduledActionDefinition{{Schedule: scheduleDefinition, Description: "Send a beat every second", Action: func() {
-		beatPlugin.RealTimeMsgSender.NewOutgoingMessage("beat", "Cstatus")
+		om := beatPlugin.RealTimeMsgSender.NewOutgoingMessage("beat", "Cstatus")
+		beatPlugin.RealTimeMsgSender.SendMessage(om)
 	}}}
 
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, beatPlugin, []slack.RTMEvent{
