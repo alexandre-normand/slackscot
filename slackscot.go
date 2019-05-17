@@ -158,6 +158,13 @@ type SlackMessageID struct {
 	timestamp string
 }
 
+// IsMsgModifiable returns true if this slack message id can be used to update/delete the message.
+// In practice, ephemeral messages don't have a channel ID and can't be deleted/updated so this would
+// be a case where IsMsgModifiable would return false
+func (sid SlackMessageID) IsMsgModifiable() bool {
+	return sid.channelID != "" && sid.timestamp != ""
+}
+
 // responseStrategy defines how a slack.OutgoingMessage is generated from an Answer
 type responseStrategy func(m *IncomingMessage, answer *Answer) *slack.OutgoingMessage
 
@@ -522,8 +529,8 @@ func (s *Slackscot) processUpdatedMessageWithCachedResponses(driver chatDriver, 
 			rID, err := s.sendNewMessage(driver, o, editedMsgID.timestamp)
 			if err != nil {
 				s.log.Printf("Unable to send new message to updated message [%s]: %v\n", r, err)
-			} else {
-				// Add the new updated message to the new responses
+			} else if rID.IsMsgModifiable() {
+				// Add the new updated message to the new responses if it can be modified later
 				newResponseByActionID[o.pluginActionID] = rID
 			}
 		}
@@ -584,8 +591,8 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 		rID, err := s.sendNewMessage(sender, o, incomingMessageID.timestamp)
 		if err != nil {
 			s.log.Printf("Unable to send new message triggered by [%s]: %v\n", incomingMessageID, err)
-		} else {
-			// Add the new updated message to the new responses
+		} else if rID.IsMsgModifiable() {
+			// Add the new updated message to the new responses if it's one that can be modified later
 			newResponseByActionID[o.pluginActionID] = rID
 		}
 	}
