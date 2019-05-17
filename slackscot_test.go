@@ -62,7 +62,18 @@ type inMemoryChatDriver struct {
 
 func (c *inMemoryChatDriver) SendMessage(channelID string, options ...slack.MsgOption) (rChannelID string, rTimestamp string, rText string, err error) {
 	c.sentMsgs = append(c.sentMsgs, sentMessage{channelID: channelID, msgOptions: options})
-	return channelID, c.nextTimestamp(), fmt.Sprintf("Message on %s", channelID), nil
+
+	endpoint, _, err := slack.UnsafeApplyMsgOptions("", channelID, "", options...)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	respChannelID := channelID
+	if strings.Contains(endpoint, "chat.postEphemeral") {
+		respChannelID = ""
+	}
+
+	return respChannelID, c.nextTimestamp(), fmt.Sprintf("Message on %s", channelID), nil
 }
 
 func (c *inMemoryChatDriver) UpdateMessage(channelID, timestamp string, options ...slack.MsgOption) (rChannelID string, rTimestamp string, rText string, err error) {
@@ -572,6 +583,28 @@ func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) 
 		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
 	}
 
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
+}
+
+// Test that we send a new message when the previous answer is not updatable because it was ephemeral
+func TestMessageUpdateNoUpdateToEphemeralAnswer(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		// Trigger the original answer that is sent as an ephemeral message
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> noRules make me laugh", botUserID), "Alphonse", timestamp1)),
+		// Update the message to change the message slightly
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> noRules make me cry", botUserID), "Alphonse", timestamp2, optionChangedMessage(fmt.Sprintf("<@%s> noRules make me cry", botUserID), "Alphonse", timestamp1))),
+	})
+
+	if assert.Equal(t, 2, len(sentMsgs)) {
+		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		assert.Equal(t, 4, len(sentMsgs[1].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[1].channelID)
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
 	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
