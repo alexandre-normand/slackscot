@@ -253,7 +253,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.namespaceCommands = true
 	s.closers = make([]io.Closer, 0)
 	s.defaultAction = func(m *IncomingMessage) *Answer {
-		return &Answer{Text: fmt.Sprintf("I don't understand, ask me for \"%s\" to get a list of things I do", helpPluginName)}
+		return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
 
