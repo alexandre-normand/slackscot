@@ -62,10 +62,10 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 	if err != nil {
 		h.Logger.Debugf("Error getting user info for user id [%s] so skipping mentioning the name (it would be awkward): %v", userID, err)
 	} else {
-		fmt.Fprintf(&b, "🤝 You're `%s` and ", user.RealName)
+		fmt.Fprintf(&b, "🤝 Hi, `%s`! ", user.RealName)
 	}
 
-	fmt.Fprintf(&b, "I'm `%s` (engine `v%s`). I listen to the team's chat and provides automated functions :genie:.\n", h.name, h.slackscotVersion)
+	fmt.Fprintf(&b, "I'm `%s` (engine `v%s`) and I listen to the team's chat and provides automated functions :genie:.\n", h.name, h.slackscotVersion)
 
 	if lenCommands(h.commands) > 0 {
 		fmt.Fprintf(&b, "\nI currently support the following commands:\n")

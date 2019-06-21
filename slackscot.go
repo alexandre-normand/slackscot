@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -45,11 +46,20 @@ type Slackscot struct {
 	// Runtime configuration options
 	namespaceCommands bool
 
+	// Slack options to apply on Run()
+	slackOpts []slack.Option
+
 	// Logger
 	log *sLogger
 
 	// Resources to close on shutdown
 	closers []io.Closer
+
+	// Test mode which defines whether or not the bot reacts to terminationEvents
+	testMode bool
+
+	// Termination channel.
+	terminationCh chan bool
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -229,6 +239,15 @@ func OptionNoPluginNamespacing() Option {
 func OptionLogfile(logfile *os.File) Option {
 	return func(s *Slackscot) {
 		s.log.logger = log.New(logfile, defaultLogPrefix, defaultLogFlag)
+		s.slackOpts = append(s.slackOpts, slack.OptionLog(s.log.logger))
+	}
+}
+
+// optionTestMode sets the instance in test mode which reacts to a termination event to stop
+func optionTestMode(terminationCh chan bool) Option {
+	return func(s *Slackscot) {
+		s.testMode = true
+		s.terminationCh = terminationCh
 	}
 }
 
@@ -251,11 +270,23 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.name = name
 	s.config = v
 	s.namespaceCommands = true
+	s.testMode = false
 	s.closers = make([]io.Closer, 0)
 	s.defaultAction = func(m *IncomingMessage) *Answer {
 		return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
+
+	s.slackOpts = make([]slack.Option, 0)
+	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
+
+	// TODO: For now, the slackscot logger is propagated to slack for its own logging. This means that the prefix is the same for both. With
+	// https://github.com/golang/go/commit/51104cd4d2dab6bdd8bda694c0a9a5613cec3b84 (to be released in 1.12),
+	// we should be able to create a new logger to the same file but using a different prefix
+	// This is the line to use when 1.12 is officially out:
+	//
+	// slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
+	s.slackOpts = append(s.slackOpts, slack.OptionLog(s.log.logger))
 
 	for _, opt := range options {
 		opt(s)
@@ -289,14 +320,7 @@ func (s *Slackscot) RegisterPlugin(p *Plugin) {
 func (s *Slackscot) Run() (err error) {
 	sc := slack.New(
 		s.config.GetString(config.TokenKey),
-		slack.OptionDebug(s.config.GetBool(config.DebugKey)),
-		// TODO: For now, the slackscot logger is propagated to slack for its own logging. This means that the prefix is the same for both. With
-		// https://github.com/golang/go/commit/51104cd4d2dab6bdd8bda694c0a9a5613cec3b84 (to be released in 1.12),
-		// we should be able to create a new logger to the same file but using a different prefix
-		// This is the line to use when 1.12 is officially out:
-		//
-		// slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
-		slack.OptionLog(s.log.logger),
+		s.slackOpts...,
 	)
 
 	// This will initiate the connection to the slack RTM and start the reception of messages
@@ -314,14 +338,20 @@ func (s *Slackscot) Run() (err error) {
 	// Start scheduling of all plugins' scheduled actions
 	go s.startActionScheduler(timeLoc)
 
-	termination := make(chan bool)
+	// runInternal is blocking call so it's running in a goroutine. The way slackscot would usually terminate
+	// in a production scenario is by its process getting killed which would result in a last message sent on the termination channel
+	if s.terminationCh != nil {
+		// Start the main processing and send the termination to the externally defined termination channel (so a test can block and wait for processing after sending all of its test messages)
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm})
+	} else {
+		// This is production and the lifecycle is managed here so we create the termination channel and wait for the termination signal
+		s.terminationCh = make(chan bool)
 
-	// This is a blocking call so it's running in a goroutine. The way slackscot would usually terminate
-	// in a production scenario is by receiving a termination signal which
-	go s.runInternal(rtm.IncomingEvents, termination, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm}, true)
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm})
 
-	// Wait for termination
-	<-termination
+		// Wait for termination
+		<-s.terminationCh
+	}
 
 	return nil
 }
@@ -330,15 +360,15 @@ func (s *Slackscot) Run() (err error) {
 // always process events as long as the process isn't interrupted. Normally, this happens
 // by a kill signal being sent and slackscot gets notified and closes the events channel which
 // terminates this loop and shuts down gracefully
-func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<- bool, deps *runDependencies, productionMode bool) {
+func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependencies) {
 	// Ensure we send a termination signal on the channel to unblock the main thread and exit
 	defer func() {
-		termination <- true
+		s.terminationCh <- true
 	}()
 
 	// Register to receive a notification for a termination signal which will, in turn, send a termination message to the
 	// termination channel
-	go s.watchForTerminationSignalToAbort(termination)
+	go s.watchForTerminationSignalToAbort()
 
 	// Start by adding the help command now that we know all plugins have been registered
 	helpPlugin := s.newHelpPlugin(VERSION)
@@ -368,7 +398,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, termination chan<-
 			return
 
 		case *terminationEvent:
-			if !productionMode {
+			if s.testMode {
 				s.log.Printf("Received termination event in test mode, terminating\n")
 				return
 			}
@@ -398,14 +428,14 @@ func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder
 
 // watchForTerminationSignalToAbort waits for a SIGTERM or SIGINT and sends a termination signal on the termination channel to finish
 // the main Run() loop and terminate cleanly. Note that this is meant to run in a go routine given that this is blocking
-func (s *Slackscot) watchForTerminationSignalToAbort(termination chan<- bool) {
+func (s *Slackscot) watchForTerminationSignalToAbort() {
 	tSignals := make(chan os.Signal, 1)
 	// Register to be notified of termination signals so we can abort
 	signal.Notify(tSignals, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-tSignals
 
 	s.log.Debugf("Received termination signal [%s], closing RTM's incoming events channel to terminate processing\n", sig)
-	termination <- true
+	s.terminationCh <- true
 }
 
 // getActionID returns a formatted identifier for an action. It includes the plugin name,
@@ -478,14 +508,45 @@ func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.Messa
 	}
 }
 
+// getAgeOriginalMsg returns the age of an updated message as defined by the time elapsed between the message
+// update (from the time of the current event) and the original message. If there's no previous message, the
+// age is 0.
+func getAgeOriginalMsg(m *slack.MessageEvent) (age time.Duration, err error) {
+	updatedTime, err := strconv.ParseFloat(m.Timestamp, 64)
+	if err != nil {
+		return time.Duration(0), err
+	}
+
+	originalTime, err := strconv.ParseFloat(m.SubMessage.Timestamp, 64)
+	if err != nil {
+		return time.Duration(0), err
+	}
+
+	ageInSeconds := updatedTime - originalTime
+	return time.Duration(int64(ageInSeconds)) * time.Second, nil
+}
+
 // processUpdatedMessage processes changed messages. This is a more complicated scenario but slackscot handles it by doing the following:
-// 1. If the message isn't present in the triggering message cache, we process it as we would any other regular new message (check if it triggers an action and sends responses accordingly)
-// 2. If the message is present in cache, we had pre-existing responses so we handle this by updating responses on a plugin action basis. A plugin action that isn't triggering anymore gets its previous
+// 1. If the message age is older than the config.MaxAgeHandledMessages threshold, the message update is ignored
+// 2. If the message isn't present in the triggering message cache, we process it as we would any other regular new message (check if it triggers an action and sends responses accordingly)
+// 3. If the message is present in cache, we had pre-existing responses so we handle this by updating responses on a plugin action basis. A plugin action that isn't triggering anymore gets its previous
 //    response deleted while a still triggering response will result in a message update. Newly triggered actions will be sent out as new messages.
-// 3. The new state of responses replaces the previous one for the triggering message in the cache
+// 4. The new state of responses replaces the previous one for the triggering message in the cache
 func (s *Slackscot) processUpdatedMessage(driver chatDriver, m *slack.MessageEvent) {
 	incomingMessageID := SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
 	editedMsgID := SlackMessageID{channelID: m.Channel, timestamp: m.SubMessage.Timestamp}
+
+	maxAgeThreshold := s.config.GetDuration(config.MaxAgeHandledMessages)
+	msgAge, err := getAgeOriginalMsg(m)
+	if err != nil {
+		s.log.Printf("Unable to determine max age for message [%v]: %s", m, err.Error())
+		return
+	}
+
+	if msgAge > maxAgeThreshold {
+		s.log.Debugf("Updated message: [%s] has an age of [%s] but the max age for handled messages is [%s]. Skipping...", editedMsgID, msgAge, maxAgeThreshold)
+		return
+	}
 
 	s.log.Debugf("Updated message: [%s], does cache contain it => [%t]", editedMsgID, s.triggeringMsgToResponse.Contains(editedMsgID))
 
@@ -607,6 +668,7 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 
 // sendNewMessage sends a new outgoingMsg and waits for the response to return that message's identifier
 func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, defaultThreadTS string) (rID SlackMessageID, err error) {
+	s.log.Printf("Sending new message: %s", o.OutgoingMessage.Text)
 	sendOpts := ApplyAnswerOpts(o.Options...)
 	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
 	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(sendOpts[ThreadedReplyOpt]) {
