@@ -12,6 +12,7 @@ import (
 const (
 	TokenKey                    = "token"                                  // Slack token, string
 	DebugKey                    = "debug"                                  // Debug mode, boolean
+	MaxAgeHandledMessages       = "maxAgeHandledMessages"                  // The maximum age of messages before they are ignored (applicable for message updates)
 	ResponseCacheSizeKey        = "responseCacheSize"                      // Response cache size in number of entries, int
 	TimeLocationKey             = "timeLocation"                           // Time Location as understood by time.LoadLocation
 	ThreadedRepliesKey          = "replyBehavior.threadedReplies"          // Threaded replies mode (slackscot will respond to all triggering messages using threads), boolean
@@ -27,6 +28,7 @@ const (
 	timeLocationDefault             = "Local"
 	threadedRepliesDefault          = false
 	broadcastThreadedRepliesDefault = false
+	maxAgeHandledMessagesDefault    = time.Duration(24) * time.Hour
 )
 
 // ReplyBehavior holds flags to define the replying behavior (use threads or not and broadcast replies or not)
@@ -46,6 +48,7 @@ func NewViperWithDefaults() (v *viper.Viper) {
 	v.SetDefault(TimeLocationKey, timeLocationDefault)
 	v.SetDefault(ThreadedRepliesKey, threadedRepliesDefault)
 	v.SetDefault(BroadcastThreadedRepliesKey, broadcastThreadedRepliesDefault)
+	v.SetDefault(MaxAgeHandledMessages, maxAgeHandledMessagesDefault)
 
 	return v
 }

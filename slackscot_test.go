@@ -1,6 +1,7 @@
 package slackscot
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -20,6 +22,7 @@ const (
 	botUserID                   = "BotUserID"
 	formattedBotUserID          = "<@" + botUserID + ">"
 	timestamp1                  = "1546833210.036900"
+	oneDayLaterTimestamp        = "1546919611.036900" // One second more than 24 hours after timestamp1
 	timestamp2                  = "1546833214.036900"
 	firstReplyTimestamp         = 1547785956
 	replyTimeIncrementInSeconds = 10
@@ -203,6 +206,11 @@ func newTestPlugin() (tp *Plugin) {
 	return tp
 }
 
+func applySlackOptions(opts ...slack.MsgOption) (vals url.Values) {
+	_, vals, _ = slack.UnsafeApplyMsgOptions("token", "channel", "url", opts...)
+	return vals
+}
+
 func TestLogfileOverrideUsed(t *testing.T) {
 	tmpfile, err := ioutil.TempFile("", "test")
 	assert.Nil(t, err)
@@ -254,6 +262,11 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -263,12 +276,18 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 
 func TestAnswerWithNamespacingDisabled(t *testing.T) {
 	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
-		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s block hello you", formattedBotUserID), "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s make something nice", formattedBotUserID), "Alphonse", timestamp1)),
 	}, OptionNoPluginNamespacing())
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		// It isn't obvious but an ephemeral message is sent *as* the user it's also being sent *to*
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 }
 
@@ -280,6 +299,12 @@ func TestAnswerWithContentBlocks(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: ", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "[{\"type\":\"context\",\"elements\":{\"Elements\":[{\"type\":\"mrkdwn\",\"text\":\"hello you\"}]}}]", vals.Get("blocks"))
 	}
 }
 
@@ -292,11 +317,23 @@ func TestAnswerUpdateWithContentBlocks(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: ", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "[{\"type\":\"context\",\"elements\":{\"Elements\":[{\"type\":\"mrkdwn\",\"text\":\"hello you\"}]}}]", vals.Get("blocks"))
 	}
 
 	if assert.Equal(t, 1, len(updatedMsgs)) {
 		assert.Equal(t, 4, len(updatedMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+
+		vals := applySlackOptions(updatedMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: ", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "[{\"type\":\"context\",\"elements\":{\"Elements\":[{\"type\":\"mrkdwn\",\"text\":\"hello you and everyone else\"}]}}]", vals.Get("blocks"))
 	}
 }
 
@@ -306,9 +343,14 @@ func TestHandleIncomingThreadedMessageTriggeringResponse(t *testing.T) {
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
-		// This should include the threaded reply message options to ensure we reply on the thread without broadcast
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "1212314125", vals.Get("thread_ts"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -354,11 +396,21 @@ func TestIncomingMessageUpdateTriggeringResponseUpdate(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	if assert.Equal(t, 1, len(updatedMsgs)) {
 		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+
+		vals := applySlackOptions(updatedMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
@@ -375,9 +427,17 @@ func TestIncomingMessageUpdateNotTriggeringUpdateIfDifferentChannel(t *testing.T
 	if assert.Equal(t, 2, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 
 		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "Cother", sentMsgs[1].channelID)
+		vals = applySlackOptions(sentMsgs[1].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -399,15 +459,24 @@ func TestThreadedReplies(t *testing.T) {
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
-		// We can't check for the exact options because they're functions on a non-public nlopes/slack structure but
-		// knowing we have 4 options instead of 3 gives some confidence
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, timestamp1, vals.Get("thread_ts"))
 	}
 
 	if assert.Equal(t, 1, len(updatedMsgs)) {
 		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+
+		vals := applySlackOptions(updatedMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
@@ -428,15 +497,25 @@ func TestThreadedRepliesWithBroadcast(t *testing.T) {
 	})
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
-		// We can't check for the exact options because they're functions on a non-public nlopes/slack structure but
-		// knowing we have 5 options instead of 3 gives some confidence that both threaded replies and broadcast are included
 		assert.Equal(t, 5, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, timestamp1, vals.Get("thread_ts"))
+		assert.Equal(t, "true", vals.Get("reply_broadcast"))
 	}
 
 	if assert.Equal(t, 1, len(updatedMsgs)) {
 		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
+
+		vals := applySlackOptions(updatedMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(deletedMsgs))
@@ -453,6 +532,11 @@ func TestIncomingMessageTriggeringNewResponse(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -469,9 +553,15 @@ func TestIncomingTriggeringMessageUpdatedToNotTriggerAnymore(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
+
 	if assert.Equal(t, 1, len(deletedMsgs)) {
 		assert.Equal(t, deletedMessage{channelID: "Cgeneral", timestamp: formatTimestamp(firstReplyTimestamp)}, deletedMsgs[0])
 		assert.Equal(t, "Cgeneral", deletedMsgs[0].channelID)
@@ -489,6 +579,12 @@ func TestDirectMessageMatchingCommand(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "DFromUser", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "Make it yourself, @Alphonse", vals.Get("text"))
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "", vals.Get("thread_ts"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -505,6 +601,12 @@ func TestDirectMessageNotMatchingAnything(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "DFromUser", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I don't understand. Ask me for \"help\" to get a list of things I do", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "", vals.Get("thread_ts"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -521,6 +623,11 @@ func TestDefaultCommandAnswerInChannel(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: I don't understand. Ask me for \"help\" to get a list of things I do", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -537,6 +644,12 @@ func TestDefaultCommandAnswerToMsgOnExistingThread(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: I don't understand. Ask me for \"help\" to get a list of things I do", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, "1212314125", vals.Get("thread_ts"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -553,6 +666,11 @@ func TestAtMessageNotMatchingAnything(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: I don't understand. Ask me for \"help\" to get a list of things I do", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -571,9 +689,17 @@ func TestIncomingTriggeringMessageUpdatedToTriggerDifferentAction(t *testing.T) 
 	if assert.Equal(t, 2, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 
 		assert.Equal(t, 4, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[1].channelID)
+		vals = applySlackOptions(sentMsgs[1].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -598,9 +724,17 @@ func TestMessageUpdateNoUpdateToEphemeralAnswer(t *testing.T) {
 	if assert.Equal(t, 2, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 
 		assert.Equal(t, 4, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[1].channelID)
+		vals = applySlackOptions(sentMsgs[1].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -628,9 +762,22 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 	if assert.Equal(t, 2, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, fmt.Sprintf("<@Alphonse>: 🤝 Hi, `Daniel Quinn`! I'm `chickadee` (engine `v%s`) and I listen to the team's "+
+			"chat and provides automated functions :genie:.\n\nI currently support the following commands:\n\t• `noRules make `<something>`` - "+
+			"Have the test bot make something for you\n\t• `noRules block `<something>`` - Render your expression as a context block\n", VERSION), vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+		assert.Equal(t, timestamp1, vals.Get("thread_ts"))
 
 		assert.Equal(t, 3, len(sentMsgs[1].msgOptions))
 		assert.Equal(t, "DFromAlphonse", sentMsgs[1].channelID)
+		vals = applySlackOptions(sentMsgs[1].msgOptions...)
+		assert.Equal(t, fmt.Sprintf("🤝 Hi, `Daniel Quinn`! I'm `chickadee` (engine `v%s`) and I listen to the team's "+
+			"chat and provides automated functions :genie:.\n\nI currently support the following commands:\n\t• `noRules make `<something>`` - "+
+			"Have the test bot make something for you\n\t• `noRules block `<something>`` - Render your expression as a context block\n", VERSION), vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -647,26 +794,6 @@ func TestHelpTriggeringNoUserInfoCache(t *testing.T) {
 	testHelpTriggering(t, v)
 }
 
-func TestTriggeringMessageDeletion(t *testing.T) {
-	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
-		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
-		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Ignored", timestamp2, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
-	})
-
-	if assert.Equal(t, 1, len(sentMsgs)) {
-		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
-		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
-	}
-
-	if assert.Equal(t, 1, len(updatedMsgs)) {
-		assert.Equal(t, 3, len(updatedMsgs[0].msgOptions))
-		assert.Equal(t, "Cgeneral", updatedMsgs[0].channelID)
-	}
-
-	assert.Equal(t, 0, len(deletedMsgs))
-	assert.Equal(t, 0, len(rtmSender.SentMessages))
-}
-
 func TestIncomingMessageUpdateTriggeringResponseDeletion(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
@@ -676,6 +803,11 @@ func TestIncomingMessageUpdateTriggeringResponseDeletion(t *testing.T) {
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
 		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
 	}
 
 	assert.Equal(t, 0, len(updatedMsgs))
@@ -741,11 +873,65 @@ func TestNewWithInvalidResponseCacheSize(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func TestMessageUpdatedAfterHandlingThresholdIgnored(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Ignored", oneDayLaterTimestamp, optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
+}
+
+// This shouldn't happen but if slack was sending invalid message timestamps (not float values), we
+// want to default to handling the message
+func TestMessageUpdatedHandledWhenUnableToCalculateAge(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays", "Alphonse", timestamp1)),
+		// First case where we set the updated message to an invalid original time
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> noRules make me something nice", botUserID), "Alphonse", oneDayLaterTimestamp, optionChangedMessage("blue jays eat acorn", "Alphonse", "invalid"))),
+		// Second case where we set the updated message to an invalid new message time
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("<@%s> noRules make me cry", botUserID), "Alphonse", "not a float", optionChangedMessage("blue jays eat acorn", "Alphonse", timestamp1))),
+	})
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "I heard you say something about blue jays?", vals.Get("text"))
+		assert.Equal(t, botUserID, vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+	}
+
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
+}
+
 func newRTMMessageEvent(msgEvent *slack.MessageEvent) (e slack.RTMEvent) {
 	e.Type = "message"
 	e.Data = msgEvent
 
 	return e
+}
+
+func msgToJson(e slack.RTMEvent) (val string) {
+	rendered, err := json.Marshal(e)
+	if err != nil {
+		return ""
+	}
+
+	return string(rendered)
 }
 
 func newMessageEvent(channel string, text string, fromUser string, timestamp string, options ...testMsgOption) (e *slack.MessageEvent) {
@@ -783,6 +969,8 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	var userInfoFinder userInfoFinder
 	var emojiReactor emojiReactor
 
+	termination := make(chan bool)
+	options = append(options, optionTestMode(termination))
 	s, err := New("chickadee", v, options...)
 	s.RegisterPlugin(plugin)
 
@@ -795,8 +983,8 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	go s.startActionScheduler(timeLoc)
 
 	ec := make(chan slack.RTMEvent)
-	termination := make(chan bool)
-	go s.runInternal(ec, termination, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder, realTimeMsgSender: rtmSenderCaptor}, false)
+
+	go s.runInternal(ec, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder, realTimeMsgSender: rtmSenderCaptor})
 
 	go sendTestEventsForProcessing(ec, events)
 

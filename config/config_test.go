@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestNewWithDefault(t *testing.T) {
@@ -15,6 +16,7 @@ func TestNewWithDefault(t *testing.T) {
 	assert.Equal(t, "Local", v.GetString(config.TimeLocationKey), "%s should be %s", config.TimeLocationKey, "Local")
 	assert.Equal(t, false, v.GetBool(config.ThreadedRepliesKey), "%s should be %t", config.ThreadedRepliesKey, false)
 	assert.Equal(t, false, v.GetBool(config.BroadcastThreadedRepliesKey), "%s should be %t", config.BroadcastThreadedRepliesKey, false)
+	assert.Equal(t, time.Duration(24)*time.Hour, v.GetDuration(config.MaxAgeHandledMessages), "%s should be %t", config.MaxAgeHandledMessages, time.Duration(24)*time.Hour)
 }
 
 func TestGetTimeLocationWithDefault(t *testing.T) {
