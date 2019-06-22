@@ -247,7 +247,7 @@ func TestInvalidSingleStoredKarmaValuesOnGlobalTopList(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "abc"}, "myOtherChannel": map[string]string{"thing": "1"}}, nil)
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": {"thing": "abc"}, "myOtherChannel": {"thing": "1"}}, nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -264,7 +264,7 @@ func TestInvalidSingleStoredKarmaValuesOnGlobalWorstList(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "1"}, "myOtherChannel": map[string]string{"thing": "abc"}}, nil)
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": {"thing": "1"}, "myOtherChannel": {"thing": "abc"}}, nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -303,7 +303,7 @@ func TestGlobalTopFormattingAndKarmaMerging(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "1", "@someone": "3"}, "myOtherChannel": map[string]string{"thing": "4"}}, nil)
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": {"thing": "1", "@someone": "3"}, "myOtherChannel": {"thing": "4"}}, nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -369,7 +369,7 @@ func TestGlobalTopListingWithoutRequestedCount(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "-10", "@someone": "3", "birds": "9", "mountains": "8", "rivers": "9", "@alf": "10"}}, nil)
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": {"thing": "-10", "@someone": "3", "birds": "9", "mountains": "8", "rivers": "9", "@alf": "10"}}, nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -391,7 +391,7 @@ func TestGlobalWorstFormattingAndKarmaMerging(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "-4", "@someone": "-2"}, "myOtherChannel": map[string]string{"thing": "1"}}, nil)
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": {"thing": "-4", "@someone": "-2"}, "myOtherChannel": {"thing": "1"}}, nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -435,7 +435,7 @@ func TestGlobalWorstListingWithoutRequestedCount(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": map[string]string{"thing": "10", "@someone": "-3", "birds": "-9", "mountains": "-8", "rivers": "-9", "@alf": "-10"}}, nil)
+	mockStorer.On("GlobalScan").Return(map[string]map[string]string{"myLittleChannel": {"thing": "10", "@someone": "-3", "birds": "-9", "mountains": "-8", "rivers": "-9", "@alf": "-10"}}, nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
