@@ -4,6 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexandre-normand/slackscot)](https://goreportcard.com/report/github.com/alexandre-normand/slackscot)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/9fe1722ab2f31036c44c/test_coverage)](https://codeclimate.com/github/alexandre-normand/slackscot/test_coverage)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9fe1722ab2f31036c44c/maintainability)](https://codeclimate.com/github/alexandre-normand/slackscot/maintainability)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go) 
 [![Latest Version](https://img.shields.io/github/tag/alexandre-normand/slackscot.svg?label=version)](https://github.com/alexandre-normand/slackscot/releases)
 
 ![logo.svg](logo.svg)
