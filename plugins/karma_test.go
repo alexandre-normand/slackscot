@@ -63,6 +63,8 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"},
 		{"<@U21355> ++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 7)"},
 		{"thing ++", "Cgeneral", ""},
+		{"```block--```", "Cgeneral", ""},
+		{"`inlinecode--`", "Cgeneral", ""},
 		{"don't++", "Cgeneral", "`don't` just gained a level (`don't`: 1)"},
 		{"under-the-bridge++", "Cgeneral", "`the-bridge` just gained a level (`the-bridge`: 1)"},
 		{"Jean-Michel++", "Cgeneral", "`Jean-Michel` just gained a level (`Jean-Michel`: 1)"},
@@ -89,11 +91,10 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 	p := plugins.NewKarma(storer)
 	p.UserInfoFinder = userInfoFinder
 
-	assertplugin := assertplugin.New(t, "bot")
-
 	if assert.NotNil(t, p) {
 		for _, tc := range testCases {
 			t.Run(tc.text, func(t *testing.T) {
+				assertplugin := assertplugin.New(t, "bot")
 				assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: tc.channel, Text: tc.text}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 					if len(tc.expectedAnswer) > 0 {
 						return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], tc.expectedAnswer)

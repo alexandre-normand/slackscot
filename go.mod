@@ -12,6 +12,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nlopes/slack v0.5.1-0.20190508220637-3970c759dead
 	github.com/pkg/errors v0.8.1
+	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/objx v0.2.0 // indirect
