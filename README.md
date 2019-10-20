@@ -247,11 +247,13 @@ which means that you are free to use a different file format
    "token": "your-slack-bot-token",
    "debug": false,
    "responseCacheSize": 5000,
+   "userInfoCacheSize": 0,
+   "maxAgeHandledMessages": 86400,
    "timeLocation": "America/Los_Angeles",
    "storagePath": "/your-path-to-bot-home",
    "replyBehavior": {
       "threadedReplies": true,
-      "broadcast": true
+      "broadcastThreadedReplies": true
    },
    "plugins": {
       "ohMonday": {
