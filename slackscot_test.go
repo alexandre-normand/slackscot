@@ -6,11 +6,15 @@ import (
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/alexandre-normand/slackscot/test/capture"
+	"github.com/gorilla/websocket"
 	"github.com/nlopes/slack"
+	"github.com/nlopes/slack/slacktest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -166,16 +170,17 @@ func newTestPlugin() (tp *Plugin) {
 	tp = new(Plugin)
 	tp.Name = "noRules"
 	tp.NamespaceCommands = true
-	tp.Commands = []ActionDefinition{{
-		Match: func(m *IncomingMessage) bool {
-			return strings.HasPrefix(m.NormalizedText, "make")
+	tp.Commands = []ActionDefinition{
+		{
+			Match: func(m *IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "make")
+			},
+			Usage:       "make `<something>`",
+			Description: "Have the test bot make something for you",
+			Answer: func(m *IncomingMessage) *Answer {
+				return &Answer{Text: fmt.Sprintf("Make it yourself, @%s", m.User), Options: []AnswerOption{AnswerEphemeral(m.User)}}
+			},
 		},
-		Usage:       "make `<something>`",
-		Description: "Have the test bot make something for you",
-		Answer: func(m *IncomingMessage) *Answer {
-			return &Answer{Text: fmt.Sprintf("Make it yourself, @%s", m.User), Options: []AnswerOption{AnswerEphemeral(m.User)}}
-		},
-	},
 		{
 			Match: func(m *IncomingMessage) bool {
 				return strings.HasPrefix(m.NormalizedText, "block ")
@@ -185,6 +190,22 @@ func newTestPlugin() (tp *Plugin) {
 			Answer: func(m *IncomingMessage) *Answer {
 				expression := strings.TrimPrefix(m.NormalizedText, "block ")
 				return &Answer{Text: "", ContentBlocks: []slack.Block{*slack.NewContextBlock("", *slack.NewTextBlockObject("mrkdwn", expression, false, false))}}
+			},
+		},
+		{
+			Match: func(m *IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "create channel ")
+			},
+			Usage:       "create channel <name>",
+			Description: "Creates a new channel with the given name",
+			Answer: func(m *IncomingMessage) *Answer {
+				expression := strings.TrimPrefix(m.NormalizedText, "create channel ")
+				channel, err := tp.SlackClient.CreateChannel(expression)
+				if err == nil {
+					return &Answer{Text: fmt.Sprintf("Channel #%s created with id: %s", channel.Name, channel.ID)}
+				} else {
+					return &Answer{Text: fmt.Sprintf("Error creating channel: %s", err.Error())}
+				}
 			},
 		}}
 
@@ -217,7 +238,7 @@ func TestLogfileOverrideUsed(t *testing.T) {
 
 	defer os.Remove(tmpfile.Name()) // clean up
 
-	runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{}, OptionLogfile(tmpfile))
+	runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{}, nil, OptionLogfile(tmpfile))
 
 	logs, err := ioutil.ReadFile(tmpfile.Name())
 	assert.Nil(t, err)
@@ -277,7 +298,7 @@ func TestHandleIncomingMessageTriggeringResponse(t *testing.T) {
 func TestAnswerWithNamespacingDisabled(t *testing.T) {
 	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s make something nice", formattedBotUserID), "Alphonse", timestamp1)),
-	}, OptionNoPluginNamespacing())
+	}, nil, OptionNoPluginNamespacing())
 
 	if assert.Equal(t, 1, len(sentMsgs)) {
 		assert.Equal(t, 4, len(sentMsgs[0].msgOptions))
@@ -765,7 +786,8 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 		vals := applySlackOptions(sentMsgs[0].msgOptions...)
 		assert.Equal(t, fmt.Sprintf("<@Alphonse>: 🤝 Hi, `Daniel Quinn`! I'm `chickadee` (engine `v%s`) and I listen to the team's "+
 			"chat and provides automated functions :genie:.\n\nI currently support the following commands:\n\t• `noRules make `<something>`` - "+
-			"Have the test bot make something for you\n\t• `noRules block `<something>`` - Render your expression as a context block\n", VERSION), vals.Get("text"))
+			"Have the test bot make something for you\n\t• `noRules block `<something>`` - Render your expression as a context block\n"+
+			"\t• `noRules create channel <name>` - Creates a new channel with the given name\n", VERSION), vals.Get("text"))
 		assert.Equal(t, botUserID, vals.Get("user"))
 		assert.Equal(t, "true", vals.Get("as_user"))
 		assert.Equal(t, timestamp1, vals.Get("thread_ts"))
@@ -775,7 +797,8 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 		vals = applySlackOptions(sentMsgs[1].msgOptions...)
 		assert.Equal(t, fmt.Sprintf("🤝 Hi, `Daniel Quinn`! I'm `chickadee` (engine `v%s`) and I listen to the team's "+
 			"chat and provides automated functions :genie:.\n\nI currently support the following commands:\n\t• `noRules make `<something>`` - "+
-			"Have the test bot make something for you\n\t• `noRules block `<something>`` - Render your expression as a context block\n", VERSION), vals.Get("text"))
+			"Have the test bot make something for you\n\t• `noRules block `<something>`` - Render your expression as a context block\n"+
+			"\t• `noRules create channel <name>` - Creates a new channel with the given name\n", VERSION), vals.Get("text"))
 		assert.Equal(t, botUserID, vals.Get("user"))
 		assert.Equal(t, "true", vals.Get("as_user"))
 	}
@@ -918,6 +941,102 @@ func TestMessageUpdatedHandledWhenUnableToCalculateAge(t *testing.T) {
 	assert.Equal(t, 0, len(rtmSender.SentMessages))
 }
 
+func TestOptionWithSlackOptionApplied(t *testing.T) {
+	testServer := slacktest.NewTestServer()
+
+	testServer.Handle("/channels.create", slacktest.Websocket(func(conn *websocket.Conn) {
+		if err := slacktest.RTMServerSendGoodbye(conn); err != nil {
+			log.Println("failed to send goodbye", err)
+		}
+	}))
+
+	testServer.Start()
+	defer testServer.Stop()
+
+	termination := make(chan bool)
+	s, err := New("BobbyTables", config.NewViperWithDefaults(), OptionWithSlackOption(slack.OptionAPIURL(testServer.GetAPIURL())), OptionTestMode(termination))
+	require.NoError(t, err)
+
+	tp := newTestPlugin()
+	s.RegisterPlugin(tp)
+
+	go s.Run()
+
+	testStart := time.Now()
+	for now := time.Now(); tp.SlackClient == nil || now.Sub(testStart) > time.Duration(1)*time.Second; now = time.Now() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	require.NotNil(t, tp.SlackClient)
+
+	testServer.SendToWebsocket("{\"type\":\"goodbye\"}")
+
+	// Wait for slackscot to terminate
+	<-termination
+}
+
+func TestSlackClientFromPlugin(t *testing.T) {
+	createResponse := `{
+	    "ok": true,
+	    "channel": {
+	        "id": "CRANDOM",
+	        "name": "offgrid",
+	        "is_channel": true,
+	        "created": 1576036682,
+	        "is_archived": false,
+	        "is_general": false,
+	        "unlinked": 0,
+	        "creator": "USER",
+	        "name_normalized": "offgrid",
+	        "is_shared": false,
+	        "is_org_shared": false,
+	        "is_member": true,
+	        "is_private": false,
+	        "is_mpim": false,
+	        "last_read": "0000000000.000000",
+	        "latest": null,
+	        "unread_count": 0,
+	        "unread_count_display": 0,
+	        "members": [
+	            "USER"
+	        ],
+	        "topic": {
+	            "value": "",
+	            "creator": "",
+	            "last_set": 0
+	        },
+	        "purpose": {
+	            "value": "",
+	            "creator": "",
+	            "last_set": 0
+	        },
+	        "previous_names": [],
+	        "priority": 0
+	    }
+	}`
+
+	handler := func(c slacktest.Customize) {
+		c.Handle("/channels.create", func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(createResponse))
+		})
+	}
+
+	testServer := slacktest.NewTestServer(handler)
+	testServer.Start()
+	defer testServer.Stop()
+
+	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s noRules create channel #offgrid", formattedBotUserID), "Alphonse", timestamp1)),
+	}, testServer)
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Channel #offgrid created with id: CRANDOM", vals.Get("text"))
+	}
+}
+
 func newRTMMessageEvent(msgEvent *slack.MessageEvent) (e slack.RTMEvent) {
 	e.Type = "message"
 	e.Data = msgEvent
@@ -953,11 +1072,11 @@ func runSlackscotWithIncomingEventsWithLogs(t *testing.T, v *viper.Viper, plugin
 	var logBuilder strings.Builder
 	logger := log.New(&logBuilder, "", 0)
 
-	sentMessages, updatedMsgs, deletedMsgs, rtmSenderCaptor = runSlackscotWithIncomingEvents(t, v, plugin, events, OptionLog(logger))
+	sentMessages, updatedMsgs, deletedMsgs, rtmSenderCaptor = runSlackscotWithIncomingEvents(t, v, plugin, events, nil, OptionLog(logger))
 	return sentMessages, updatedMsgs, deletedMsgs, rtmSenderCaptor, strings.Split(logBuilder.String(), "\n")
 }
 
-func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent, options ...Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSenderCaptor *capture.RealTimeSenderCaptor) {
+func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent, slackTestServer *slacktest.Server, options ...Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSenderCaptor *capture.RealTimeSenderCaptor) {
 	if v == nil {
 		v = config.NewViperWithDefaults()
 	}
@@ -970,7 +1089,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	var emojiReactor emojiReactor
 
 	termination := make(chan bool)
-	options = append(options, optionTestMode(termination))
+	options = append(options, OptionTestMode(termination))
 	s, err := New("chickadee", v, options...)
 	s.RegisterPlugin(plugin)
 
@@ -984,7 +1103,13 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 
 	ec := make(chan slack.RTMEvent)
 
-	go s.runInternal(ec, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder, realTimeMsgSender: rtmSenderCaptor})
+	var sc *slack.Client
+	if slackTestServer != nil {
+		sc = slack.New("", slack.OptionAPIURL(slackTestServer.GetAPIURL()))
+		require.NotNil(t, sc)
+	}
+
+	go s.runInternal(ec, &runDependencies{chatDriver: &inMemoryChatDriver, userInfoFinder: &userInfoFinder, emojiReactor: &emojiReactor, selfInfoFinder: &selfFinder, realTimeMsgSender: rtmSenderCaptor, slackClient: sc})
 
 	go sendTestEventsForProcessing(ec, events)
 
@@ -1004,5 +1129,5 @@ func sendTestEventsForProcessing(ec chan<- slack.RTMEvent, events []slack.RTMEve
 	}
 
 	// Terminate the sequence of test events by sending a termination event
-	ec <- slack.RTMEvent{Type: "termination", Data: &terminationEvent{}}
+	ec <- slack.RTMEvent{"disconnected", &slack.DisconnectedEvent{Intentional: true, Cause: slack.ErrRTMGoodbye}}
 }

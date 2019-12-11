@@ -103,6 +103,11 @@ type Plugin struct {
 	EmojiReactor      EmojiReactor
 	FileUploader      FileUploader
 	RealTimeMsgSender RealTimeMessageSender
+
+	// The slack.Client is injected post-creation. It gives access to all the https://godoc.org/github.com/nlopes/slack#Client.
+	// Plugin writers might want to check out https://godoc.org/github.com/nlopes/slack/slacktest to create a slack test server in order
+	// to mock a slack server to test plugins using the SlackClient.
+	SlackClient *slack.Client
 }
 
 // ActionDefinition represents how an action is triggered, published, used and described
@@ -200,11 +205,6 @@ type OutgoingMessage struct {
 	pluginActionID string
 }
 
-// terminationEvent is an empty struct that is only used for whitebox testing in order to signal slackscot to terminate
-// Any such events when executed as part of the normal API would be ignored
-type terminationEvent struct {
-}
-
 // runDependencies represents all runtime dependencies. Note that they're mostly satisfied by slack.RTM or slack.Client
 // but having dependencies used as the smaller interfaces keeps the rest of the code cleaner and easier to test
 type runDependencies struct {
@@ -214,6 +214,7 @@ type runDependencies struct {
 	fileUploader      FileUploader
 	selfInfoFinder    selfInfoFinder
 	realTimeMsgSender RealTimeMessageSender
+	slackClient       *slack.Client
 }
 
 // Option defines an option for a Slackscot
@@ -223,6 +224,13 @@ type Option func(*Slackscot)
 func OptionLog(logger *log.Logger) Option {
 	return func(s *Slackscot) {
 		s.log.logger = logger
+	}
+}
+
+// OptionWithSlackOption adds a slack.Option to apply on the slack client
+func OptionWithSlackOption(opt slack.Option) Option {
+	return func(s *Slackscot) {
+		s.slackOpts = append(s.slackOpts, opt)
 	}
 }
 
@@ -243,8 +251,40 @@ func OptionLogfile(logfile *os.File) Option {
 	}
 }
 
-// optionTestMode sets the instance in test mode which reacts to a termination event to stop
-func optionTestMode(terminationCh chan bool) Option {
+// OptionTestMode sets the instance in test mode which instructs it to react to a goodbye event to terminate
+// its execution. It is meant to be used for testing only and mostly in conjunction with github.com/nlopes/slack/slacktest.
+// Very importantly, the termination message must be formed correctly so that the slackscot instance terminates
+// correctly for tests to actually terminate.
+//
+// Here's an example:
+//
+//  testServer := slacktest.NewTestServer()
+//  testServer.Handle("/channels.create", slacktest.Websocket(func(conn *websocket.Conn) {
+//      // Trigger a termination on any API call to channels.create
+// 	    slacktest.RTMServerSendGoodbye(conn)
+//  }))
+//  testServer.Start()
+//  defer testServer.Stop()
+//
+//  termination := make(chan bool)
+//  s, err := New("BobbyTables", config.NewViperWithDefaults(), OptionWithSlackOption(slack.OptionAPIURL(testServer.GetAPIURL())), OptionTestMode(termination))
+//  require.NoError(t, err)
+//
+//  tp := newTestPlugin()
+//  s.RegisterPlugin(tp)
+//
+//  go s.Run()
+//
+//  // TODO: Use the testserver to send events and messages and assert your plugin's behavior
+//
+//  // Send this event to the testServer's websocket. This gets transformed into a
+//  // slack.DisconnectedEvent with Cause equal to slack.ErrRTMGoodbye that slackscot will
+//  // interpret as a signal to self-terminate
+//  testServer.SendToWebsocket("{\"type\":\"goodbye\"}")
+//
+//  // Wait for slackscot to terminate
+//  <-termination
+func OptionTestMode(terminationCh chan bool) Option {
 	return func(s *Slackscot) {
 		s.testMode = true
 		s.terminationCh = terminationCh
@@ -279,14 +319,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
-
-	// TODO: For now, the slackscot logger is propagated to slack for its own logging. This means that the prefix is the same for both. With
-	// https://github.com/golang/go/commit/51104cd4d2dab6bdd8bda694c0a9a5613cec3b84 (to be released in 1.12),
-	// we should be able to create a new logger to the same file but using a different prefix
-	// This is the line to use when 1.12 is officially out:
-	//
-	// slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)),
-	s.slackOpts = append(s.slackOpts, slack.OptionLog(s.log.logger))
+	s.slackOpts = append(s.slackOpts, slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)))
 
 	for _, opt := range options {
 		opt(s)
@@ -342,12 +375,12 @@ func (s *Slackscot) Run() (err error) {
 	// in a production scenario is by its process getting killed which would result in a last message sent on the termination channel
 	if s.terminationCh != nil {
 		// Start the main processing and send the termination to the externally defined termination channel (so a test can block and wait for processing after sending all of its test messages)
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 	} else {
 		// This is production and the lifecycle is managed here so we create the termination channel and wait for the termination signal
 		s.terminationCh = make(chan bool)
 
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 
 		// Wait for termination
 		<-s.terminationCh
@@ -375,7 +408,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 	s.RegisterPlugin(&helpPlugin.Plugin)
 
 	// Inject services into plugins before starting to process events
-	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader, deps.realTimeMsgSender)
+	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader, deps.realTimeMsgSender, deps.slackClient)
 
 	for msg := range events {
 		switch e := msg.Data.(type) {
@@ -397,8 +430,8 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			s.log.Printf("Invalid credentials\n")
 			return
 
-		case *terminationEvent:
-			if s.testMode {
+		case *slack.DisconnectedEvent:
+			if s.testMode && e.Cause != nil && e.Cause == slack.ErrRTMGoodbye {
 				s.log.Printf("Received termination event in test mode, terminating\n")
 				return
 			}
@@ -409,7 +442,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 }
 
 // injectServicesToPlugins assembles/creates the services and injects them in all plugins
-func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, logger SLogger, emojiReactor EmojiReactor, fileUploader FileUploader, msgSender RealTimeMessageSender) (err error) {
+func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder, logger SLogger, emojiReactor EmojiReactor, fileUploader FileUploader, msgSender RealTimeMessageSender, slackClient *slack.Client) (err error) {
 	userInfoFinder, err := NewCachingUserInfoFinder(s.config, loadingUserInfoFinder, logger)
 	if err != nil {
 		return err
@@ -421,6 +454,7 @@ func (s *Slackscot) injectServicesToPlugins(loadingUserInfoFinder UserInfoFinder
 		p.EmojiReactor = emojiReactor
 		p.FileUploader = fileUploader
 		p.RealTimeMsgSender = msgSender
+		p.SlackClient = slackClient
 	}
 
 	return nil
