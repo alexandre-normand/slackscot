@@ -24,14 +24,14 @@ jobs:
       run: go build -v .
     
     - name: Test
-      run: go test -coverprofile c.out ./... 
+      run: go test ./... 
     
     - name: Slow Tests
       run: go test ./plugins/ -slow
     
-    - name: Code Climate Coverage Action
+    - name: Code Coverage 
       uses: paambaati/codeclimate-action@v2.3.0
       with:
         # Coverage command to execute
-        coverageCommand: test-reporter after-build --prefix github.com/alexandre-normand/slackscot/ --debug
+        coverageCommand: go test -coverprofile c.out ./... 
         debug: true
