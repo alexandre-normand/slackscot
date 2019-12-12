@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/github/license/alexandre-normand/slackscot.svg)](LICENSE)
 [![GoDoc](https://godoc.org/github.com/alexandre-normand/slackscot?status.svg)](https://godoc.org/github.com/alexandre-normand/slackscot)
-[![Build Status](https://travis-ci.org/alexandre-normand/slackscot.svg)](https://travis-ci.org/alexandre-normand/slackscot)
+[![Build](https://github.com/alexandre-normand/slackscot/workflows/Go/badge.svg)](https://github.com/alexandre-normand/slackscot/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexandre-normand/slackscot)](https://goreportcard.com/report/github.com/alexandre-normand/slackscot)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/9fe1722ab2f31036c44c/test_coverage)](https://codeclimate.com/github/alexandre-normand/slackscot/test_coverage)
 [![Maintainability](https://api.codeclimate.com/v1/badges/9fe1722ab2f31036c44c/maintainability)](https://codeclimate.com/github/alexandre-normand/slackscot/maintainability)
