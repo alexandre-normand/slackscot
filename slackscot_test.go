@@ -203,9 +203,9 @@ func newTestPlugin() (tp *Plugin) {
 				channel, err := tp.SlackClient.CreateChannel(expression)
 				if err == nil {
 					return &Answer{Text: fmt.Sprintf("Channel #%s created with id: %s", channel.Name, channel.ID)}
-				} else {
-					return &Answer{Text: fmt.Sprintf("Error creating channel: %s", err.Error())}
 				}
+
+				return &Answer{Text: fmt.Sprintf("Error creating channel: %s", err.Error())}
 			},
 		}}
 
