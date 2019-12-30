@@ -40,6 +40,7 @@ type Slackscot struct {
 
 	// Caching self identity used during message processing/filtering
 	selfID         string
+	selfBotID      string
 	selfName       string
 	selfUserPrefix string
 
@@ -415,7 +416,11 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 		case *slack.ConnectedEvent:
 			s.log.Printf("Infos: %v\n", e.Info)
 			s.log.Printf("Connection counter: %d\n", e.ConnectionCount)
-			s.cacheSelfIdentity(deps.selfInfoFinder)
+			err := s.cacheSelfIdentity(deps.selfInfoFinder, deps.userInfoFinder)
+			if err != nil {
+				s.log.Printf("Error getting self identity: %s", err.Error())
+				return
+			}
 
 		case *slack.MessageEvent:
 			s.processMessageEvent(deps.chatDriver, e)
@@ -484,12 +489,18 @@ func getActionID(pluginName string, actionType string, index int) (actionID stri
 }
 
 // cacheSelfIdentity gets "our" identity and keeps the selfID and selfName to avoid having to look it up every time
-func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder) {
+func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFinder UserInfoFinder) (err error) {
 	s.selfID = selfInfoFinder.GetInfo().User.ID
 	s.selfName = selfInfoFinder.GetInfo().User.Name
+	user, err := userInfoFinder.GetUserInfo(s.selfID)
+	if err != nil {
+		return err
+	}
+	s.selfBotID = user.Profile.BotID
 	s.selfUserPrefix = fmt.Sprintf("<@%s> ", s.selfID)
 
-	s.log.Debugf("Caching self id [%s], self name [%s] and self prefix [%s]\n", s.selfID, s.selfName, s.selfUserPrefix)
+	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", s.selfID, s.selfName, s.selfBotID, s.selfUserPrefix)
+	return nil
 }
 
 // startActionScheduler creates all ScheduledActionDefinition from all plugins and registers them with the scheduler
@@ -704,7 +715,7 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, defaultThreadTS string) (rID SlackMessageID, err error) {
 	s.log.Printf("Sending new message: %s", o.OutgoingMessage.Text)
 	sendOpts := ApplyAnswerOpts(o.Options...)
-	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionAsUser(true)}
 	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(sendOpts[ThreadedReplyOpt]) {
 		if threadTS := cast.ToString(sendOpts[ThreadTimestamp]); threadTS != "" {
 			options = append(options, slack.MsgOptionTS(threadTS))
@@ -735,7 +746,7 @@ func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, def
 
 // updateExistingMessage updates an existing message with the content of a newly triggered OutgoingMessage
 func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessageID, o *OutgoingMessage) (rID SlackMessageID, err error) {
-	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionAsUser(true)}
 	// Add any block kit content blocks, if any
 	if len(o.ContentBlocks) > 0 {
 		options = append(options, slack.MsgOptionBlocks(o.ContentBlocks...))
@@ -792,8 +803,8 @@ func (s *Slackscot) routeMessage(me *slack.MessageEvent) (responses []*OutgoingM
 	responses = make([]*OutgoingMessage, 0)
 
 	// Ignore messages_replied and messages send by "us"
-	if m.User == s.selfID || m.BotID == s.selfID {
-		s.log.Debugf("Ignoring message from user [%s] because that's \"us\" [%s]", m.User, s.selfID)
+	if m.User == s.selfID || m.BotID == s.selfID || m.BotID == s.selfBotID {
+		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" (userID: [%s], botID: [%s]", m.User, m.BotID, s.selfID, s.selfBotID)
 
 		return responses
 	}
