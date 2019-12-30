@@ -704,7 +704,7 @@ func (s *Slackscot) sendOutgoingMessages(sender messageSender, incomingMessageID
 func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, defaultThreadTS string) (rID SlackMessageID, err error) {
 	s.log.Printf("Sending new message: %s", o.OutgoingMessage.Text)
 	sendOpts := ApplyAnswerOpts(o.Options...)
-	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID)}
 	if s.config.GetBool(config.ThreadedRepliesKey) || cast.ToBool(sendOpts[ThreadedReplyOpt]) {
 		if threadTS := cast.ToString(sendOpts[ThreadTimestamp]); threadTS != "" {
 			options = append(options, slack.MsgOptionTS(threadTS))
@@ -735,7 +735,7 @@ func (s *Slackscot) sendNewMessage(sender messageSender, o *OutgoingMessage, def
 
 // updateExistingMessage updates an existing message with the content of a newly triggered OutgoingMessage
 func (s *Slackscot) updateExistingMessage(updater messageUpdater, r SlackMessageID, o *OutgoingMessage) (rID SlackMessageID, err error) {
-	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID), slack.MsgOptionAsUser(true)}
+	options := []slack.MsgOption{slack.MsgOptionText(o.OutgoingMessage.Text, false), slack.MsgOptionUser(s.selfID)}
 	// Add any block kit content blocks, if any
 	if len(o.ContentBlocks) > 0 {
 		options = append(options, slack.MsgOptionBlocks(o.ContentBlocks...))
