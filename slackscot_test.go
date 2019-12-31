@@ -159,6 +159,12 @@ func optionDirectMessage(botUserID string) testMsgOption {
 	}
 }
 
+func optionBotID(botID string) testMsgOption {
+	return func(e *slack.MessageEvent) {
+		e.BotID = botID
+	}
+}
+
 func optionPublicMessageToBot(botUserID string, channelID string) testMsgOption {
 	return func(e *slack.MessageEvent) {
 		e.Channel = channelID
@@ -827,6 +833,17 @@ func TestIncomingMessageNotTriggeringResponse(t *testing.T) {
 func TestIncomingMessageFromOurselfIgnored(t *testing.T) {
 	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
 		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays are cool", botUserID, timestamp1)),
+	})
+
+	assert.Equal(t, 0, len(sentMsgs))
+	assert.Equal(t, 0, len(updatedMsgs))
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
+}
+
+func TestIncomingMessageFromOurselfWithBotIDIgnored(t *testing.T) {
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "blue jays are cool", "", timestamp1, optionBotID("b"+botUserID))),
 	})
 
 	assert.Equal(t, 0, len(sentMsgs))
