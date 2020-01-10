@@ -156,7 +156,9 @@ You know, a friendly company *mascot* that hangs out on your `slack`.
 *   `Commands`: commands are well-defined actions with a format. `Slackscot` 
     handles all direct messages as implicit commands as well as 
     `@mention <command>` on channels. Responses to commands are directed 
-    to the person who invoked it.
+    to the person who invoked it. If the `command-prefix` configuration option
+    is defined then any messages that begin with the `command-prefix` are
+    treated as commands.        
 
 *   `Hear actions`: those are listeners that can potentially match on any 
     message sent on channels that `slackscot` is a member of. This can 
@@ -251,6 +253,7 @@ which means that you are free to use a different file format
    "maxAgeHandledMessages": 86400,
    "timeLocation": "America/Los_Angeles",
    "storagePath": "/your-path-to-bot-home",
+   "command-prefix": "!!",
    "replyBehavior": {
       "threadedReplies": true,
       "broadcastThreadedReplies": true

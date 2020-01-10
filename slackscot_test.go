@@ -1119,3 +1119,113 @@ func sendTestEventsForProcessing(ec chan<- slack.RTMEvent, events []slack.RTMEve
 	// Terminate the sequence of test events by sending a termination event
 	ec <- slack.RTMEvent{"disconnected", &slack.DisconnectedEvent{Intentional: true, Cause: slack.ErrRTMGoodbye}}
 }
+
+// Validate direct message handling
+func Test_isCommand0(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "D12345",
+		Text:    "example DM",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Truef(t, isDM, "Expected message to be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Truef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate direct message handling (neg)
+func Test_isCommand1(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "example not a DM",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Falsef(t, isCmd, "Expected message to not be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate @mention handling
+func Test_isCommand2(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "<@BOT123> example at mention",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Truef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate @mention handling (neg)
+func Test_isCommand3(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "<@BOT1234> example at mention",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Falsef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate @mention handling (neg)
+func Test_isCommand4(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "<@BOT123> example at mention",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT1234>", "")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Falsef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate prefix handling
+func Test_isCommand5(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "!!example command",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Truef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate prefix handling (neg)
+func Test_isCommand6(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "!example command",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Falsef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate prefix handling (neg)
+func Test_isCommand7(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "example command",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Falsef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate @mention with prefix
+func Test_isCommand8(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "C12345",
+		Text:    "<@BOT123> !!example command",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Falsef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Truef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}
+
+// Validate @mention with prefix in DM
+func Test_isCommand9(t *testing.T) {
+	dmMessage := &slack.Msg{
+		Channel: "D12345",
+		Text:    "<@BOT123> !!example command",
+	}
+	isCmd, isDM := isCommand(dmMessage, "<@BOT123>", "!!")
+	assert.Truef(t, isDM, "Expected message to not be a DM: CMD=%v,DM=%v", isCmd, isDM)
+	assert.Truef(t, isCmd, "Expected message to be a command: CMD=%v,DM=%v", isCmd, isDM)
+}

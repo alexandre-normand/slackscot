@@ -44,6 +44,9 @@ type Slackscot struct {
 	selfName       string
 	selfUserPrefix string
 
+	// Optional prefix for commands
+	commandPrefix string
+
 	// Runtime configuration options
 	namespaceCommands bool
 
@@ -498,6 +501,7 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 	}
 	s.selfBotID = user.Profile.BotID
 	s.selfUserPrefix = fmt.Sprintf("<@%s> ", s.selfID)
+	s.commandPrefix = s.config.GetString("command-prefix")
 
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", s.selfID, s.selfName, s.selfBotID, s.selfUserPrefix)
 	return nil
@@ -796,7 +800,8 @@ func resolveThreadTimestamp(m *slack.Msg) (threadTs string, isThreadedMessage bo
 // The rules are the following:
 // 	1. If the message is on a channel with a direct mention to us (@name), we route to commands
 // 	2. If the message is a direct message to us, we route to commands
-// 	3. If the message is on a channel without mention (regular conversation), we route to hear actions
+//  3. If the message contains the command-prefix (default "") and the command-prefix is set, we route to commands
+// 	4. If the message is on a channel without mention (regular conversation), we route to hear actions
 func (s *Slackscot) routeMessage(me *slack.MessageEvent) (responses []*OutgoingMessage) {
 	m := normalizeIncomingMessage(me)
 
@@ -810,7 +815,7 @@ func (s *Slackscot) routeMessage(me *slack.MessageEvent) (responses []*OutgoingM
 	}
 
 	// Try commands or hear actions depending on the format of the message
-	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand {
+	if isCommand, isDM := isCommand(m, s.selfUserPrefix, s.commandPrefix); isCommand {
 		replyStrategy := reply
 		if isDM {
 			replyStrategy = directReply
@@ -876,7 +881,7 @@ func (s *Slackscot) newIncomingMsgWithNormalizedText(m *slack.Msg) (inMsg *Incom
 	inMsg = new(IncomingMessage)
 	inMsg.NormalizedText = m.Text
 	inMsg.Msg = *m
-	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand && !isDM {
+	if isCommand, isDM := isCommand(m, s.selfUserPrefix, s.commandPrefix); isCommand && !isDM {
 		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.selfUserPrefix)
 	}
 
@@ -885,9 +890,15 @@ func (s *Slackscot) newIncomingMsgWithNormalizedText(m *slack.Msg) (inMsg *Incom
 
 // isCommand returns true if the slack message is to be interpreted as a command rather than a normal message
 // subject to be handled by hear actions
-func isCommand(m *slack.Msg, selfUserPrefix string) (isCommand bool, isDirectMsg bool) {
+func isCommand(m *slack.Msg, selfUserPrefix string, commandPrefix string) (isCommand bool, isDirectMsg bool) {
+	// Check direct messages
 	isDirectMsg = strings.HasPrefix(m.Channel, "D")
-	return strings.HasPrefix(m.Text, selfUserPrefix) || isDirectMsg, isDirectMsg
+	// Check if it has the command prefix which must be set (ie !="")
+	isCmdPrefix := false
+	if commandPrefix != "" && strings.HasPrefix(m.Text, commandPrefix) {
+		isCmdPrefix = true
+	}
+	return strings.HasPrefix(m.Text, selfUserPrefix) || isCmdPrefix || isDirectMsg, isDirectMsg
 }
 
 // useExistingThreadIfAny sets the option on an Answer to reply in the existing thread if there is one
