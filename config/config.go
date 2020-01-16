@@ -21,14 +21,22 @@ const (
 	UserInfoCacheSizeKey        = "userInfoCacheSize"                      // The number of entries to keep in the user info cache, int value. Defaults to no caching (value of 0)
 )
 
+// Advanced configuration keys, only change if you really know what you're doing and have reviewed the internals
+const (
+	MessageProcessingPartitionCount       = "advanced.messageProcessingPartitionCount"       // The number of partitions used to process messages concurrently. A higher number means less chance (but higher resource usage) of delays in processing of different messages
+	MessageProcessingBufferedMessageCount = "advanced.messageProcessingBufferedMessageCount" // The channel capacity of each message processing partition. A higher number means less chance of a given partition with a lot of slow messages to handle causing a blockage of processing on other partitions
+)
+
 // Configuration defaults
 const (
-	debugDefault                    = false
-	responseCacheSizeDefault        = 5000
-	timeLocationDefault             = "Local"
-	threadedRepliesDefault          = false
-	broadcastThreadedRepliesDefault = false
-	maxAgeHandledMessagesDefault    = time.Duration(24) * time.Hour
+	debugDefault                             = false
+	responseCacheSizeDefault                 = 5000
+	timeLocationDefault                      = "Local"
+	threadedRepliesDefault                   = false
+	broadcastThreadedRepliesDefault          = false
+	maxAgeHandledMessagesDefault             = time.Duration(24) * time.Hour
+	msgProcessingPartitionCountDefault       = 1
+	msgProcessingBufferedMessageCountDefault = 10
 )
 
 // ReplyBehavior holds flags to define the replying behavior (use threads or not and broadcast replies or not)
@@ -49,6 +57,8 @@ func NewViperWithDefaults() (v *viper.Viper) {
 	v.SetDefault(ThreadedRepliesKey, threadedRepliesDefault)
 	v.SetDefault(BroadcastThreadedRepliesKey, broadcastThreadedRepliesDefault)
 	v.SetDefault(MaxAgeHandledMessages, maxAgeHandledMessagesDefault)
+	v.SetDefault(MessageProcessingPartitionCount, msgProcessingPartitionCountDefault)
+	v.SetDefault(MessageProcessingBufferedMessageCount, msgProcessingBufferedMessageCountDefault)
 
 	return v
 }

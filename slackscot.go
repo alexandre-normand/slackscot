@@ -9,6 +9,8 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	"hash"
+	"hash/fnv"
 	"io"
 	"log"
 	"os"
@@ -59,8 +61,21 @@ type Slackscot struct {
 	// Test mode which defines whether or not the bot reacts to terminationEvents
 	testMode bool
 
+	// workerQueues with partition keyed by the hash of the incoming message id
+	// so that processing of messages (new, updates and deletes) are handled by
+	// the same work queue therefore ensuring correct ordered processing
+	// of those events
+	workerQueues []chan slack.MessageEvent
+
+	// workerTerminationChans are channels receiving a termination signal for each
+	// workerQueue
+	workerTerminationChans []chan bool
+
 	// Termination channel
 	terminationCh chan bool
+
+	// hash function to direct message processing to partitions
+	hasher hash.Hash32
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -179,6 +194,11 @@ type SlackMessageID struct {
 // be a case where IsMsgModifiable would return false
 func (sid SlackMessageID) IsMsgModifiable() bool {
 	return sid.channelID != "" && sid.timestamp != ""
+}
+
+// String returns the string representation of a SlackMessageID
+func (sid SlackMessageID) String() string {
+	return fmt.Sprintf("%s-%s", sid.channelID, sid.timestamp)
 }
 
 // responseStrategy defines how a slack.OutgoingMessage is generated from an Answer
@@ -317,6 +337,15 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
+	s.workerQueues = make([]chan slack.MessageEvent, s.config.GetInt(config.MessageProcessingPartitionCount))
+	for i := range s.workerQueues {
+		s.workerQueues[i] = make(chan slack.MessageEvent, s.config.GetInt(config.MessageProcessingBufferedMessageCount))
+	}
+	s.workerTerminationChans = make([]chan bool, s.config.GetInt(config.MessageProcessingPartitionCount))
+	for i := range s.workerTerminationChans {
+		s.workerTerminationChans[i] = make(chan bool)
+	}
+	s.hasher = fnv.New32a()
 
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
@@ -411,6 +440,11 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 	// Inject services into plugins before starting to process events
 	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader, deps.realTimeMsgSender, deps.slackClient)
 
+	// start all worker go routines
+	for i := range s.workerQueues {
+		go s.processMessages(deps.chatDriver, s.workerQueues[i], s.workerTerminationChans[i])
+	}
+
 	for msg := range events {
 		switch e := msg.Data.(type) {
 		case *slack.ConnectedEvent:
@@ -423,7 +457,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			}
 
 		case *slack.MessageEvent:
-			s.processMessageEvent(deps.chatDriver, e)
+			s.dispatchMessageEvent(e)
 
 		case *slack.LatencyReport:
 			s.log.Printf("Current latency: %v\n", e.Value)
@@ -438,6 +472,16 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 		case *slack.DisconnectedEvent:
 			if s.testMode && e.Cause != nil && e.Cause == slack.ErrRTMGoodbye {
 				s.log.Printf("Received termination event in test mode, terminating\n")
+				// Close all processing queues and wait for the terminations
+				for _, wq := range s.workerQueues {
+					close(wq)
+				}
+
+				// Wait for all workers to terminate processing
+				for _, tc := range s.workerTerminationChans {
+					<-tc
+				}
+
 				return
 			}
 		default:
@@ -532,25 +576,50 @@ func (s *Slackscot) startActionScheduler(timeLoc *time.Location) {
 	<-sc.Start()
 }
 
-// processMessageEvent handles high-level processing of all slack message events.
-func (s *Slackscot) processMessageEvent(driver chatDriver, msgEvent *slack.MessageEvent) {
-	// reply_to is an field set to 1 sent by slack when a sent message has been acknowledged and should be considered
-	// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
-	isReply := msgEvent.ReplyTo > 0
+// processMessages processes messages from a queue and sends a termination signal on terminationChan when done
+func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageEvent, terminationChan chan bool) {
+	for msg := range queue {
+		// reply_to is an field set to 1 sent by slack when a sent message has been acknowledged and should be considered
+		// officially sent to others. Therefore, we ignore all of those since it's mostly for clients/UI to show status
+		isReply := msg.ReplyTo > 0
 
-	s.log.Debugf("Processing event: %v", msgEvent)
+		s.log.Debugf("Processing event: %v", msg)
 
-	if !isReply && msgEvent.Type == "message" {
-		if msgEvent.SubType == "message_deleted" {
-			s.processDeletedMessage(driver, msgEvent)
-		} else {
-			if msgEvent.SubType == "message_changed" {
-				s.processUpdatedMessage(driver, msgEvent)
-			} else if msgEvent.SubType != "message_replied" {
-				s.processNewMessage(driver, msgEvent)
+		if !isReply && msg.Type == "message" {
+			if msg.SubType == "message_deleted" {
+				s.processDeletedMessage(driver, &msg)
+			} else {
+				if msg.SubType == "message_changed" {
+					s.processUpdatedMessage(driver, &msg)
+				} else if msg.SubType != "message_replied" {
+					s.processNewMessage(driver, &msg)
+				}
 			}
 		}
 	}
+
+	terminationChan <- true
+}
+
+// dispatchMessageEvent handles high-level processing of all slack message events.
+func (s *Slackscot) dispatchMessageEvent(msgEvent *slack.MessageEvent) {
+	msgID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.Timestamp}
+
+	partition := s.partitionIndexForMsgID(msgID, len(s.workerQueues))
+
+	s.log.Debugf("Dispatching message [%s] to partition [%d]", msgID, partition)
+	s.workerQueues[partition] <- *msgEvent
+}
+
+// partitionIndexForMsgID returns the partition index for a given message ID
+func (s *Slackscot) partitionIndexForMsgID(msgID SlackMessageID, maxValueInclusive int) (partition int) {
+	s.hasher.Reset()
+	s.hasher.Write([]byte(msgID.channelID))
+	res := s.hasher.Sum([]byte(msgID.timestamp))
+
+	s.log.Debugf("Hashing returned [%v] for [%s]", res, msgID)
+	// TODO truncate to an int that is between 0 and maxValue
+	return 0
 }
 
 // getAgeOriginalMsg returns the age of an updated message as defined by the time elapsed between the message
