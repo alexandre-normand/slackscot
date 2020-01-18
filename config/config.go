@@ -23,7 +23,7 @@ const (
 
 // Advanced configuration keys, only change if you really know what you're doing and have reviewed the internals
 const (
-	MessageProcessingPartitionCount       = "advanced.messageProcessingPartitionCount"       // The number of partitions used to process messages concurrently. A higher number means less chance (but higher resource usage) of delays in processing of different messages
+	MessageProcessingPartitionCount       = "advanced.messageProcessingPartitionCount"       // The number of partitions used to process messages concurrently. Must be a power of two. A higher number means less chance (but higher resource usage) of delays in processing of different messages
 	MessageProcessingBufferedMessageCount = "advanced.messageProcessingBufferedMessageCount" // The channel capacity of each message processing partition. A higher number means less chance of a given partition with a lot of slow messages to handle causing a blockage of processing on other partitions
 )
 
@@ -35,7 +35,7 @@ const (
 	threadedRepliesDefault                   = false
 	broadcastThreadedRepliesDefault          = false
 	maxAgeHandledMessagesDefault             = time.Duration(24) * time.Hour
-	msgProcessingPartitionCountDefault       = 1
+	msgProcessingPartitionCountDefault       = 16
 	msgProcessingBufferedMessageCountDefault = 10
 )
 

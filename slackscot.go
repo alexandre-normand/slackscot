@@ -13,6 +13,7 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"strconv"
@@ -75,7 +76,8 @@ type Slackscot struct {
 	terminationCh chan bool
 
 	// hash function to direct message processing to partitions
-	hasher hash.Hash32
+	hasher   hash.Hash32
+	hashMask int
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -337,7 +339,13 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
 	}
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
-	s.workerQueues = make([]chan slack.MessageEvent, s.config.GetInt(config.MessageProcessingPartitionCount))
+
+	partitionCount := s.config.GetInt(config.MessageProcessingPartitionCount)
+	if !isPowerOfTwo(partitionCount) {
+		return nil, fmt.Errorf("%s config should be a power of two but was [%d]", config.MessageProcessingPartitionCount, partitionCount)
+	}
+
+	s.workerQueues = make([]chan slack.MessageEvent, partitionCount)
 	for i := range s.workerQueues {
 		s.workerQueues[i] = make(chan slack.MessageEvent, s.config.GetInt(config.MessageProcessingBufferedMessageCount))
 	}
@@ -346,6 +354,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		s.workerTerminationChans[i] = make(chan bool)
 	}
 	s.hasher = fnv.New32a()
+	s.hashMask = hashMask(partitionCount)
 
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
@@ -603,23 +612,61 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 
 // dispatchMessageEvent handles high-level processing of all slack message events.
 func (s *Slackscot) dispatchMessageEvent(msgEvent slack.MessageEvent) {
-	msgID := SlackMessageID{channelID: msgEvent.Channel, timestamp: msgEvent.Timestamp}
+	msgID := getOriginalMessageID(msgEvent)
 
-	partition := s.partitionIndexForMsgID(msgID, len(s.workerQueues))
+	partition := s.partitionIndexForMsgID(msgID)
 
 	s.log.Debugf("Dispatching message [%s] to partition [%d]", msgID, partition)
 	s.workerQueues[partition] <- msgEvent
 }
 
+// getOriginalMessageID returns the message ID of the original message if it's linked
+// to a previous one or the self message id otherwise
+func getOriginalMessageID(m slack.MessageEvent) (originalID SlackMessageID) {
+	if m.SubMessage != nil {
+		return SlackMessageID{channelID: m.Channel, timestamp: m.SubMessage.Timestamp}
+	} else {
+		return SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
+	}
+}
+
 // partitionIndexForMsgID returns the partition index for a given message ID
-func (s *Slackscot) partitionIndexForMsgID(msgID SlackMessageID, maxValueInclusive int) (partition int) {
+func (s *Slackscot) partitionIndexForMsgID(msgID SlackMessageID) (partition int) {
 	s.hasher.Reset()
 	s.hasher.Write([]byte(msgID.channelID))
-	res := s.hasher.Sum([]byte(msgID.timestamp))
+	s.hasher.Write([]byte(msgID.timestamp))
+	res := s.hasher.Sum32()
 
 	s.log.Debugf("Hashing returned [%v] for [%s]", res, msgID)
-	// TODO truncate to an int that is between 0 and maxValue
-	return 0
+
+	// Keep only the rightmost bits so we have a max equal to the partition count
+	return int(res) & s.hashMask
+}
+
+// max returns the max of a and b
+func max(a int, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
+// isPowerOfTwo returns true if val is a power of two or false if not
+func isPowerOfTwo(val int) bool {
+	return (val != 0) && (val&(val-1)) == 0
+}
+
+// hashMask builds a mask for a partitionCount (which should be a power of two) to get a hash value
+// that is in the range of the number of partitions we have
+func hashMask(partitionCount int) int {
+	maskSize := int(math.Log2(float64(partitionCount)))
+	mask := 0
+	for i := 0; i < maskSize; i++ {
+		mask = mask<<1 | 1
+	}
+
+	return mask
 }
 
 // getAgeOriginalMsg returns the age of an updated message as defined by the time elapsed between the message
@@ -648,7 +695,7 @@ func getAgeOriginalMsg(m slack.MessageEvent) (age time.Duration, err error) {
 // 4. The new state of responses replaces the previous one for the triggering message in the cache
 func (s *Slackscot) processUpdatedMessage(driver chatDriver, m slack.MessageEvent) {
 	incomingMessageID := SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
-	editedMsgID := SlackMessageID{channelID: m.Channel, timestamp: m.SubMessage.Timestamp}
+	editedMsgID := getOriginalMessageID(m)
 
 	maxAgeThreshold := s.config.GetDuration(config.MaxAgeHandledMessages)
 	msgAge, err := getAgeOriginalMsg(m)

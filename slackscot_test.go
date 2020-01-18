@@ -750,6 +750,7 @@ func TestMessageUpdateNoUpdateToEphemeralAnswer(t *testing.T) {
 func TestHelpTriggeringWithUserInfoCache(t *testing.T) {
 	v := config.NewViperWithDefaults()
 	v.Set(config.UserInfoCacheSizeKey, 10)
+	v.Set(config.MessageProcessingPartitionCount, 1)
 
 	testHelpTriggering(t, v)
 }
@@ -793,6 +794,7 @@ func testHelpTriggering(t *testing.T, v *viper.Viper) {
 func TestHelpTriggeringNoUserInfoCache(t *testing.T) {
 	v := config.NewViperWithDefaults()
 	v.Set(config.UserInfoCacheSizeKey, 0)
+	v.Set(config.MessageProcessingPartitionCount, 1)
 
 	testHelpTriggering(t, v)
 }
@@ -963,7 +965,7 @@ func TestOptionWithSlackOptionApplied(t *testing.T) {
 	<-termination
 }
 
-func TestSlackClientFromPlugin(t *testing.T) {
+func TestSlackClientUsageFromPlugin(t *testing.T) {
 	createResponse := `{
 	    "ok": true,
 	    "channel": {
@@ -1025,6 +1027,134 @@ func TestSlackClientFromPlugin(t *testing.T) {
 	}
 }
 
+func TestPartitionCountConfigurations(t *testing.T) {
+	tests := map[string]struct {
+		partitionCount int
+		expectedError  string
+	}{
+		"InvalidZeroPartitions": {
+			partitionCount: 0,
+			expectedError:  "advanced.messageProcessingPartitionCount config should be a power of two but was [0]",
+		},
+		"ValidOnePartition": {
+			partitionCount: 1,
+			expectedError:  "",
+		},
+		"ValidTwoPartitions": {
+			partitionCount: 2,
+			expectedError:  "",
+		},
+		"Invalid3Partitions": {
+			partitionCount: 3,
+			expectedError:  "advanced.messageProcessingPartitionCount config should be a power of two but was [3]",
+		},
+		"Valid4Partitions": {
+			partitionCount: 4,
+			expectedError:  "",
+		},
+		"Invalid5Partitions": {
+			partitionCount: 5,
+			expectedError:  "advanced.messageProcessingPartitionCount config should be a power of two but was [5]",
+		},
+		"Valid8Partitions": {
+			partitionCount: 8,
+			expectedError:  "",
+		},
+	}
+
+	v := config.NewViperWithDefaults()
+	v.Set(config.MessageProcessingPartitionCount, 2)
+	v.Set(config.DebugKey, true)
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			v := config.NewViperWithDefaults()
+			v.Set(config.MessageProcessingPartitionCount, tc.partitionCount)
+
+			_, err := New("chickadee", v)
+
+			if tc.expectedError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, err, tc.expectedError)
+			}
+		})
+	}
+}
+
+func TestProcessOrderingOfMessageAndUpdates(t *testing.T) {
+	orderCount := 0
+	startMaker := make(chan bool)
+	makerStarted := false
+
+	tp := new(Plugin)
+	tp.Name = "maker"
+	tp.NamespaceCommands = false
+	tp.Commands = []ActionDefinition{
+		{
+			Match: func(m *IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "wait and make")
+			},
+			Usage:       "wait and make <something>",
+			Description: "Simulation of a long running command waiting for external IO",
+			Answer: func(m *IncomingMessage) *Answer {
+				if !makerStarted {
+					<-startMaker
+					makerStarted = true
+				}
+
+				orderCount++
+				return &Answer{Text: fmt.Sprintf("Order #%d made %s", orderCount, strings.TrimPrefix(m.NormalizedText, "wait and make "))}
+			},
+		},
+		{
+			Match: func(m *IncomingMessage) bool {
+				return strings.HasPrefix(m.NormalizedText, "just make")
+			},
+			Usage:       "just make <something>",
+			Description: "",
+			Answer: func(m *IncomingMessage) *Answer {
+				orderCount++
+				a := &Answer{Text: fmt.Sprintf("Order #%d made %s immediately", orderCount, strings.TrimPrefix(m.NormalizedText, "just make "))}
+				if !makerStarted {
+					startMaker <- true
+				}
+
+				return a
+			},
+		},
+	}
+
+	v := config.NewViperWithDefaults()
+	v.Set(config.MessageProcessingPartitionCount, 2)
+
+	sentMsgs, updatedMsgs, deletedMsgs, rtmSender, _ := runSlackscotWithIncomingEventsWithLogs(t, v, tp, []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s wait and make cake", formattedBotUserID), "Alphonse", timestamp1)),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s wait and make cake", formattedBotUserID), "Ignored", "1992929", optionChangedMessage(fmt.Sprintf("%s wait and make big cake", formattedBotUserID), "Alphonse", timestamp1))),
+		newRTMMessageEvent(newMessageEvent("Cgeneral", fmt.Sprintf("%s just make juice", formattedBotUserID), "Alphonso", "3253298")),
+	})
+
+	if assert.Equal(t, 2, len(sentMsgs)) {
+		msgs := make([]string, 0)
+		// We want to ignore the ordering of messages that aren't related and don't share the same parent message
+		for _, msg := range sentMsgs {
+			vals := applySlackOptions(msg.msgOptions...)
+			msgs = append(msgs, vals.Get("text"))
+		}
+
+		assert.Contains(t, msgs, "<@Alphonso>: Order #1 made juice immediately")
+		assert.Contains(t, msgs, "<@Alphonse>: Order #2 made cake")
+	}
+
+	if assert.Equal(t, 1, len(updatedMsgs)) {
+		vals := applySlackOptions(updatedMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Order #3 made big cake", vals.Get("text"))
+	}
+
+	assert.Equal(t, 0, len(deletedMsgs))
+	assert.Equal(t, 0, len(rtmSender.SentMessages))
+}
+
 func newRTMMessageEvent(msgEvent *slack.MessageEvent) (e slack.RTMEvent) {
 	e.Type = "message"
 	e.Data = msgEvent
@@ -1067,6 +1197,7 @@ func runSlackscotWithIncomingEventsWithLogs(t *testing.T, v *viper.Viper, plugin
 func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin, events []slack.RTMEvent, slackTestServer *slacktest.Server, options ...Option) (sentMessages []sentMessage, updatedMsgs []updatedMessage, deletedMsgs []deletedMessage, rtmSenderCaptor *capture.RealTimeSenderCaptor) {
 	if v == nil {
 		v = config.NewViperWithDefaults()
+		v.Set(config.MessageProcessingPartitionCount, 1)
 	}
 
 	inMemoryChatDriver := inMemoryChatDriver{timeCursor: firstReplyTimestamp - replyTimeIncrementInSeconds, sentMsgs: make([]sentMessage, 0), updatedMsgs: make([]updatedMessage, 0), deletedMsgs: make([]deletedMessage, 0)}
