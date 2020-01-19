@@ -320,9 +320,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.namespaceCommands = true
 	s.testMode = false
 	s.closers = make([]io.Closer, 0)
-	s.defaultAction = func(m *IncomingMessage) *Answer {
-		return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
-	}
+	s.defaultAction = defaultAction
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
 
 	partitionCount := s.config.GetInt(config.MessageProcessingPartitionCount)
@@ -344,6 +342,11 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	}
 
 	return s, nil
+}
+
+// defaultAnswer for a message directed to slackscot that isn't matching any known plugin command
+func defaultAction(m *IncomingMessage) *Answer {
+	return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
 }
 
 // Close closes all closers of this slackscot. The first error that occurs
