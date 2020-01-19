@@ -9,11 +9,8 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
-	"hash"
-	"hash/fnv"
 	"io"
 	"log"
-	"math"
 	"os"
 	"os/signal"
 	"strconv"
@@ -62,22 +59,10 @@ type Slackscot struct {
 	// Test mode which defines whether or not the bot reacts to terminationEvents
 	testMode bool
 
-	// workerQueues with partition keyed by the hash of the incoming message id
-	// so that processing of messages (new, updates and deletes) are handled by
-	// the same work queue therefore ensuring correct ordered processing
-	// of those events
-	workerQueues []chan slack.MessageEvent
-
-	// workerTerminationChans are channels receiving a termination signal for each
-	// workerQueue
-	workerTerminationChans []chan bool
-
 	// Termination channel
 	terminationCh chan bool
 
-	// hash function to direct message processing to partitions
-	hasher   hash.Hash32
-	hashMask int
+	*partitionRouter
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -345,16 +330,10 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		return nil, fmt.Errorf("%s config should be a power of two but was [%d]", config.MessageProcessingPartitionCount, partitionCount)
 	}
 
-	s.workerQueues = make([]chan slack.MessageEvent, partitionCount)
-	for i := range s.workerQueues {
-		s.workerQueues[i] = make(chan slack.MessageEvent, s.config.GetInt(config.MessageProcessingBufferedMessageCount))
+	s.partitionRouter, err = newPartitionRouter(partitionCount, s.config.GetInt(config.MessageProcessingBufferedMessageCount), s.log)
+	if err != nil {
+		return nil, err
 	}
-	s.workerTerminationChans = make([]chan bool, s.config.GetInt(config.MessageProcessingPartitionCount))
-	for i := range s.workerTerminationChans {
-		s.workerTerminationChans[i] = make(chan bool)
-	}
-	s.hasher = fnv.New32a()
-	s.hashMask = hashMask(partitionCount)
 
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
@@ -450,8 +429,8 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 	s.injectServicesToPlugins(deps.userInfoFinder, s.log, deps.emojiReactor, deps.fileUploader, deps.realTimeMsgSender, deps.slackClient)
 
 	// start all worker go routines
-	for i := range s.workerQueues {
-		go s.processMessages(deps.chatDriver, s.workerQueues[i], s.workerTerminationChans[i])
+	for i := range s.messageQueues {
+		go s.processMessages(deps.chatDriver, s.messageQueues[i], s.workerTerminationSignals[i])
 	}
 
 	for msg := range events {
@@ -466,7 +445,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			}
 
 		case *slack.MessageEvent:
-			s.dispatchMessageEvent(*e)
+			s.routeMessageEvent(*e)
 
 		case *slack.LatencyReport:
 			s.log.Printf("Current latency: %v\n", e.Value)
@@ -482,12 +461,12 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			if s.testMode && e.Cause != nil && e.Cause == slack.ErrRTMGoodbye {
 				s.log.Printf("Received termination event in test mode, terminating\n")
 				// Close all processing queues and wait for the terminations
-				for _, wq := range s.workerQueues {
+				for _, wq := range s.messageQueues {
 					close(wq)
 				}
 
 				// Wait for all workers to terminate processing
-				for _, tc := range s.workerTerminationChans {
+				for _, tc := range s.workerTerminationSignals {
 					<-tc
 				}
 
@@ -610,16 +589,6 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 	terminationChan <- true
 }
 
-// dispatchMessageEvent handles high-level processing of all slack message events.
-func (s *Slackscot) dispatchMessageEvent(msgEvent slack.MessageEvent) {
-	msgID := getOriginalMessageID(msgEvent)
-
-	partition := s.partitionIndexForMsgID(msgID)
-
-	s.log.Debugf("Dispatching message [%s] to partition [%d]", msgID, partition)
-	s.workerQueues[partition] <- msgEvent
-}
-
 // getOriginalMessageID returns the message ID of the original message if it's linked
 // to a previous one or the self message id otherwise
 func getOriginalMessageID(m slack.MessageEvent) (originalID SlackMessageID) {
@@ -628,45 +597,6 @@ func getOriginalMessageID(m slack.MessageEvent) (originalID SlackMessageID) {
 	} else {
 		return SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
 	}
-}
-
-// partitionIndexForMsgID returns the partition index for a given message ID
-func (s *Slackscot) partitionIndexForMsgID(msgID SlackMessageID) (partition int) {
-	s.hasher.Reset()
-	s.hasher.Write([]byte(msgID.channelID))
-	s.hasher.Write([]byte(msgID.timestamp))
-	res := s.hasher.Sum32()
-
-	s.log.Debugf("Hashing returned [%v] for [%s]", res, msgID)
-
-	// Keep only the rightmost bits so we have a max equal to the partition count
-	return int(res) & s.hashMask
-}
-
-// max returns the max of a and b
-func max(a int, b int) int {
-	if a > b {
-		return a
-	} else {
-		return b
-	}
-}
-
-// isPowerOfTwo returns true if val is a power of two or false if not
-func isPowerOfTwo(val int) bool {
-	return (val != 0) && (val&(val-1)) == 0
-}
-
-// hashMask builds a mask for a partitionCount (which should be a power of two) to get a hash value
-// that is in the range of the number of partitions we have
-func hashMask(partitionCount int) int {
-	maskSize := int(math.Log2(float64(partitionCount)))
-	mask := 0
-	for i := 0; i < maskSize; i++ {
-		mask = mask<<1 | 1
-	}
-
-	return mask
 }
 
 // getAgeOriginalMsg returns the age of an updated message as defined by the time elapsed between the message
