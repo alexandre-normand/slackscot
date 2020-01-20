@@ -1062,10 +1062,6 @@ func TestPartitionCountConfigurations(t *testing.T) {
 		},
 	}
 
-	v := config.NewViperWithDefaults()
-	v.Set(config.MessageProcessingPartitionCount, 2)
-	v.Set(config.DebugKey, true)
-
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			v := config.NewViperWithDefaults()

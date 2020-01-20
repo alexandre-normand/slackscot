@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/nlopes/slack"
 	"hash"
-	"hash/fnv"
+	"hash/crc32"
 	"math"
 )
 
@@ -41,7 +41,7 @@ func newPartitionRouter(partitionCount int, queueBufferSize int, log *sLogger) (
 	for i := range pr.workerTerminationSignals {
 		pr.workerTerminationSignals[i] = make(chan bool)
 	}
-	pr.hasher = fnv.New32a()
+	pr.hasher = crc32.NewIEEE()
 	pr.hashMask = hashMask(partitionCount)
 	pr.log = log
 
