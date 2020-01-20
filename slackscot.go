@@ -185,7 +185,7 @@ func (sid SlackMessageID) IsMsgModifiable() bool {
 
 // String returns the string representation of a SlackMessageID
 func (sid SlackMessageID) String() string {
-	return fmt.Sprintf("%s-%s", sid.channelID, sid.timestamp)
+	return fmt.Sprintf("%s/%s", sid.channelID, sid.timestamp)
 }
 
 // responseStrategy defines how a slack.OutgoingMessage is generated from an Answer

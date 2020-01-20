@@ -1167,6 +1167,10 @@ func TestConcurrentProcessingOfNonRelatedMessages(t *testing.T) {
 	}
 }
 
+func TestSlackMessageIDStringer(t *testing.T) {
+	assert.Equal(t, "channel/2324", SlackMessageID{"channel", "2324"}.String())
+}
+
 func newRTMMessageEvent(msgEvent *slack.MessageEvent) (e slack.RTMEvent) {
 	e.Type = "message"
 	e.Data = msgEvent
