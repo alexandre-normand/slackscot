@@ -1078,6 +1078,18 @@ func TestPartitionCountConfigurations(t *testing.T) {
 	}
 }
 
+// This test validates the important part of concurrent message processing.
+// It achieves this by setting up a plugin with a command that waits for a signal that is
+// emitted by another command. It then uses this feature
+// 1. Trigger the first command (which waits on a message sent for the second command)
+// 2. Send an update on that same message (to be queued in the same partition to be processed after the original message)
+// 3. Trigger the second command.
+// If the concurrent processing is working as intended, the 3rd message is processed concurrently and sends the signal to open
+// the gate and unblock processing on the first partition on which the first message and its update are waiting.
+//
+// The validation can't validate the ordering of the first two messages as the concurrent processing of messages on different
+// partitions isn't guaranteed but it does ensure that the message update to the first message is processed after by looking at
+// the updated message's sequence number.
 func TestConcurrentProcessingOfNonRelatedMessages(t *testing.T) {
 	testComplete := make(chan bool)
 
