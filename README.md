@@ -20,9 +20,9 @@
 - [The Name](#the-name)
 - [Concepts](#concepts)
 - [Create Your Own Slackscot](#create-your-own-slackscot)
-	- [Assembling the Parts and Bringing Your `slackscot` to Life](#assembling-the-parts-and-bringing-your-slackscot-to-life)
-	- [Configuration Example](#configuration-example)
-	- [Creating Your Own Plugins](#creating-your-own-plugins)
+  - [Assembling the Parts and Bringing Your `slackscot` to Life](#assembling-the-parts-and-bringing-your-slackscot-to-life)
+  - [Configuration Example](#configuration-example)
+  - [Creating Your Own Plugins](#creating-your-own-plugins)
 - [Contributing](#contributing)
 - [Some Credits](#some-credits)
 
@@ -66,6 +66,9 @@ your ambitious dreams (if you dreams include this sort of thing).
     both are enabled. 
     *   Plugin actions may also explicitely reply in threads with/without
         broadcasting via [AnswerOption](answer.go)
+
+*   Concurrent processing of unrelated messages with guarantees of proper 
+    ordering of message updates/deletions
 
 *   Simple extensible storage `API` for persistence in two flavors: 
     `StringStorer` and `BytesStorer`. Both are basic `key:value` maps. 
