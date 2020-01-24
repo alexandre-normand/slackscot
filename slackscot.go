@@ -299,6 +299,13 @@ func OptionTestMode(terminationCh chan bool) Option {
 	}
 }
 
+//OptionCommandPrefix sets a prefix to all commands that is used instead of at-mentioning the bot
+func OptionCommandPrefix(cmdPrefix string) Option {
+	return func(s *Slackscot) {
+		s.selfUserPrefix = cmdPrefix
+	}
+}
+
 // NewSlackscot creates a new slackscot from an array of plugins and a name
 //
 // Deprecated: Use New instead. Will be removed in 2.0.0
@@ -532,7 +539,9 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 		return err
 	}
 	s.selfBotID = user.Profile.BotID
-	s.selfUserPrefix = fmt.Sprintf("<@%s> ", s.selfID)
+	if s.selfUserPrefix == "" {
+		s.selfUserPrefix = fmt.Sprintf("<@%s> ", s.selfID)
+	}
 
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", s.selfID, s.selfName, s.selfBotID, s.selfUserPrefix)
 	return nil
