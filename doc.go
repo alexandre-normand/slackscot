@@ -5,12 +5,16 @@ It is easily extendable via plugins that can combine commands, hear actions (lis
 as scheduled actions. It also supports updating of triggered responses on message updates as well
 as deleting triggered responses when the triggering messages are deleted by users.
 
+Additionally, slackscot supports concurrent processing of messages. It also guarantees that updates
+and deletions of messages are processed in order relative to the original message they refer to.
+
 Plugins also have access to services injected on startup by slackscot such as:
  - UserInfoFinder: To query user info
  - SLogger: To log debug/info statements
  - EmojiReactor: To emoji react to messages
  - FileUploader: To upload files
  - RealTimeMessageSender: To send unmanaged real time messages outside the normal reaction flow (i.e. for sending many messages or sending via a scheduled action)
+ - SlackClient: For advanced access to all the slack APIs via https://godoc.org/github.com/nlopes/slack#Client
 
 Example code (from https://github.com/alexandre-normand/youppi):
 
