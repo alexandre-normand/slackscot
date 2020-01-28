@@ -17,6 +17,38 @@ func TestNewWithDefault(t *testing.T) {
 	assert.Equal(t, false, v.GetBool(config.ThreadedRepliesKey), "%s should be %t", config.ThreadedRepliesKey, false)
 	assert.Equal(t, false, v.GetBool(config.BroadcastThreadedRepliesKey), "%s should be %t", config.BroadcastThreadedRepliesKey, false)
 	assert.Equal(t, time.Duration(24)*time.Hour, v.GetDuration(config.MaxAgeHandledMessages), "%s should be %t", config.MaxAgeHandledMessages, time.Duration(24)*time.Hour)
+	assert.Equal(t, 16, v.GetInt(config.MessageProcessingPartitionCount), "%s should be %d", config.MessageProcessingPartitionCount, 16)
+	assert.Equal(t, 10, v.GetInt(config.MessageProcessingBufferedMessageCount), "%s should be %d", config.MessageProcessingBufferedMessageCount, 10)
+}
+
+func TestLayerConfigWithDefaults(t *testing.T) {
+	v := viper.New()
+
+	for key, _ := range config.NewViperWithDefaults().AllSettings() {
+		assert.Nil(t, v.Get(key))
+	}
+
+	v = config.LayerConfigWithDefaults(v)
+	for key, expectedVal := range config.NewViperWithDefaults().AllSettings() {
+		assert.Equal(t, expectedVal, v.Get(key), "%s should be %v", key, expectedVal)
+	}
+}
+
+func TestLayeredConfigWithDefaultsAndOverrides(t *testing.T) {
+	v := viper.New()
+	v = config.LayerConfigWithDefaults(v)
+	v.Set(config.MessageProcessingPartitionCount, 32)
+	v.Set(config.MessageProcessingBufferedMessageCount, 20)
+
+	v = config.LayerConfigWithDefaults(v)
+	for key, expectedVal := range config.NewViperWithDefaults().AllSettings() {
+		if key != "advanced" {
+			assert.Equal(t, expectedVal, v.Get(key), "%s should be %v", key, expectedVal)
+		}
+	}
+
+	assert.Equal(t, 32, v.GetInt(config.MessageProcessingPartitionCount), "%s should be %v", config.MessageProcessingPartitionCount, 32)
+	assert.Equal(t, 20, v.GetInt(config.MessageProcessingBufferedMessageCount), "%s should be %v", config.MessageProcessingBufferedMessageCount, 20)
 }
 
 func TestGetTimeLocationWithDefault(t *testing.T) {
