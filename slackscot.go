@@ -315,6 +315,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		return nil, err
 	}
 
+	v = config.LayerConfigWithDefaults(v)
 	s.name = name
 	s.config = v
 	s.namespaceCommands = true
