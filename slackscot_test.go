@@ -943,8 +943,16 @@ func TestOptionWithSlackOptionApplied(t *testing.T) {
 	defer testServer.Stop()
 
 	termination := make(chan bool)
-	s, err := New("BobbyTables", config.NewViperWithDefaults(), OptionWithSlackOption(slack.OptionAPIURL(testServer.GetAPIURL())), OptionTestMode(termination))
+	s, err := New(
+		"BobbyTables",
+		config.NewViperWithDefaults(),
+		OptionWithSlackOption(slack.OptionAPIURL(testServer.GetAPIURL())),
+		OptionWithSlackOption(slack.OptionDebug(true)),
+		OptionTestMode(termination),
+	)
+
 	require.NoError(t, err)
+	s.cmdMatcher = NewTestCmdMatcher(formattedBotUserID + " ")
 
 	tp := newTestPlugin()
 	s.RegisterPlugin(tp)
