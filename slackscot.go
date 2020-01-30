@@ -614,6 +614,7 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 		id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
 	}
 	s.cmdMatcher = id
+	s.botMatcher = id
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
 	return nil
 }
