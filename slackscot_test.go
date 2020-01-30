@@ -933,7 +933,6 @@ func TestMessageUpdatedHandledWhenUnableToCalculateAge(t *testing.T) {
 
 func TestOptionWithSlackOptionApplied(t *testing.T) {
 	testServer := slacktest.NewTestServer()
-
 	testServer.Handle("/channels.create", slacktest.Websocket(func(conn *websocket.Conn) {
 		if err := slacktest.RTMServerSendGoodbye(conn); err != nil {
 			log.Println("failed to send goodbye", err)
@@ -953,14 +952,12 @@ func TestOptionWithSlackOptionApplied(t *testing.T) {
 	go s.Run()
 
 	testStart := time.Now()
-	for now := time.Now(); tp.SlackClient == nil || now.Sub(testStart) > time.Duration(1)*time.Second; now = time.Now() {
+	for now := time.Now(); tp.SlackClient == nil && now.Sub(testStart) < time.Duration(1)*time.Second; now = time.Now() {
 		time.Sleep(10 * time.Millisecond)
 	}
-
 	require.NotNil(t, tp.SlackClient)
 
 	testServer.SendToWebsocket("{\"type\":\"goodbye\"}")
-
 	// Wait for slackscot to terminate
 	<-termination
 }
@@ -1235,13 +1232,16 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	var userInfoFinder userInfoFinder
 	var emojiReactor emojiReactor
 
+	tcm := NewTestCmdMatcher(formattedBotUserID + " ")
+
 	termination := make(chan bool)
 	options = append(options, OptionTestMode(termination))
 	s, err := New("chickadee", v, options...)
-	s.RegisterPlugin(plugin)
-	tcm := NewTestCmdMatcher(formattedBotUserID)
+
 	s.cmdMatcher = tcm
-	s.botMatcher = tcm
+	//s.botMatcher = tcm
+
+	s.RegisterPlugin(plugin)
 
 	assert.Nil(t, err)
 

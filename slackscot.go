@@ -610,11 +610,13 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 		return err
 	}
 	id.botID = user.Profile.BotID
-	if id.userPrefix == "" {
-		id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
+	id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
+	if s.cmdMatcher == nil {
+		s.cmdMatcher = id
 	}
-	s.cmdMatcher = id
-	s.botMatcher = id
+	if s.botMatcher == nil {
+		s.botMatcher = id
+	}
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
 	return nil
 }
