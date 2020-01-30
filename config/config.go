@@ -63,6 +63,17 @@ func NewViperWithDefaults() (v *viper.Viper) {
 	return v
 }
 
+// LayerConfigWithDefaults takes a loaded user configuration and layers the defaults under it
+func LayerConfigWithDefaults(v *viper.Viper) (layered *viper.Viper) {
+	defaults := NewViperWithDefaults()
+
+	for defaultKey, defaultVal := range defaults.AllSettings() {
+		v.SetDefault(defaultKey, defaultVal)
+	}
+
+	return v
+}
+
 // GetTimeLocation reads the TimeLocation configuration and maps it to the appropriate time.Location value. Returns an err if the location value is invalid
 func GetTimeLocation(v *viper.Viper) (timeLoc *time.Location, err error) {
 	locationId := v.GetString(TimeLocationKey)
