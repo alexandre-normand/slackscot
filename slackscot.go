@@ -38,17 +38,17 @@ type Slackscot struct {
 	plugins                 []*Plugin
 	triggeringMsgToResponse *lru.ARCCache
 
-	// Caching self identity used during message processing/filtering
-	selfID         string
-	selfBotID      string
-	selfName       string
-	selfUserPrefix string
-
 	// Runtime configuration options
 	namespaceCommands bool
 
 	// Slack options to apply on Run()
 	slackOpts []slack.Option
+
+	// Command identification
+	cmdMatcher CommandMatcher
+
+	// Bot matching for messages from us
+	botMatcher BotMatcher
 
 	// Logger
 	log *sLogger
@@ -225,6 +225,53 @@ type runDependencies struct {
 	slackClient       *slack.Client
 }
 
+// Used for matching commands - as in when to use Command vs HearAction
+type CommandMatcher interface {
+	// Return True if the message is a command
+	IsCmd(msg slack.Msg) bool
+	// Prefix to use with help text
+	UsagePrefix() string
+	// ClearPrefix is the prefix that should be removed from non-DM commands
+	ClearPrefix() string
+	fmt.Stringer
+}
+
+//BotMatcher is used for determining if a message is from the bot
+type BotMatcher interface {
+	//IsBot Return true if the message is from the bot
+	IsBot(msg slack.Msg) bool
+	fmt.Stringer
+}
+
+// Identify @mention based commands
+type selfIdentity struct {
+	// Caching self identity used during message processing/filtering
+	id         string
+	botID      string
+	name       string
+	userPrefix string
+}
+
+func (s *selfIdentity) IsCmd(msg slack.Msg) bool {
+	return strings.HasPrefix(msg.Text, s.userPrefix)
+}
+
+func (s *selfIdentity) UsagePrefix() string {
+	return ""
+}
+
+func (s *selfIdentity) ClearPrefix() string {
+	return s.userPrefix
+}
+
+func (s *selfIdentity) IsBot(msg slack.Msg) bool {
+	return msg.User == s.id || msg.BotID == s.id || msg.BotID == s.botID
+}
+
+func (s *selfIdentity) String() string {
+	return fmt.Sprintf("Self-Ident{%v %v %v %v}", s.id, s.botID, s.name, s.userPrefix)
+}
+
 // Option defines an option for a Slackscot
 type Option func(*Slackscot)
 
@@ -302,8 +349,30 @@ func OptionTestMode(terminationCh chan bool) Option {
 //OptionCommandPrefix sets a prefix to all commands that is used instead of at-mentioning the bot
 func OptionCommandPrefix(cmdPrefix string) Option {
 	return func(s *Slackscot) {
-		s.selfUserPrefix = cmdPrefix
+		pc := new(prefixedCommand)
+		pc.prefix = cmdPrefix
+		s.cmdMatcher = pc
 	}
+}
+
+type prefixedCommand struct {
+	prefix string
+}
+
+func (pc *prefixedCommand) IsCmd(msg slack.Msg) bool {
+	return strings.HasPrefix(msg.Text, pc.prefix)
+}
+
+func (pc *prefixedCommand) UsagePrefix() string {
+	return pc.prefix
+}
+
+func (pc *prefixedCommand) ClearPrefix() string {
+	return pc.prefix
+}
+
+func (pc *prefixedCommand) String() string {
+	return fmt.Sprintf("Prefixed-Command{%v}", pc.prefix)
 }
 
 // NewSlackscot creates a new slackscot from an array of plugins and a name
@@ -531,20 +600,21 @@ func getActionID(pluginName string, actionType string, index int) (actionID stri
 	return fmt.Sprintf("%s.%s[%d]", pluginName, actionType, index)
 }
 
-// cacheSelfIdentity gets "our" identity and keeps the selfID and selfName to avoid having to look it up every time
+// cacheSelfIdentity gets "our" identity and keeps the id.id and id.name to avoid having to look it up every time
 func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFinder UserInfoFinder) (err error) {
-	s.selfID = selfInfoFinder.GetInfo().User.ID
-	s.selfName = selfInfoFinder.GetInfo().User.Name
-	user, err := userInfoFinder.GetUserInfo(s.selfID)
+	id := new(selfIdentity)
+	id.id = selfInfoFinder.GetInfo().User.ID
+	id.name = selfInfoFinder.GetInfo().User.Name
+	user, err := userInfoFinder.GetUserInfo(id.id)
 	if err != nil {
 		return err
 	}
-	s.selfBotID = user.Profile.BotID
-	if s.selfUserPrefix == "" {
-		s.selfUserPrefix = fmt.Sprintf("<@%s> ", s.selfID)
+	id.botID = user.Profile.BotID
+	if id.userPrefix == "" {
+		id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
 	}
-
-	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", s.selfID, s.selfName, s.selfBotID, s.selfUserPrefix)
+	s.cmdMatcher = id
+	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
 	return nil
 }
 
@@ -861,16 +931,16 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 	responses = make([]OutgoingMessage, 0)
 
 	// Ignore messages_replied and messages send by "us"
-	if m.User == s.selfID || m.BotID == s.selfID || m.BotID == s.selfBotID {
-		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" (userID: [%s], botID: [%s]", m.User, m.BotID, s.selfID, s.selfBotID)
+	if s.botMatcher.IsBot(m) {
+		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" (%s)", m.User, m.BotID, s.botMatcher)
 
 		return responses
 	}
 
 	// Try commands or hear actions depending on the format of the message
-	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand {
+	if s.isCommand(m) {
 		replyStrategy := reply
-		if isDM {
+		if isDirectMessage(m) {
 			replyStrategy = directReply
 		}
 
@@ -933,8 +1003,10 @@ func (s *Slackscot) newCmdInMsgWithNormalizedText(p *Plugin, m slack.Msg) (match
 func (s *Slackscot) newIncomingMsgWithNormalizedText(m slack.Msg) (inMsg IncomingMessage) {
 	inMsg.NormalizedText = m.Text
 	inMsg.Msg = m
-	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand && !isDM {
-		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.selfUserPrefix)
+	isCommand := s.isCommand(m)
+	isDM := isDirectMessage(m)
+	if isCommand && !isDM {
+		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.cmdMatcher.ClearPrefix())
 	}
 
 	return inMsg
@@ -942,9 +1014,14 @@ func (s *Slackscot) newIncomingMsgWithNormalizedText(m slack.Msg) (inMsg Incomin
 
 // isCommand returns true if the slack message is to be interpreted as a command rather than a normal message
 // subject to be handled by hear actions
-func isCommand(m slack.Msg, selfUserPrefix string) (isCommand bool, isDirectMsg bool) {
-	isDirectMsg = strings.HasPrefix(m.Channel, "D")
-	return strings.HasPrefix(m.Text, selfUserPrefix) || isDirectMsg, isDirectMsg
+func (s *Slackscot) isCommand(m slack.Msg) (isCommand bool) {
+	return s.cmdMatcher.IsCmd(m) || isDirectMessage(m)
+}
+
+// isDirectMessage returns true if the slack message is to be interpreted as a command rather than a normal message
+// subject to be handled by hear actions
+func isDirectMessage(m slack.Msg) (isDirectMsg bool) {
+	return strings.HasPrefix(m.Channel, "D")
 }
 
 // useExistingThreadIfAny sets the option on an Answer to reply in the existing thread if there is one

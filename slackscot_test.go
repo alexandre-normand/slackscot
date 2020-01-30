@@ -1239,6 +1239,9 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	options = append(options, OptionTestMode(termination))
 	s, err := New("chickadee", v, options...)
 	s.RegisterPlugin(plugin)
+	tcm := NewTestCmdMatcher(formattedBotUserID)
+	s.cmdMatcher = tcm
+	s.botMatcher = tcm
 
 	assert.Nil(t, err)
 

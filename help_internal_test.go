@@ -1,13 +1,45 @@
 package slackscot
 
 import (
+	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
+	"github.com/nlopes/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 )
+
+type TestCmdMatcher struct {
+	prefix string
+}
+
+func NewTestCmdMatcher(prefix string) *TestCmdMatcher {
+	r := new(TestCmdMatcher)
+	r.prefix = prefix
+	return r
+}
+
+func (pc *TestCmdMatcher) IsCmd(msg slack.Msg) bool {
+	return strings.HasPrefix(msg.Text, pc.prefix)
+}
+
+func (pc *TestCmdMatcher) IsBot(msg slack.Msg) bool {
+	return strings.HasPrefix(msg.Text, pc.prefix)
+}
+
+func (pc *TestCmdMatcher) UsagePrefix() string {
+	return ""
+}
+
+func (pc *TestCmdMatcher) ClearPrefix() string {
+	return pc.prefix
+}
+
+func (pc *TestCmdMatcher) String() string {
+	return fmt.Sprintf("Prefixed-Command{%v}", pc.prefix)
+}
 
 func newPluginWithActionsOfAllTypes(hidden bool) (p *Plugin) {
 	p = new(Plugin)
@@ -43,6 +75,7 @@ func newPluginWithActionsOfAllTypes(hidden bool) (p *Plugin) {
 func TestHelpWithNamespacingEnabled(t *testing.T) {
 	s, err := New("robert", config.NewViperWithDefaults())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
+	s.cmdMatcher = NewTestCmdMatcher("")
 
 	require.NoError(t, err)
 
@@ -66,6 +99,7 @@ func TestHelpWithNamespacingEnabled(t *testing.T) {
 func TestHelpWithNamespacingDisabled(t *testing.T) {
 	s, err := New("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
+	s.cmdMatcher = NewTestCmdMatcher("")
 
 	require.NoError(t, err)
 
@@ -85,6 +119,7 @@ func TestHelpWithNamespacingDisabled(t *testing.T) {
 func TestHelpWithHiddenActions(t *testing.T) {
 	s, err := New("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes(true))
+	s.cmdMatcher = NewTestCmdMatcher("")
 
 	require.NoError(t, err)
 

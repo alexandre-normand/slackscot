@@ -39,8 +39,10 @@ func (s *Slackscot) newHelpPlugin(version string) *helpPlugin {
 	helpPlugin.commands = commands
 	helpPlugin.hearActions = hearActions
 	helpPlugin.pluginScheduledActions = scheduledActions
-	if !strings.HasPrefix(s.selfUserPrefix, "<@") {
-		helpPlugin.prefix = s.selfUserPrefix
+
+	// Set the plugin prefix
+	if s.cmdMatcher.UsagePrefix() != "" { // In case prefix is ever defaulted elsewhere
+		helpPlugin.prefix = s.cmdMatcher.UsagePrefix()
 	}
 
 	helpPlugin.Plugin = Plugin{Name: helpPluginName, Commands: []ActionDefinition{{
