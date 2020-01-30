@@ -965,6 +965,11 @@ func TestOptionWithSlackOptionApplied(t *testing.T) {
 	}
 	require.NotNil(t, tp.SlackClient)
 
+	// Should be auto set
+	assert.NotNil(t, s.botMatcher)
+	// Should be around before run - although it's set above
+	assert.NotNil(t, s.cmdMatcher)
+
 	testServer.SendToWebsocket("{\"type\":\"goodbye\"}")
 	// Wait for slackscot to terminate
 	<-termination
