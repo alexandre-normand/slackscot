@@ -48,7 +48,7 @@ type Slackscot struct {
 	cmdMatcher CommandMatcher
 
 	// Bot matching for messages from us
-	botMatcher BotMatcher
+	botMatcher SelfMatcher
 
 	// Logger
 	log *sLogger
@@ -236,8 +236,8 @@ type CommandMatcher interface {
 	fmt.Stringer
 }
 
-//BotMatcher is used for determining if a message is from the bot
-type BotMatcher interface {
+//SelfMatcher is used for determining if a message is from the bot
+type SelfMatcher interface {
 	//IsBot Return true if the message is from the bot
 	IsBot(msg slack.Msg) bool
 	fmt.Stringer
