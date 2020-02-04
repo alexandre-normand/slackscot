@@ -16,7 +16,7 @@ type helpPlugin struct {
 	commands               map[string][]ActionDefinition
 	hearActions            []ActionDefinition
 	pluginScheduledActions []pluginScheduledAction
-	prefix                 string
+	cmdPrefix              string
 }
 
 const (
@@ -72,7 +72,7 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 		fmt.Fprintf(&b, "\nI currently support the following commands:\n")
 
 		for n, commands := range h.commands {
-			appendActions(&b, h.prefix, n, commands)
+			appendActions(&b, h.cmdPrefix, n, commands)
 		}
 	}
 

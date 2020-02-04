@@ -68,7 +68,7 @@ type Slackscot struct {
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
 //
 // Set NamespaceCommands to true if the plugin's commands are to be namespaced by slackscot.
-// This means that commands will be first checked for a prefix that matches the plugin name.
+// This means that commands will be first checked for a cmdPrefix that matches the plugin name.
 // Since that's all handled by slackscot, a plugin should be written with matching only
 // considering what comes after the namespace. For example, a plugin with name make would have
 // a coffee command be something like
@@ -93,7 +93,7 @@ type Slackscot struct {
 type Plugin struct {
 	Name string
 
-	NamespaceCommands bool // Set to true for slackscot-managed namespacing of commands where the namespace/prefix to all commands is set to the plugin name
+	NamespaceCommands bool // Set to true for slackscot-managed namespacing of commands where the namespace/cmdPrefix to all commands is set to the plugin name
 
 	Commands         []ActionDefinition
 	HearActions      []ActionDefinition
@@ -192,12 +192,12 @@ func (sid SlackMessageID) String() string {
 type responseStrategy func(m IncomingMessage, answer *Answer) slack.OutgoingMessage
 
 // IncomingMessage holds data for an incoming slack message. In addition to a slack.Msg, it also has
-// a normalized text that is the original text stripped from the "<@Mention>" prefix when a message
+// a normalized text that is the original text stripped from the "<@Mention>" cmdPrefix when a message
 // is addressed to a slackscot instance. Since commands are usually received either via direct message
 // (without @Mention) or on channels with @Mention, the normalized text is useful there to allow plugins
 // to have a single version to do Match and Answer against
 type IncomingMessage struct {
-	// The original slack.Msg text stripped from the "<@Mention>" prefix, if applicable
+	// The original slack.Msg text stripped from the "<@Mention>" cmdPrefix, if applicable
 	NormalizedText string
 	slack.Msg
 }
@@ -231,7 +231,7 @@ type CommandMatcher interface {
 	IsCmd(msg slack.Msg) bool
 	// Prefix to use with help text
 	UsagePrefix() string
-	// ClearPrefix is the prefix that should be removed from non-DM commands
+	// ClearPrefix is the cmdPrefix that should be removed from non-DM commands
 	ClearPrefix() string
 	fmt.Stringer
 }
@@ -298,7 +298,7 @@ func OptionNoPluginNamespacing() Option {
 	}
 }
 
-// OptionLogfile sets a logfile for Slackscot while using the other default logging prefix and options
+// OptionLogfile sets a logfile for Slackscot while using the other default logging cmdPrefix and options
 func OptionLogfile(logfile *os.File) Option {
 	return func(s *Slackscot) {
 		s.log.logger = log.New(logfile, defaultLogPrefix, defaultLogFlag)
@@ -346,7 +346,7 @@ func OptionTestMode(terminationCh chan bool) Option {
 	}
 }
 
-//OptionCommandPrefix sets a prefix to all commands that is used instead of at-mentioning the bot
+//OptionCommandPrefix sets a cmdPrefix to all commands that is used instead of at-mentioning the bot
 func OptionCommandPrefix(cmdPrefix string) Option {
 	return func(s *Slackscot) {
 		pc := new(prefixedCommand)
@@ -617,7 +617,7 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 	if s.botMatcher == nil {
 		s.botMatcher = id
 	}
-	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
+	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
 	return nil
 }
 
