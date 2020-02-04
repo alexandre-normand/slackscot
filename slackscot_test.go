@@ -1289,3 +1289,38 @@ func sendTestEventsForProcessing(ec chan<- slack.RTMEvent, events []slack.RTMEve
 	// Terminate the sequence of test events by sending a termination event
 	ec <- slack.RTMEvent{"disconnected", &slack.DisconnectedEvent{Intentional: true, Cause: slack.ErrRTMGoodbye}}
 }
+
+
+func TestCommandMatcherOverride(t *testing.T) {
+	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "!!make something nice", "Alphonse", timestamp1)),
+	}, nil, OptionNoPluginNamespacing(), OptionCommandPrefix("!!"))
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		// It isn't obvious but an ephemeral message is sent *as* the user it's also being sent *to*
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+	}
+}
+
+func TestCommandMatcherOverrideWithNamespace(t *testing.T) {
+	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "!!noRules make something nice", "Alphonse", timestamp1)),
+	}, nil, OptionCommandPrefix("!!"))
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		// It isn't obvious but an ephemeral message is sent *as* the user it's also being sent *to*
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+	}
+}
