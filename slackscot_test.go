@@ -1245,14 +1245,9 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	var userInfoFinder userInfoFinder
 	var emojiReactor emojiReactor
 
-	tcm := NewTestCmdMatcher(formattedBotUserID + " ")
-
 	termination := make(chan bool)
 	options = append(options, OptionTestMode(termination))
 	s, err := New("chickadee", v, options...)
-
-	s.cmdMatcher = tcm
-	//s.botMatcher = tcm
 
 	s.RegisterPlugin(plugin)
 

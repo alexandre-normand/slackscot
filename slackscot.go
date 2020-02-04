@@ -398,6 +398,9 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.testMode = false
 	s.closers = make([]io.Closer, 0)
 	s.defaultAction = defaultAction
+	id := new(selfIdentity)
+	s.botMatcher = id
+	s.cmdMatcher = id
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
 
 	partitionCount := s.config.GetInt(config.MessageProcessingPartitionCount)
@@ -611,12 +614,8 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 	}
 	id.botID = user.Profile.BotID
 	id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
-	if s.cmdMatcher == nil {
-		s.cmdMatcher = id
-	}
-	if s.botMatcher == nil {
-		s.botMatcher = id
-	}
+	s.cmdMatcher = id
+	s.botMatcher = id
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
 	return nil
 }
