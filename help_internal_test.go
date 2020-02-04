@@ -30,7 +30,7 @@ func (pc *TestCmdMatcher) IsBot(msg slack.Msg) bool {
 }
 
 func (pc *TestCmdMatcher) UsagePrefix() string {
-	return ""
+	return pc.prefix
 }
 
 func (pc *TestCmdMatcher) TrimPrefix(text string) string {
@@ -75,7 +75,6 @@ func newPluginWithActionsOfAllTypes(hidden bool) (p *Plugin) {
 func TestHelpWithNamespacingEnabled(t *testing.T) {
 	s, err := New("robert", config.NewViperWithDefaults())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
-	s.cmdMatcher = NewTestCmdMatcher("")
 
 	require.NoError(t, err)
 
@@ -99,7 +98,6 @@ func TestHelpWithNamespacingEnabled(t *testing.T) {
 func TestHelpWithNamespacingDisabled(t *testing.T) {
 	s, err := New("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
 	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
-	s.cmdMatcher = NewTestCmdMatcher("")
 
 	require.NoError(t, err)
 
@@ -131,4 +129,95 @@ func TestHelpWithHiddenActions(t *testing.T) {
 	require.NotNil(t, a)
 
 	assert.Equal(t, "🤝 Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n", a.Text)
+}
+
+
+
+func TestHelpWithNamespacingEnabledWithCommandOption(t *testing.T) {
+	s, err := New("robert", config.NewViperWithDefaults())
+	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
+	s.cmdMatcher = NewTestCmdMatcher("")
+
+	require.NoError(t, err)
+
+	help := s.newHelpPlugin("1.0.0")
+	help.UserInfoFinder = &userInfoFinder{}
+
+	cmd := help.Commands[0]
+	assert.False(t, cmd.Match(&IncomingMessage{NormalizedText: " help"}))
+	require.True(t, cmd.Match(&IncomingMessage{NormalizedText: "help"}))
+	assert.True(t, cmd.Match(&IncomingMessage{NormalizedText: "help and something else"}))
+
+	a := cmd.Answer(&IncomingMessage{NormalizedText: "help"})
+	require.NotNil(t, a)
+
+	assert.Equal(t, "🤝 Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n\n"+
+		"I currently support the following commands:\n\t• `thank <someone of something to thank>` - Format a thank you note\n\nAnd listen for the following:\n"+
+		"\t• `say `chickadee` and hear a chirp` - Chirp when hearing people talk about chickadees\n\nAnd do those things periodically:\n"+
+		"\t• [`thank`] `Every 30 seconds` (`Local`) - Sends a heartbeat every 30 seconds\n", a.Text)
+}
+
+func TestHelpWithNamespacingEnabledWithCommandOption2(t *testing.T) {
+	s, err := New("robert", config.NewViperWithDefaults())
+	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
+	s.cmdMatcher = NewTestCmdMatcher("!!")
+
+	require.NoError(t, err)
+
+	help := s.newHelpPlugin("1.0.0")
+	help.UserInfoFinder = &userInfoFinder{}
+
+	cmd := help.Commands[0]
+	assert.False(t, cmd.Match(&IncomingMessage{NormalizedText: " help"}))
+	require.True(t, cmd.Match(&IncomingMessage{NormalizedText: "help"}))
+	assert.True(t, cmd.Match(&IncomingMessage{NormalizedText: "help and something else"}))
+
+	a := cmd.Answer(&IncomingMessage{NormalizedText: "help"})
+	require.NotNil(t, a)
+
+	assert.Equal(t, "🤝 Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n\n"+
+		"I currently support the following commands:\n\t• `!!thank <someone of something to thank>` - Format a thank you note\n\nAnd listen for the following:\n"+
+		"\t• `say `chickadee` and hear a chirp` - Chirp when hearing people talk about chickadees\n\nAnd do those things periodically:\n"+
+		"\t• [`thank`] `Every 30 seconds` (`Local`) - Sends a heartbeat every 30 seconds\n", a.Text)
+}
+
+func TestHelpWithNamespacingDisabledWithCommandOption(t *testing.T) {
+	s, err := New("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
+	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
+	s.cmdMatcher = NewTestCmdMatcher("")
+
+	require.NoError(t, err)
+
+	help := s.newHelpPlugin("1.0.0")
+	help.UserInfoFinder = &userInfoFinder{}
+
+	cmd := help.Commands[0]
+	a := cmd.Answer(&IncomingMessage{NormalizedText: "help"})
+	require.NotNil(t, a)
+
+	assert.Equal(t, "🤝 Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n\n"+
+		"I currently support the following commands:\n\t• `<someone of something to thank>` - Format a thank you note\n\nAnd listen for the following:\n"+
+		"\t• `say `chickadee` and hear a chirp` - Chirp when hearing people talk about chickadees\n\nAnd do those things periodically:\n"+
+		"\t• [`thank`] `Every 30 seconds` (`Local`) - Sends a heartbeat every 30 seconds\n", a.Text)
+}
+
+
+func TestHelpWithNamespacingDisabledWithCommandOption2(t *testing.T) {
+	s, err := New("robert", config.NewViperWithDefaults(), OptionNoPluginNamespacing())
+	s.RegisterPlugin(newPluginWithActionsOfAllTypes(false))
+	s.cmdMatcher = NewTestCmdMatcher("!!")
+
+	require.NoError(t, err)
+
+	help := s.newHelpPlugin("1.0.0")
+	help.UserInfoFinder = &userInfoFinder{}
+
+	cmd := help.Commands[0]
+	a := cmd.Answer(&IncomingMessage{NormalizedText: "help"})
+	require.NotNil(t, a)
+
+	assert.Equal(t, "🤝 Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n\n"+
+		"I currently support the following commands:\n\t• `!!<someone of something to thank>` - Format a thank you note\n\nAnd listen for the following:\n"+
+		"\t• `say `chickadee` and hear a chirp` - Chirp when hearing people talk about chickadees\n\nAnd do those things periodically:\n"+
+		"\t• [`thank`] `Every 30 seconds` (`Local`) - Sends a heartbeat every 30 seconds\n", a.Text)
 }

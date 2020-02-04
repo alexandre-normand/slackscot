@@ -39,6 +39,7 @@ func (s *Slackscot) newHelpPlugin(version string) *helpPlugin {
 	helpPlugin.commands = commands
 	helpPlugin.hearActions = hearActions
 	helpPlugin.pluginScheduledActions = scheduledActions
+	helpPlugin.cmdPrefix = s.cmdMatcher.UsagePrefix()
 
 	helpPlugin.Plugin = Plugin{Name: helpPluginName, Commands: []ActionDefinition{{
 		Match: func(m *IncomingMessage) bool {
