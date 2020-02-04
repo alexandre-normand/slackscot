@@ -231,8 +231,8 @@ type CommandMatcher interface {
 	IsCmd(msg slack.Msg) bool
 	// Prefix to use with help text
 	UsagePrefix() string
-	// ClearPrefix is the cmdPrefix that should be removed from non-DM commands
-	ClearPrefix() string
+	// TrimPrefix is the cmdPrefix that should be removed from non-DM commands
+	TrimPrefix(string) string
 	fmt.Stringer
 }
 
@@ -260,8 +260,8 @@ func (s *selfIdentity) UsagePrefix() string {
 	return ""
 }
 
-func (s *selfIdentity) ClearPrefix() string {
-	return s.userPrefix
+func (s *selfIdentity) TrimPrefix(text string) string {
+	return strings.TrimPrefix(text, s.userPrefix)
 }
 
 func (s *selfIdentity) IsBot(msg slack.Msg) bool {
@@ -367,8 +367,8 @@ func (pc *prefixedCommand) UsagePrefix() string {
 	return pc.prefix
 }
 
-func (pc *prefixedCommand) ClearPrefix() string {
-	return pc.prefix
+func (pc *prefixedCommand) TrimPrefix(text string) string {
+	return strings.TrimPrefix(text, pc.prefix)
 }
 
 func (pc *prefixedCommand) String() string {
@@ -1007,7 +1007,7 @@ func (s *Slackscot) newIncomingMsgWithNormalizedText(m slack.Msg) (inMsg Incomin
 	inMsg.NormalizedText = m.Text
 	inMsg.Msg = m
 	if isCmd, isDirectMsg := s.cmdMatcher.IsCmd(m), isDirectMessage(m); isCmd && !isDirectMsg {
-		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.cmdMatcher.ClearPrefix())
+		inMsg.NormalizedText = s.cmdMatcher.TrimPrefix(m.Text)
 	}
 
 	return inMsg

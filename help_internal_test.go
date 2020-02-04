@@ -33,8 +33,8 @@ func (pc *TestCmdMatcher) UsagePrefix() string {
 	return ""
 }
 
-func (pc *TestCmdMatcher) ClearPrefix() string {
-	return pc.prefix
+func (pc *TestCmdMatcher) TrimPrefix(text string) string {
+	return strings.TrimPrefix(text, pc.prefix)
 }
 
 func (pc *TestCmdMatcher) String() string {
