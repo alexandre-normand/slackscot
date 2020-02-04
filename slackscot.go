@@ -1006,9 +1006,7 @@ func (s *Slackscot) newCmdInMsgWithNormalizedText(p *Plugin, m slack.Msg) (match
 func (s *Slackscot) newIncomingMsgWithNormalizedText(m slack.Msg) (inMsg IncomingMessage) {
 	inMsg.NormalizedText = m.Text
 	inMsg.Msg = m
-	isCommand := s.isCommand(m)
-	isDM := isDirectMessage(m)
-	if isCommand && !isDM {
+	if isCmd, isDirectMsg := s.cmdMatcher.IsCmd(m), isDirectMessage(m); isCmd && !isDirectMsg {
 		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.cmdMatcher.ClearPrefix())
 	}
 
