@@ -50,6 +50,9 @@ type Slackscot struct {
 	// Bot matching for messages from us
 	botMatcher SelfMatcher
 
+	// Default for cmdMatcher and botMatcher
+	selfMatcher *selfIdentity
+
 	// Logger
 	log *sLogger
 
@@ -398,9 +401,6 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.testMode = false
 	s.closers = make([]io.Closer, 0)
 	s.defaultAction = defaultAction
-	id := new(selfIdentity)
-	s.botMatcher = id
-	s.cmdMatcher = id
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
 
 	partitionCount := s.config.GetInt(config.MessageProcessingPartitionCount)
@@ -419,6 +419,15 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 
 	for _, opt := range options {
 		opt(s)
+	}
+
+	s.selfMatcher = new(selfIdentity)
+	if s.botMatcher == nil {
+		s.botMatcher = s.selfMatcher
+
+	}
+	if s.cmdMatcher == nil {
+		s.cmdMatcher = s.selfMatcher
 	}
 
 	return s, nil
@@ -614,8 +623,16 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 	}
 	id.botID = user.Profile.BotID
 	id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
-	s.cmdMatcher = id
-	s.botMatcher = id
+
+	// Only overwrite if it's unchanged from init
+	if s.cmdMatcher == s.selfMatcher {
+		s.cmdMatcher = id
+	}
+	// Only overwrite if it's unchanged from init
+	if s.botMatcher == s.selfMatcher {
+		s.botMatcher = id
+	}
+
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
 	return nil
 }
