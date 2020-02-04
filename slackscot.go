@@ -935,7 +935,7 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 
 	// Ignore messages_replied and messages send by "us"
 	if s.botMatcher.IsBot(m) {
-		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" (%s)", m.User, m.BotID, s.botMatcher)
+		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" [%s]", m.User, m.BotID, s.botMatcher)
 
 		return responses
 	}
