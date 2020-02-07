@@ -30,50 +30,25 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		channel        string
 		expectedAnswer string
 	}{
-		{"creek++", "Cgeneral", "`creek` just gained a level (`creek`: 1)"},
-		{"creek--", "Cgeneral", "`creek` just lost a life (`creek`: 0)"},
-		{"the creek++", "Cgeneral", "`creek` just gained a level (`creek`: 1)"},
-		{"our creek++ is nice", "Cgeneral", "`creek` just gained a level (`creek`: 2)"},
-		{"our creek++ is really nice", "Cgeneral", "`creek` just gained a level (`creek`: 3)"},
-		{"oceans++", "Cgeneral", "`oceans` just gained a level (`oceans`: 1)"},
-		{"oceans++", "Cgeneral", "`oceans` just gained a level (`oceans`: 2)"},
-		{"nettle++", "Cgeneral", "`nettle` just gained a level (`nettle`: 1)"},
-		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 1)"},
-		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 2)"},
-		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 3)"},
-		{"salmon++", "Cgeneral", "`salmon` just gained a level (`salmon`: 4)"},
-		{"salmon+++", "Cgeneral", "`salmon` just gained 2 levels (`salmon`: 6)"},
-		{"salmon++++", "Cgeneral", "`salmon` just gained 3 levels (`salmon`: 9)"},
-		{"salmon+++++", "Cgeneral", "`salmon` just gained 4 levels (`salmon`: 13)"},
-		{"salmon++++++", "Cgeneral", "`salmon` just gained 5 levels (`salmon`: 18)"},
-		{"salmon+++++++", "Cgeneral", "`salmon` just gained 5 levels (`salmon`: 23)"},
-		{"dams--", "Cgeneral", "`dams` just lost a life (`dams`: -1)"},
-		{"dams--", "Cgeneral", "`dams` just lost a life (`dams`: -2)"},
-		{"dams---", "Cgeneral", "`dams` just lost 2 lives (`dams`: -4)"},
-		{"dams----", "Cgeneral", "`dams` just lost 3 lives (`dams`: -7)"},
-		{"dams-----", "Cgeneral", "`dams` just lost 4 lives (`dams`: -11)"},
-		{"dams------", "Cgeneral", "`dams` just lost 5 lives (`dams`: -16)"},
-		{"dams-------", "Cgeneral", "`dams` just lost 5 lives (`dams`: -21)"},
 		{"<@bot> karma", "Cgeneral", ""},
-		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 1)"},
-		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 2)"},
-		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 3)"},
-		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 4)"},
-		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 5)"},
-		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 6)"},
-		{"<@U21355> ++", "Cgeneral", "`Bernard Tremblay` just gained a level (`Bernard Tremblay`: 7)"},
-		{"thing ++", "Cgeneral", ""},
-		{"```block--```", "Cgeneral", ""},
-		{"`inlinecode--`", "Cgeneral", ""},
-		{"don't++", "Cgeneral", "`don't` just gained a level (`don't`: 1)"},
-		{"under-the-bridge++", "Cgeneral", "`the-bridge` just gained a level (`the-bridge`: 1)"},
-		{"Jean-Michel++", "Cgeneral", "`Jean-Michel` just gained a level (`Jean-Michel`: 1)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 1)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 2)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 3)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 4)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 5)"},
+		{"<@U21355>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 6)"},
+		{"<@U21355> ++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 7)"},
+		{"<@U21355>+++", "Cgeneral", "`Bernard Tremblay` just gained 2 karma points (`Bernard Tremblay`: 9)"},
+		{"<@U21355>++++", "Cgeneral", "`Bernard Tremblay` just gained 3 karma points (`Bernard Tremblay`: 12)"},
+		{"<@U21355>+++++", "Cgeneral", "`Bernard Tremblay` just gained 4 karma points (`Bernard Tremblay`: 16)"},
+		{"<@U21355>++++++", "Cgeneral", "`Bernard Tremblay` just gained 5 karma points (`Bernard Tremblay`: 21)"},
+		{"<@U21355>+++++++", "Cgeneral", "`Bernard Tremblay` just gained 5 karma points (`Bernard Tremblay`: 26)"},
 		{"+----------+", "Cgeneral", ""},
 		{"---", "Cgeneral", ""},
 		{"+++", "Cgeneral", ""},
-		{"salmon++", "Coceanlife", "`salmon` just gained a level (`salmon`: 1)"},
+		{"<@U21355>++", "Coceanlife", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 1)"},
 		{"<@bot> top 1", "Cother", "Sorry, no recorded karma found :disappointed:"},
-		{"dams--", "Coceanlife", "`dams` just lost a life (`dams`: -1)"},
+		{"<@U21355>--", "Coceanlife", "`Bernard Tremblay` just lost karma (`Bernard Tremblay`: 0)"},
 		{"<@bot> reset", "Coceanlife", "karma all cleared :white_check_mark::boom:"},
 		{"<@bot> top 1", "Coceanlife", "Sorry, no recorded karma found :disappointed:"},
 	}
@@ -111,8 +86,8 @@ func TestErrorStoringKarmaRecord(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GetSiloString", "myLittleChannel", "thing").Return("", fmt.Errorf("not found"))
-	mockStorer.On("PutSiloString", "myLittleChannel", "thing", "1").Return(fmt.Errorf("can't persist"))
+	mockStorer.On("GetSiloString", "myLittleChannel", "@U21355").Return("", fmt.Errorf("not found"))
+	mockStorer.On("PutSiloString", "myLittleChannel", "@U21355", "1").Return(fmt.Errorf("can't persist"))
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -120,7 +95,7 @@ func TestErrorStoringKarmaRecord(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@U21355>++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
 		return assert.Empty(t, answers)
 	})
 }
@@ -135,8 +110,8 @@ func TestInvalidSelfKarma(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(p, &slack.Msg{User: "U123", Channel: "myLittleChannel", Text: "<@U123>++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.EphemeralAnswerToOpt, Value: "U123"})
+	assertplugin.AnswersAndReacts(p, &slack.Msg{User: "U21355", Channel: "myLittleChannel", Text: "<@U21355>++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:") && assertanswer.HasOptions(t, answers[0], assertanswer.ResolvedAnswerOption{Key: slackscot.EphemeralAnswerToOpt, Value: "U21355"})
 	})
 }
 
@@ -144,8 +119,8 @@ func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
 	mockStorer := &mocks.Storer{}
 	defer mockStorer.AssertExpectations(t)
 
-	mockStorer.On("GetSiloString", "myLittleChannel", "thing").Return("abc", nil)
-	mockStorer.On("PutSiloString", "myLittleChannel", "thing", "1").Return(nil)
+	mockStorer.On("GetSiloString", "myLittleChannel", "@U21355").Return("abc", nil)
+	mockStorer.On("PutSiloString", "myLittleChannel", "@U21355", "1").Return(nil)
 
 	var userInfoFinder userInfoFinder
 	p := plugins.NewKarma(mockStorer)
@@ -153,8 +128,8 @@ func TestInvalidStoredKarmaShouldResetValue(t *testing.T) {
 
 	assertplugin := assertplugin.New(t, "bot")
 
-	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "thing++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
-		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`thing` just gained a level (`thing`: 1)")
+	assertplugin.AnswersAndReacts(p, &slack.Msg{Channel: "myLittleChannel", Text: "<@U21355>++"}, func(t *testing.T, answers []*slackscot.Answer, emojis []string) bool {
+		return assert.Len(t, answers, 1) && assertanswer.HasText(t, answers[0], "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 1)")
 	})
 }
 
