@@ -7,8 +7,7 @@ import (
 	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/alexandre-normand/slackscot/store"
 	"github.com/nlopes/slack"
-	"github.com/russross/blackfriday/v2"
-	"io"
+	"log"
 	"regexp"
 	"sort"
 	"strconv"
@@ -27,7 +26,7 @@ const (
 	defaultItemCount = 5
 )
 
-var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(?:<(@[\\w']+)>\\s?)|([\\w']+-?[\\w']+))(\\+{2,6}|\\-{2,6}).*")
+var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(<(@[\\w']+)>\\s?))(\\+{2,6}|\\-{2,6}).*")
 
 // Ranker represents attributes and behavior to process a ranking list
 type ranker struct {
@@ -123,55 +122,8 @@ func NewKarma(storer store.GlobalSiloStringStorer) (karma *slackscot.Plugin) {
 
 // matchKarmaRecord returns true if the message matches karma++ or karma-- (karma being any word)
 func matchKarmaRecord(m *slackscot.IncomingMessage) bool {
-	thing, _ := findFirstKarma(m)
-	return len(thing) > 0
-}
-
-// findFirstKarma returns the first karma thing in a message. It uses a markdown
-// parser to ignore anything that is part of a code block or inline code element
-func findFirstKarma(m *slackscot.IncomingMessage) (thing string, instruction string) {
-	tmr := new(textMatcherRenderer)
-	blackfriday.Run([]byte(m.NormalizedText), blackfriday.WithRenderer(tmr))
-
-	return tmr.thing, tmr.instruction
-}
-
-// textMatcherRenderer holds the first thing that matches in a markdown-parsed tree. It implements
-// the blackfriday.Renderer interface but doesn't actually do any rendering in the typical definition
-// except if you consider finding a karma record match in text nodes a rendering action
-type textMatcherRenderer struct {
-	thing       string
-	instruction string
-}
-
-// RenderNode looks at text nodes and tries to match a karma record instruction. As soon as a match is found, parsing
-// is terminated
-func (tp *textMatcherRenderer) RenderNode(w io.Writer, node *blackfriday.Node, entering bool) blackfriday.WalkStatus {
-	if node.Type == blackfriday.Text && len(tp.thing) == 0 {
-		matches := karmaRegex.FindStringSubmatch(string(node.Literal))
-		if len(matches) > 0 {
-			// Depending on if it's a user id or a "normal" thing, the matching group is different so we
-			// check both (only one can ever match)
-			tp.thing = matches[1]
-			if len(tp.thing) == 0 {
-				tp.thing = matches[2]
-			}
-
-			tp.instruction = matches[3]
-
-			return blackfriday.Terminate
-		}
-	}
-
-	return blackfriday.GoToNext
-}
-
-// RenderHeader is a no-op
-func (tp *textMatcherRenderer) RenderHeader(w io.Writer, ast *blackfriday.Node) {
-}
-
-// RenderFooter is a no-op
-func (tp *textMatcherRenderer) RenderFooter(w io.Writer, ast *blackfriday.Node) {
+	matches := karmaRegex.FindStringSubmatch(m.NormalizedText)
+	return len(matches) > 0
 }
 
 // matchKarmaTopReport returns true if the message matches a request for top karma with
@@ -207,8 +159,9 @@ func matchKarmaReset(m *slackscot.IncomingMessage) bool {
 // recordKarma records a karma increase or decrease and answers with a message including
 // the recorded word with its associated karma value
 func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answer {
-	thing, instruction := findFirstKarma(message)
+	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
 
+	thing := match[2]
 	// Prevent a user from attributing karma to self
 	if strings.TrimPrefix(thing, "@") == message.User {
 		return &slackscot.Answer{Text: "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:", Options: []slackscot.AnswerOption{slackscot.AnswerEphemeral(message.User)}}
@@ -224,18 +177,20 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 		karma = 0
 	}
 
+	log.Printf("thing is [%s]\n", thing)
 	answerText := ""
 	renderedThing := k.renderThing(thing)
 
+	instruction := match[3]
 	if strings.HasPrefix(instruction, "+") {
 		incrementSymbols := strings.TrimPrefix(instruction, "+")
 		increment := len(incrementSymbols)
 		karma = karma + increment
 
 		if increment == 1 {
-			answerText = fmt.Sprintf("`%s` just gained a level (`%s`: %d)", renderedThing, renderedThing, karma)
+			answerText = fmt.Sprintf("`%s` just gained karma (`%s`: %d)", renderedThing, renderedThing, karma)
 		} else {
-			answerText = fmt.Sprintf("`%s` just gained %d levels (`%s`: %d)", renderedThing, increment, renderedThing, karma)
+			answerText = fmt.Sprintf("`%s` just gained %d karma points (`%s`: %d)", renderedThing, increment, renderedThing, karma)
 		}
 
 	} else {
@@ -244,9 +199,9 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 		karma = karma - decrement
 
 		if decrement == 1 {
-			answerText = fmt.Sprintf("`%s` just lost a life (`%s`: %d)", renderedThing, renderedThing, karma)
+			answerText = fmt.Sprintf("`%s` just lost karma (`%s`: %d)", renderedThing, renderedThing, karma)
 		} else {
-			answerText = fmt.Sprintf("`%s` just lost %d lives (`%s`: %d)", renderedThing, decrement, renderedThing, karma)
+			answerText = fmt.Sprintf("`%s` just lost %d karma points (`%s`: %d)", renderedThing, decrement, renderedThing, karma)
 		}
 	}
 
