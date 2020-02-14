@@ -1,5 +1,5 @@
 name: Go
-on: [push]
+on: [push, pull_request]
 jobs:
 
   build:
@@ -31,6 +31,7 @@ jobs:
     
     - name: Code Coverage 
       uses: aktions/codeclimate-test-reporter@v1
+      if: github.ref == 'refs/heads/master'
       with:
         codeclimate-test-reporter-id: ${{ secrets.CC_TEST_REPORTER_ID }}
         command: after-build --prefix github.com/alexandre-normand/slackscot/

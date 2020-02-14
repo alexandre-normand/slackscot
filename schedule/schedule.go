@@ -164,7 +164,7 @@ func optionAtTime(atTime string) scheduleOption {
 
 // NewJob sets up the gocron.Job with the schedule and leaves the task undefined for the caller to set up
 func NewJob(s *gocron.Scheduler, def Definition) (j *gocron.Job, err error) {
-	j = s.Every(def.Interval)
+	j = s.Every(def.Interval, false)
 
 	scheduleOptions := make([]scheduleOption, 0)
 
