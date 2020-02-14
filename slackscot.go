@@ -402,6 +402,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.closers = make([]io.Closer, 0)
 	s.defaultAction = defaultAction
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
+	s.selfMatcher = new(selfIdentity)
 
 	partitionCount := s.config.GetInt(config.MessageProcessingPartitionCount)
 	if !isPowerOfTwo(partitionCount) {
@@ -417,17 +418,16 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
 	s.slackOpts = append(s.slackOpts, slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)))
 
-	for _, opt := range options {
-		opt(s)
-	}
-
-	s.selfMatcher = new(selfIdentity)
 	if s.botMatcher == nil {
 		s.botMatcher = s.selfMatcher
 
 	}
 	if s.cmdMatcher == nil {
 		s.cmdMatcher = s.selfMatcher
+	}
+
+	for _, opt := range options {
+		opt(s)
 	}
 
 	return s, nil
@@ -614,26 +614,24 @@ func getActionID(pluginName string, actionType string, index int) (actionID stri
 
 // cacheSelfIdentity gets "our" identity and keeps the id.id and id.name to avoid having to look it up every time
 func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFinder UserInfoFinder) (err error) {
-	id := new(selfIdentity)
-	id.id = selfInfoFinder.GetInfo().User.ID
-	id.name = selfInfoFinder.GetInfo().User.Name
-	user, err := userInfoFinder.GetUserInfo(id.id)
-	if err != nil {
-		return err
+	if s.selfMatcher.id == "" {
+		s.selfMatcher.id = selfInfoFinder.GetInfo().User.ID
 	}
-	id.botID = user.Profile.BotID
-	id.userPrefix = fmt.Sprintf("<@%s> ", id.id)
-
-	// Only overwrite if it's unchanged from init
-	if s.cmdMatcher == s.selfMatcher {
-		s.cmdMatcher = id
+	if s.selfMatcher.name == "" {
+		s.selfMatcher.name = selfInfoFinder.GetInfo().User.Name
 	}
-	// Only overwrite if it's unchanged from init
-	if s.botMatcher == s.selfMatcher {
-		s.botMatcher = id
+	if s.selfMatcher.userPrefix == "" {
+		s.selfMatcher.userPrefix = fmt.Sprintf("<@%s> ", s.selfMatcher.id)
+	}
+	if s.selfMatcher.userPrefix == "" {
+		user, err := userInfoFinder.GetUserInfo(s.selfMatcher.id)
+		if err != nil {
+			return err
+		}
+		s.selfMatcher.botID = user.Profile.BotID
 	}
 
-	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", id.id, id.name, id.botID, id.userPrefix)
+	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", s.selfMatcher.id, s.selfMatcher.name, s.selfMatcher.botID, s.selfMatcher.userPrefix)
 	return nil
 }
 
