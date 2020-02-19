@@ -402,7 +402,6 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.closers = make([]io.Closer, 0)
 	s.defaultAction = defaultAction
 	s.log = NewSLogger(log.New(os.Stdout, defaultLogPrefix, defaultLogFlag), v.GetBool(config.DebugKey))
-	s.selfIdentity = selfIdentity{}
 
 	partitionCount := s.config.GetInt(config.MessageProcessingPartitionCount)
 	if !isPowerOfTwo(partitionCount) {
@@ -418,12 +417,8 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
 	s.slackOpts = append(s.slackOpts, slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)))
 
-	if s.botMatcher == nil {
-		s.botMatcher = &s.selfIdentity
-	}
-	if s.cmdMatcher == nil {
-		s.cmdMatcher = &s.selfIdentity
-	}
+	s.botMatcher = &s.selfIdentity
+	s.cmdMatcher = &s.selfIdentity
 
 	for _, opt := range options {
 		opt(s)
@@ -620,14 +615,12 @@ func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFin
 		s.selfIdentity.name = selfInfoFinder.GetInfo().User.Name
 	}
 	if s.selfIdentity.userPrefix == "" {
-		s.selfIdentity.userPrefix = fmt.Sprintf("<@%s> ", s.selfIdentity.id)
-	}
-	if s.selfIdentity.userPrefix == "" {
 		user, err := userInfoFinder.GetUserInfo(s.selfIdentity.id)
 		if err != nil {
 			return err
 		}
 		s.selfIdentity.botID = user.Profile.BotID
+		s.selfIdentity.userPrefix = fmt.Sprintf("<@%s> ", s.selfIdentity.id)
 	}
 
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", s.selfIdentity.id, s.selfIdentity.name, s.selfIdentity.botID, s.selfIdentity.userPrefix)
