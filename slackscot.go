@@ -608,20 +608,15 @@ func getActionID(pluginName string, actionType string, index int) (actionID stri
 
 // cacheSelfIdentity gets "our" identity and keeps the id.id and id.name to avoid having to look it up every time
 func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFinder UserInfoFinder) (err error) {
-	if s.selfIdentity.id == "" {
-		s.selfIdentity.id = selfInfoFinder.GetInfo().User.ID
+	s.selfIdentity.id = selfInfoFinder.GetInfo().User.ID
+	s.selfIdentity.name = selfInfoFinder.GetInfo().User.Name
+
+	user, err := userInfoFinder.GetUserInfo(s.selfIdentity.id)
+	if err != nil {
+		return err
 	}
-	if s.selfIdentity.name == "" {
-		s.selfIdentity.name = selfInfoFinder.GetInfo().User.Name
-	}
-	if s.selfIdentity.userPrefix == "" {
-		user, err := userInfoFinder.GetUserInfo(s.selfIdentity.id)
-		if err != nil {
-			return err
-		}
-		s.selfIdentity.botID = user.Profile.BotID
-		s.selfIdentity.userPrefix = fmt.Sprintf("<@%s> ", s.selfIdentity.id)
-	}
+	s.selfIdentity.botID = user.Profile.BotID
+	s.selfIdentity.userPrefix = fmt.Sprintf("<@%s> ", s.selfIdentity.id)
 
 	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", s.selfIdentity.id, s.selfIdentity.name, s.selfIdentity.botID, s.selfIdentity.userPrefix)
 	return nil
