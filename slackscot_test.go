@@ -933,7 +933,6 @@ func TestMessageUpdatedHandledWhenUnableToCalculateAge(t *testing.T) {
 
 func TestOptionWithSlackOptionApplied(t *testing.T) {
 	testServer := slacktest.NewTestServer()
-
 	testServer.Handle("/channels.create", slacktest.Websocket(func(conn *websocket.Conn) {
 		if err := slacktest.RTMServerSendGoodbye(conn); err != nil {
 			log.Println("failed to send goodbye", err)
@@ -944,8 +943,16 @@ func TestOptionWithSlackOptionApplied(t *testing.T) {
 	defer testServer.Stop()
 
 	termination := make(chan bool)
-	s, err := New("BobbyTables", config.NewViperWithDefaults(), OptionWithSlackOption(slack.OptionAPIURL(testServer.GetAPIURL())), OptionTestMode(termination))
+	s, err := New(
+		"BobbyTables",
+		config.NewViperWithDefaults(),
+		OptionWithSlackOption(slack.OptionAPIURL(testServer.GetAPIURL())),
+		OptionWithSlackOption(slack.OptionDebug(true)),
+		OptionTestMode(termination),
+	)
+
 	require.NoError(t, err)
+	s.cmdMatcher = NewTestCmdMatcher(formattedBotUserID + " ")
 
 	tp := newTestPlugin()
 	s.RegisterPlugin(tp)
@@ -953,14 +960,17 @@ func TestOptionWithSlackOptionApplied(t *testing.T) {
 	go s.Run()
 
 	testStart := time.Now()
-	for now := time.Now(); tp.SlackClient == nil || now.Sub(testStart) > time.Duration(1)*time.Second; now = time.Now() {
+	for now := time.Now(); tp.SlackClient == nil && now.Sub(testStart) < time.Duration(1)*time.Second; now = time.Now() {
 		time.Sleep(10 * time.Millisecond)
 	}
-
 	require.NotNil(t, tp.SlackClient)
 
-	testServer.SendToWebsocket("{\"type\":\"goodbye\"}")
+	// Should be auto set
+	assert.NotNil(t, s.botMatcher)
+	// Should be around before run - although it's set above
+	assert.NotNil(t, s.cmdMatcher)
 
+	testServer.SendToWebsocket("{\"type\":\"goodbye\"}")
 	// Wait for slackscot to terminate
 	<-termination
 }
@@ -1238,6 +1248,7 @@ func runSlackscotWithIncomingEvents(t *testing.T, v *viper.Viper, plugin *Plugin
 	termination := make(chan bool)
 	options = append(options, OptionTestMode(termination))
 	s, err := New("chickadee", v, options...)
+
 	s.RegisterPlugin(plugin)
 
 	assert.Nil(t, err)
@@ -1277,4 +1288,39 @@ func sendTestEventsForProcessing(ec chan<- slack.RTMEvent, events []slack.RTMEve
 
 	// Terminate the sequence of test events by sending a termination event
 	ec <- slack.RTMEvent{"disconnected", &slack.DisconnectedEvent{Intentional: true, Cause: slack.ErrRTMGoodbye}}
+}
+
+
+func TestCommandMatcherOverride(t *testing.T) {
+	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "!!make something nice", "Alphonse", timestamp1)),
+	}, nil, OptionNoPluginNamespacing(), OptionCommandPrefix("!!"))
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		// It isn't obvious but an ephemeral message is sent *as* the user it's also being sent *to*
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+	}
+}
+
+func TestCommandMatcherOverrideWithNamespace(t *testing.T) {
+	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{
+		newRTMMessageEvent(newMessageEvent("Cgeneral", "!!noRules make something nice", "Alphonse", timestamp1)),
+	}, nil, OptionCommandPrefix("!!"))
+
+	if assert.Equal(t, 1, len(sentMsgs)) {
+		assert.Equal(t, 3, len(sentMsgs[0].msgOptions))
+		assert.Equal(t, "Cgeneral", sentMsgs[0].channelID)
+
+		vals := applySlackOptions(sentMsgs[0].msgOptions...)
+		assert.Equal(t, "<@Alphonse>: Make it yourself, @Alphonse", vals.Get("text"))
+		// It isn't obvious but an ephemeral message is sent *as* the user it's also being sent *to*
+		assert.Equal(t, "Alphonse", vals.Get("user"))
+		assert.Equal(t, "true", vals.Get("as_user"))
+	}
 }

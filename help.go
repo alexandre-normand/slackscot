@@ -16,6 +16,7 @@ type helpPlugin struct {
 	commands               map[string][]ActionDefinition
 	hearActions            []ActionDefinition
 	pluginScheduledActions []pluginScheduledAction
+	cmdPrefix              string
 }
 
 const (
@@ -38,6 +39,7 @@ func (s *Slackscot) newHelpPlugin(version string) *helpPlugin {
 	helpPlugin.commands = commands
 	helpPlugin.hearActions = hearActions
 	helpPlugin.pluginScheduledActions = scheduledActions
+	helpPlugin.cmdPrefix = s.cmdMatcher.UsagePrefix()
 
 	helpPlugin.Plugin = Plugin{Name: helpPluginName, Commands: []ActionDefinition{{
 		Match: func(m *IncomingMessage) bool {
@@ -71,14 +73,14 @@ func (h *helpPlugin) showHelp(m *IncomingMessage) *Answer {
 		fmt.Fprintf(&b, "\nI currently support the following commands:\n")
 
 		for n, commands := range h.commands {
-			appendActions(&b, n, commands)
+			appendActions(&b, h.cmdPrefix, n, commands)
 		}
 	}
 
 	if len(h.hearActions) > 0 {
 		fmt.Fprintf(&b, "\nAnd listen for the following:\n")
 
-		appendActions(&b, "", h.hearActions)
+		appendActions(&b, "", "", h.hearActions)
 	}
 
 	if len(h.pluginScheduledActions) > 0 {
@@ -101,13 +103,13 @@ func lenCommands(entries map[string][]ActionDefinition) (length int) {
 	return length
 }
 
-func appendActions(w io.Writer, pluginNamespace string, actions []ActionDefinition) {
+func appendActions(w io.Writer, prefix string, pluginNamespace string, actions []ActionDefinition) {
 	for _, value := range actions {
 		if value.Usage != "" && !value.Hidden {
 			if len(pluginNamespace) > 0 {
-				fmt.Fprintf(w, "\t• `%s %s` - %s\n", pluginNamespace, value.Usage, value.Description)
+				fmt.Fprintf(w, "\t• `%s%s %s` - %s\n", prefix, pluginNamespace, value.Usage, value.Description)
 			} else {
-				fmt.Fprintf(w, "\t• `%s` - %s\n", value.Usage, value.Description)
+				fmt.Fprintf(w, "\t• `%s%s` - %s\n", prefix, value.Usage, value.Description)
 			}
 		}
 	}

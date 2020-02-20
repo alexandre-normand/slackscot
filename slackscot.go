@@ -38,17 +38,20 @@ type Slackscot struct {
 	plugins                 []*Plugin
 	triggeringMsgToResponse *lru.ARCCache
 
-	// Caching self identity used during message processing/filtering
-	selfID         string
-	selfBotID      string
-	selfName       string
-	selfUserPrefix string
-
 	// Runtime configuration options
 	namespaceCommands bool
 
 	// Slack options to apply on Run()
 	slackOpts []slack.Option
+
+	// Command identification
+	cmdMatcher CommandMatcher
+
+	// Bot matching for messages from us
+	botMatcher SelfMatcher
+
+	// Default for cmdMatcher and botMatcher
+	selfIdentity selfIdentity
 
 	// Logger
 	log *sLogger
@@ -68,7 +71,7 @@ type Slackscot struct {
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
 //
 // Set NamespaceCommands to true if the plugin's commands are to be namespaced by slackscot.
-// This means that commands will be first checked for a prefix that matches the plugin name.
+// This means that commands will be first checked for a cmdPrefix that matches the plugin name.
 // Since that's all handled by slackscot, a plugin should be written with matching only
 // considering what comes after the namespace. For example, a plugin with name make would have
 // a coffee command be something like
@@ -93,7 +96,7 @@ type Slackscot struct {
 type Plugin struct {
 	Name string
 
-	NamespaceCommands bool // Set to true for slackscot-managed namespacing of commands where the namespace/prefix to all commands is set to the plugin name
+	NamespaceCommands bool // Set to true for slackscot-managed namespacing of commands where the namespace/cmdPrefix to all commands is set to the plugin name
 
 	Commands         []ActionDefinition
 	HearActions      []ActionDefinition
@@ -192,12 +195,12 @@ func (sid SlackMessageID) String() string {
 type responseStrategy func(m IncomingMessage, answer *Answer) slack.OutgoingMessage
 
 // IncomingMessage holds data for an incoming slack message. In addition to a slack.Msg, it also has
-// a normalized text that is the original text stripped from the "<@Mention>" prefix when a message
+// a normalized text that is the original text stripped from the "<@Mention>" cmdPrefix when a message
 // is addressed to a slackscot instance. Since commands are usually received either via direct message
 // (without @Mention) or on channels with @Mention, the normalized text is useful there to allow plugins
 // to have a single version to do Match and Answer against
 type IncomingMessage struct {
-	// The original slack.Msg text stripped from the "<@Mention>" prefix, if applicable
+	// The original slack.Msg text stripped from the "<@Mention>" cmdPrefix, if applicable
 	NormalizedText string
 	slack.Msg
 }
@@ -223,6 +226,53 @@ type runDependencies struct {
 	selfInfoFinder    selfInfoFinder
 	realTimeMsgSender RealTimeMessageSender
 	slackClient       *slack.Client
+}
+
+// Used for matching commands - as in when to use Command vs HearAction
+type CommandMatcher interface {
+	// Return True if the message is a command
+	IsCmd(msg slack.Msg) bool
+	// Prefix to use with help text
+	UsagePrefix() string
+	// TrimPrefix is the cmdPrefix that should be removed from non-DM commands
+	TrimPrefix(string) string
+	fmt.Stringer
+}
+
+//SelfMatcher is used for determining if a message is from the bot
+type SelfMatcher interface {
+	//IsBot Return true if the message is from the bot
+	IsBot(msg slack.Msg) bool
+	fmt.Stringer
+}
+
+// Identify @mention based commands
+type selfIdentity struct {
+	// Caching self identity used during message processing/filtering
+	id         string
+	botID      string
+	name       string
+	userPrefix string
+}
+
+func (s *selfIdentity) IsCmd(msg slack.Msg) bool {
+	return strings.HasPrefix(msg.Text, s.userPrefix)
+}
+
+func (s *selfIdentity) UsagePrefix() string {
+	return ""
+}
+
+func (s *selfIdentity) TrimPrefix(text string) string {
+	return strings.TrimPrefix(text, s.userPrefix)
+}
+
+func (s *selfIdentity) IsBot(msg slack.Msg) bool {
+	return msg.User == s.id || msg.BotID == s.id || msg.BotID == s.botID
+}
+
+func (s *selfIdentity) String() string {
+	return fmt.Sprintf("Self-Ident{%v %v %v %v}", s.id, s.botID, s.name, s.userPrefix)
 }
 
 // Option defines an option for a Slackscot
@@ -251,7 +301,7 @@ func OptionNoPluginNamespacing() Option {
 	}
 }
 
-// OptionLogfile sets a logfile for Slackscot while using the other default logging prefix and options
+// OptionLogfile sets a logfile for Slackscot while using the other default logging cmdPrefix and options
 func OptionLogfile(logfile *os.File) Option {
 	return func(s *Slackscot) {
 		s.log.logger = log.New(logfile, defaultLogPrefix, defaultLogFlag)
@@ -299,6 +349,35 @@ func OptionTestMode(terminationCh chan bool) Option {
 	}
 }
 
+//OptionCommandPrefix sets a cmdPrefix to all commands that is used instead of at-mentioning the bot
+func OptionCommandPrefix(cmdPrefix string) Option {
+	return func(s *Slackscot) {
+		pc := new(prefixedCommand)
+		pc.prefix = cmdPrefix
+		s.cmdMatcher = pc
+	}
+}
+
+type prefixedCommand struct {
+	prefix string
+}
+
+func (pc *prefixedCommand) IsCmd(msg slack.Msg) bool {
+	return strings.HasPrefix(msg.Text, pc.prefix)
+}
+
+func (pc *prefixedCommand) UsagePrefix() string {
+	return pc.prefix
+}
+
+func (pc *prefixedCommand) TrimPrefix(text string) string {
+	return strings.TrimPrefix(text, pc.prefix)
+}
+
+func (pc *prefixedCommand) String() string {
+	return fmt.Sprintf("Prefixed-Command{%v}", pc.prefix)
+}
+
 // NewSlackscot creates a new slackscot from an array of plugins and a name
 //
 // Deprecated: Use New instead. Will be removed in 2.0.0
@@ -337,6 +416,9 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
 	s.slackOpts = append(s.slackOpts, slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)))
+
+	s.botMatcher = &s.selfIdentity
+	s.cmdMatcher = &s.selfIdentity
 
 	for _, opt := range options {
 		opt(s)
@@ -524,18 +606,19 @@ func getActionID(pluginName string, actionType string, index int) (actionID stri
 	return fmt.Sprintf("%s.%s[%d]", pluginName, actionType, index)
 }
 
-// cacheSelfIdentity gets "our" identity and keeps the selfID and selfName to avoid having to look it up every time
+// cacheSelfIdentity gets "our" identity and keeps the id.id and id.name to avoid having to look it up every time
 func (s *Slackscot) cacheSelfIdentity(selfInfoFinder selfInfoFinder, userInfoFinder UserInfoFinder) (err error) {
-	s.selfID = selfInfoFinder.GetInfo().User.ID
-	s.selfName = selfInfoFinder.GetInfo().User.Name
-	user, err := userInfoFinder.GetUserInfo(s.selfID)
+	s.selfIdentity.id = selfInfoFinder.GetInfo().User.ID
+	s.selfIdentity.name = selfInfoFinder.GetInfo().User.Name
+
+	user, err := userInfoFinder.GetUserInfo(s.selfIdentity.id)
 	if err != nil {
 		return err
 	}
-	s.selfBotID = user.Profile.BotID
-	s.selfUserPrefix = fmt.Sprintf("<@%s> ", s.selfID)
+	s.selfIdentity.botID = user.Profile.BotID
+	s.selfIdentity.userPrefix = fmt.Sprintf("<@%s> ", s.selfIdentity.id)
 
-	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self prefix [%s]\n", s.selfID, s.selfName, s.selfBotID, s.selfUserPrefix)
+	s.log.Debugf("Caching self id [%s], self name [%s], self bot ID [%s] and self cmdPrefix [%s]\n", s.selfIdentity.id, s.selfIdentity.name, s.selfIdentity.botID, s.selfIdentity.userPrefix)
 	return nil
 }
 
@@ -852,16 +935,16 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 	responses = make([]OutgoingMessage, 0)
 
 	// Ignore messages_replied and messages send by "us"
-	if m.User == s.selfID || m.BotID == s.selfID || m.BotID == s.selfBotID {
-		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" (userID: [%s], botID: [%s]", m.User, m.BotID, s.selfID, s.selfBotID)
+	if s.botMatcher.IsBot(m) {
+		s.log.Debugf("Ignoring message from user [%s] / bot ID [%s] because that's \"us\" [%s]", m.User, m.BotID, s.botMatcher)
 
 		return responses
 	}
 
 	// Try commands or hear actions depending on the format of the message
-	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand {
+	if s.isCommand(m) {
 		replyStrategy := reply
-		if isDM {
+		if isDirectMessage(m) {
 			replyStrategy = directReply
 		}
 
@@ -924,8 +1007,8 @@ func (s *Slackscot) newCmdInMsgWithNormalizedText(p *Plugin, m slack.Msg) (match
 func (s *Slackscot) newIncomingMsgWithNormalizedText(m slack.Msg) (inMsg IncomingMessage) {
 	inMsg.NormalizedText = m.Text
 	inMsg.Msg = m
-	if isCommand, isDM := isCommand(m, s.selfUserPrefix); isCommand && !isDM {
-		inMsg.NormalizedText = strings.TrimPrefix(m.Text, s.selfUserPrefix)
+	if isCmd, isDirectMsg := s.cmdMatcher.IsCmd(m), isDirectMessage(m); isCmd && !isDirectMsg {
+		inMsg.NormalizedText = s.cmdMatcher.TrimPrefix(m.Text)
 	}
 
 	return inMsg
@@ -933,9 +1016,14 @@ func (s *Slackscot) newIncomingMsgWithNormalizedText(m slack.Msg) (inMsg Incomin
 
 // isCommand returns true if the slack message is to be interpreted as a command rather than a normal message
 // subject to be handled by hear actions
-func isCommand(m slack.Msg, selfUserPrefix string) (isCommand bool, isDirectMsg bool) {
-	isDirectMsg = strings.HasPrefix(m.Channel, "D")
-	return strings.HasPrefix(m.Text, selfUserPrefix) || isDirectMsg, isDirectMsg
+func (s *Slackscot) isCommand(m slack.Msg) (isCommand bool) {
+	return s.cmdMatcher.IsCmd(m) || isDirectMessage(m)
+}
+
+// isDirectMessage returns true if the slack message is to be interpreted as a command rather than a normal message
+// subject to be handled by hear actions
+func isDirectMessage(m slack.Msg) (isDirectMsg bool) {
+	return strings.HasPrefix(m.Channel, "D")
 }
 
 // useExistingThreadIfAny sets the option on an Answer to reply in the existing thread if there is one
