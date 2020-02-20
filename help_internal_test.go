@@ -173,7 +173,7 @@ func TestHelpWithNamespacingEnabledWithCommandOptionPrefix(t *testing.T) {
 	a := cmd.Answer(&IncomingMessage{NormalizedText: "help"})
 	require.NotNil(t, a)
 
-	assert.Equal(t, " Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n\n"+
+	assert.Equal(t, "🤝 Hi, `Daniel Quinn`! I'm `robert` (engine `v1.0.0`) and I listen to the team's chat and provides automated functions :genie:.\n\n"+
 		"I currently support the following commands:\n\t• `!!thank <someone of something to thank>` - Format a thank you note\n\nAnd listen for the following:\n"+
 		"\t• `say `chickadee` and hear a chirp` - Chirp when hearing people talk about chickadees\n\nAnd do those things periodically:\n"+
 		"\t• [`thank`] `Every 30 seconds` (`Local`) - Sends a heartbeat every 30 seconds\n", a.Text)
