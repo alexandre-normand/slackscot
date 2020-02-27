@@ -2,7 +2,7 @@ package slackscot
 
 import (
 	"fmt"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"hash"
 	"hash/crc32"
 	"math"

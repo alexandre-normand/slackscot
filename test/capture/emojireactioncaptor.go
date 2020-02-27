@@ -2,7 +2,7 @@ package capture
 
 import (
 	"fmt"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 // EmojiReactionCaptor captures emoji reactions recorded by

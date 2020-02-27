@@ -295,8 +295,8 @@ It might be best to look at examples in this repo to guide you through it:
 
 # Some Credits
 `slackscot` uses [Norberto Lopes](https://github.com/nlopes)'s 
-[Slack API Integration](https://github.com/nlopes/slack) found at 
-[https://github.com/nlopes/slack](https://github.com/nlopes/slack). The core
+[Slack API Integration](https://github.com/slack-go/slack) found at 
+[https://github.com/slack-go/slack](https://github.com/slack-go/slack). The core
 functionality of the bot is previously used 
 [James Bowman](https://github.com/james-bowman)'s 
 [Slack RTM API integration](https://github.com/james-bowman/slack) and 

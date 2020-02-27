@@ -7,8 +7,8 @@ import (
 	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/alexandre-normand/slackscot/test/capture"
 	"github.com/gorilla/websocket"
-	"github.com/nlopes/slack"
-	"github.com/nlopes/slack/slacktest"
+	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slacktest"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1289,7 +1289,6 @@ func sendTestEventsForProcessing(ec chan<- slack.RTMEvent, events []slack.RTMEve
 	// Terminate the sequence of test events by sending a termination event
 	ec <- slack.RTMEvent{"disconnected", &slack.DisconnectedEvent{Intentional: true, Cause: slack.ErrRTMGoodbye}}
 }
-
 
 func TestCommandMatcherOverride(t *testing.T) {
 	sentMsgs, _, _, _ := runSlackscotWithIncomingEvents(t, nil, newTestPlugin(), []slack.RTMEvent{

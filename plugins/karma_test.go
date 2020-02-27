@@ -9,7 +9,7 @@ import (
 	"github.com/alexandre-normand/slackscot/store/mocks"
 	"github.com/alexandre-normand/slackscot/test/assertanswer"
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"

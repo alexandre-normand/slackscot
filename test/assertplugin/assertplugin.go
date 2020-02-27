@@ -5,7 +5,7 @@ import (
 	"github.com/alexandre-normand/slackscot"
 	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/alexandre-normand/slackscot/test/capture"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"log"
 	"strings"

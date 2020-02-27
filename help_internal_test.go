@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"strings"
