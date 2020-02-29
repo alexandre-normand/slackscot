@@ -1,6 +1,7 @@
 package slackscot
 
 import (
+	"context"
 	"fmt"
 	"github.com/nlopes/slack"
 	"hash"
@@ -25,9 +26,11 @@ type partitionRouter struct {
 	// hash function to direct message processing to partitions
 	hasher   hash.Hash32
 	hashMask int
+
+	*instrumenter
 }
 
-func newPartitionRouter(partitionCount int, queueBufferSize int, log *sLogger) (pr *partitionRouter, err error) {
+func newPartitionRouter(partitionCount int, queueBufferSize int, log *sLogger, instrumenter *instrumenter) (pr *partitionRouter, err error) {
 	if !isPowerOfTwo(partitionCount) {
 		return nil, fmt.Errorf("A partition router can only work with a partitionCount that is a power of two but was [%d]", partitionCount)
 	}
@@ -44,6 +47,7 @@ func newPartitionRouter(partitionCount int, queueBufferSize int, log *sLogger) (
 	pr.hasher = crc32.NewIEEE()
 	pr.hashMask = hashMask(partitionCount)
 	pr.log = log
+	pr.instrumenter = instrumenter
 
 	return pr, nil
 }
@@ -56,7 +60,11 @@ func (pr *partitionRouter) routeMessageEvent(msgEvent slack.MessageEvent) {
 	partition := pr.partitionForMsgID(msgID)
 
 	pr.log.Debugf("Dispatching message [%s] to partition [%d]", msgID, partition)
-	pr.messageQueues[partition] <- msgEvent
+	d := measure(func() {
+		pr.messageQueues[partition] <- msgEvent
+	})
+
+	pr.metrics.msgDispatchLatencyMillis.Record(context.Background(), d.Milliseconds())
 }
 
 // partitionForMsgID returns the partition index for a given message ID

@@ -1,6 +1,7 @@
 package slackscot
 
 import (
+	"context"
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
@@ -9,6 +10,7 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel/api/metric"
 	"io"
 	"log"
 	"os"
@@ -65,7 +67,11 @@ type Slackscot struct {
 	// Termination channel
 	terminationCh chan bool
 
+	meter metric.Meter
+
 	*partitionRouter
+
+	*instrumenter
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -309,6 +315,13 @@ func OptionLogfile(logfile *os.File) Option {
 	}
 }
 
+// OptionTelemetryMeter sets a Meter for open telemetry instrumentation. Default is to use a metric.NoopMeter
+func OptionTelemetryMeter(meter metric.Meter) Option {
+	return func(s *Slackscot) {
+		s.meter = meter
+	}
+}
+
 // OptionTestMode sets the instance in test mode which instructs it to react to a goodbye event to terminate
 // its execution. It is meant to be used for testing only and mostly in conjunction with github.com/nlopes/slack/slacktest.
 // Very importantly, the termination message must be formed correctly so that the slackscot instance terminates
@@ -408,11 +421,6 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		return nil, fmt.Errorf("%s config should be a power of two but was [%d]", config.MessageProcessingPartitionCount, partitionCount)
 	}
 
-	s.partitionRouter, err = newPartitionRouter(partitionCount, s.config.GetInt(config.MessageProcessingBufferedMessageCount), s.log)
-	if err != nil {
-		return nil, err
-	}
-
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
 	s.slackOpts = append(s.slackOpts, slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)))
@@ -420,8 +428,17 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.botMatcher = &s.selfIdentity
 	s.cmdMatcher = &s.selfIdentity
 
+	s.meter = metric.NoopMeter{}
+
 	for _, opt := range options {
 		opt(s)
+	}
+
+	s.instrumenter = newInstrumenter(name, s.meter)
+
+	s.partitionRouter, err = newPartitionRouter(partitionCount, s.config.GetInt(config.MessageProcessingBufferedMessageCount), s.log, s.instrumenter)
+	if err != nil {
+		return nil, err
 	}
 
 	return s, nil
@@ -531,9 +548,11 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			}
 
 		case *slack.MessageEvent:
+			s.metrics.msgsSeen.Add(context.Background(), 1)
 			s.routeMessageEvent(*e)
 
 		case *slack.LatencyReport:
+			s.metrics.slackLatencyMillis.Set(context.Background(), e.Value.Milliseconds())
 			s.log.Printf("Current latency: %v\n", e.Value)
 
 		case *slack.RTMError:
@@ -662,12 +681,36 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 
 		if !isReply && msg.Type == "message" {
 			if msg.SubType == "message_deleted" {
-				s.processDeletedMessage(driver, msg)
+				d := measure(func() {
+					s.processDeletedMessage(driver, msg)
+				})
+
+				c := s.metrics.msgsProcessed[deleteMsgType]
+				c.Add(context.Background(), 1)
+
+				m := s.metrics.msgProcessingLatencyMillis[deleteMsgType]
+				m.Record(context.Background(), d.Milliseconds())
 			} else {
 				if msg.SubType == "message_changed" {
-					s.processUpdatedMessage(driver, msg)
+					d := measure(func() {
+						s.processUpdatedMessage(driver, msg)
+					})
+
+					c := s.metrics.msgsProcessed[updateMsgType]
+					c.Add(context.Background(), 1)
+
+					m := s.metrics.msgProcessingLatencyMillis[updateMsgType]
+					m.Record(context.Background(), d.Milliseconds())
 				} else if msg.SubType != "message_replied" {
-					s.processNewMessage(driver, msg)
+					d := measure(func() {
+						s.processNewMessage(driver, msg)
+					})
+
+					c := s.metrics.msgsProcessed[newMsgType]
+					c.Add(context.Background(), 1)
+
+					m := s.metrics.msgProcessingLatencyMillis[newMsgType]
+					m.Record(context.Background(), d.Milliseconds())
 				}
 			}
 		}
