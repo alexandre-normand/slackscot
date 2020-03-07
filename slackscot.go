@@ -10,6 +10,7 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	opentelemetry "go.opentelemetry.io/otel/api/global"
 	"go.opentelemetry.io/otel/api/metric"
 	"io"
 	"log"
@@ -315,13 +316,6 @@ func OptionLogfile(logfile *os.File) Option {
 	}
 }
 
-// OptionTelemetryMeter sets a Meter for open telemetry instrumentation. Default is to use a metric.NoopMeter
-func OptionTelemetryMeter(meter metric.Meter) Option {
-	return func(s *Slackscot) {
-		s.meter = meter
-	}
-}
-
 // OptionTestMode sets the instance in test mode which instructs it to react to a goodbye event to terminate
 // its execution. It is meant to be used for testing only and mostly in conjunction with github.com/nlopes/slack/slacktest.
 // Very importantly, the termination message must be formed correctly so that the slackscot instance terminates
@@ -428,7 +422,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.botMatcher = &s.selfIdentity
 	s.cmdMatcher = &s.selfIdentity
 
-	s.meter = metric.NoopMeter{}
+	s.meter = opentelemetry.MeterProvider().Meter("github.com/alexandre-normand/slackscot")
 
 	for _, opt := range options {
 		opt(s)
@@ -496,12 +490,12 @@ func (s *Slackscot) Run() (err error) {
 	// in a production scenario is by its process getting killed which would result in a last message sent on the termination channel
 	if s.terminationCh != nil {
 		// Start the main processing and send the termination to the externally defined termination channel (so a test can block and wait for processing after sending all of its test messages)
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 	} else {
 		// This is production and the lifecycle is managed here so we create the termination channel and wait for the termination signal
 		s.terminationCh = make(chan bool)
 
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 
 		// Wait for termination
 		<-s.terminationCh

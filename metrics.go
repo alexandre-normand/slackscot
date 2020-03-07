@@ -14,6 +14,7 @@ const (
 
 type instrumenter struct {
 	metrics CoreMetrics
+	meter   metric.Meter
 }
 
 type CoreMetrics struct {
@@ -38,6 +39,7 @@ func newInstrumenter(appName string, meter metric.Meter) (ins *instrumenter) {
 		msgDispatchLatencyMillis:   dispatchLatency.Bind(defaultLabels),
 		slackLatencyMillis:         slackLatency.Bind(defaultLabels)}
 
+	ins.meter = meter
 	return ins
 }
 
