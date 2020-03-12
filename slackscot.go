@@ -542,11 +542,11 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			}
 
 		case *slack.MessageEvent:
-			s.metrics.msgsSeen.Add(context.Background(), 1)
+			s.coreMetrics.msgsSeen.Add(context.Background(), 1)
 			s.routeMessageEvent(*e)
 
 		case *slack.LatencyReport:
-			s.metrics.slackLatencyMillis.Set(context.Background(), e.Value.Milliseconds())
+			s.coreMetrics.slackLatencyMillis.Set(context.Background(), e.Value.Milliseconds())
 			s.log.Printf("Current latency: %v\n", e.Value)
 
 		case *slack.RTMError:
@@ -679,10 +679,10 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 					s.processDeletedMessage(driver, msg)
 				})
 
-				c := s.metrics.msgsProcessed[deleteMsgType]
+				c := s.coreMetrics.msgsProcessed[deleteMsgType]
 				c.Add(context.Background(), 1)
 
-				m := s.metrics.msgProcessingLatencyMillis[deleteMsgType]
+				m := s.coreMetrics.msgProcessingLatencyMillis[deleteMsgType]
 				m.Record(context.Background(), d.Milliseconds())
 			} else {
 				if msg.SubType == "message_changed" {
@@ -690,20 +690,20 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 						s.processUpdatedMessage(driver, msg)
 					})
 
-					c := s.metrics.msgsProcessed[updateMsgType]
+					c := s.coreMetrics.msgsProcessed[updateMsgType]
 					c.Add(context.Background(), 1)
 
-					m := s.metrics.msgProcessingLatencyMillis[updateMsgType]
+					m := s.coreMetrics.msgProcessingLatencyMillis[updateMsgType]
 					m.Record(context.Background(), d.Milliseconds())
 				} else if msg.SubType != "message_replied" {
 					d := measure(func() {
 						s.processNewMessage(driver, msg)
 					})
 
-					c := s.metrics.msgsProcessed[newMsgType]
+					c := s.coreMetrics.msgsProcessed[newMsgType]
 					c.Add(context.Background(), 1)
 
-					m := s.metrics.msgProcessingLatencyMillis[newMsgType]
+					m := s.coreMetrics.msgProcessingLatencyMillis[newMsgType]
 					m.Record(context.Background(), d.Milliseconds())
 				}
 			}
@@ -989,7 +989,7 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 			matchedNamespace, inMsg := s.newCmdInMsgWithNormalizedText(p, m)
 
 			if matchedNamespace {
-				outMsgs := tryPluginActions(p.Name, commandType, p.Commands, inMsg, replyStrategy)
+				outMsgs := s.tryPluginActions(p.Name, commandType, p.Commands, inMsg, replyStrategy)
 				responses = append(responses, outMsgs...)
 			}
 		}
@@ -1002,7 +1002,7 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 		for _, p := range s.plugins {
 			inMsg := s.newIncomingMsgWithNormalizedText(m)
 
-			outMsgs := tryPluginActions(p.Name, hearActionType, p.HearActions, inMsg, send)
+			outMsgs := s.tryPluginActions(p.Name, hearActionType, p.HearActions, inMsg, send)
 			responses = append(responses, outMsgs...)
 		}
 	}
@@ -1075,7 +1075,9 @@ func (a *Answer) useExistingThreadIfAny(m *IncomingMessage) {
 
 // tryPluginActions loops over all action definitions and invokes its action if the incoming message matches it's regular expression
 // Note that more than one action can be triggered during the processing of a single message
-func tryPluginActions(pluginName string, actionType string, actions []ActionDefinition, m IncomingMessage, rs responseStrategy) (outMsgs []OutgoingMessage) {
+func (s *Slackscot) tryPluginActions(pluginName string, actionType string, actions []ActionDefinition, m IncomingMessage, rs responseStrategy) (outMsgs []OutgoingMessage) {
+	before := time.Now()
+
 	outMsgs = make([]OutgoingMessage, 0)
 
 	for i, action := range actions {
@@ -1093,6 +1095,10 @@ func tryPluginActions(pluginName string, actionType string, actions []ActionDefi
 			}
 		}
 	}
+
+	pm := s.getOfCreatePluginMetrics(pluginName)
+	pm.processingTimeMillis.Record(context.Background(), time.Since(before).Milliseconds())
+	pm.reactionCount.Add(context.Background(), int64(len(outMsgs)))
 
 	return outMsgs
 }

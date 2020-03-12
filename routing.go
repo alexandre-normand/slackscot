@@ -64,7 +64,7 @@ func (pr *partitionRouter) routeMessageEvent(msgEvent slack.MessageEvent) {
 		pr.messageQueues[partition] <- msgEvent
 	})
 
-	pr.metrics.msgDispatchLatencyMillis.Record(context.Background(), d.Milliseconds())
+	pr.coreMetrics.msgDispatchLatencyMillis.Record(context.Background(), d.Milliseconds())
 }
 
 // partitionForMsgID returns the partition index for a given message ID
