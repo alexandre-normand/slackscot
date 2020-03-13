@@ -490,12 +490,12 @@ func (s *Slackscot) Run() (err error) {
 	// in a production scenario is by its process getting killed which would result in a last message sent on the termination channel
 	if s.terminationCh != nil {
 		// Start the main processing and send the termination to the externally defined termination channel (so a test can block and wait for processing after sending all of its test messages)
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: NewUserInfoFinderWithTelemetry(sc, s.name, s.instrumenter.meter), emojiReactor: NewEmojiReactorWithTelemetry(sc, s.name, s.instrumenter.meter), fileUploader: NewFileUploaderWithTelemetry(NewFileUploader(sc), s.name, s.instrumenter.meter), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 	} else {
 		// This is production and the lifecycle is managed here so we create the termination channel and wait for the termination signal
 		s.terminationCh = make(chan bool)
 
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: NewUserInfoFinderWithTelemetry(sc, s.name, s.instrumenter.meter), emojiReactor: NewEmojiReactorWithTelemetry(sc, s.name, s.instrumenter.meter), fileUploader: NewFileUploaderWithTelemetry(NewFileUploader(sc), s.name, s.instrumenter.meter), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 
 		// Wait for termination
 		<-s.terminationCh

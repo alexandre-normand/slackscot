@@ -12,6 +12,7 @@ const (
 	deleteMsgType = "delete"
 )
 
+// instrumenter holds data for core instrumentation
 type instrumenter struct {
 	appName       string
 	coreMetrics   coreMetrics
@@ -19,6 +20,7 @@ type instrumenter struct {
 	meter         metric.Meter
 }
 
+// coreMetrics holds core slackscot metrics
 type coreMetrics struct {
 	msgsSeen                   metric.BoundInt64Counter
 	msgsProcessed              map[string]metric.BoundInt64Counter
@@ -27,11 +29,13 @@ type coreMetrics struct {
 	slackLatencyMillis         metric.BoundInt64Gauge
 }
 
+// pluginMetrics holds metrics specific to a plugin
 type pluginMetrics struct {
 	processingTimeMillis metric.BoundInt64Measure
 	reactionCount        metric.BoundInt64Counter
 }
 
+// newInstrumenter creates a new core instrumenter
 func newInstrumenter(appName string, meter metric.Meter) (ins *instrumenter) {
 	ins = new(instrumenter)
 
@@ -53,6 +57,7 @@ func newInstrumenter(appName string, meter metric.Meter) (ins *instrumenter) {
 	return ins
 }
 
+// newBoundMeasureByMsgType creates a set of BoundInt64Counter by message type
 func newBoundCounterByMsgType(counterName string, appName string, meter metric.Meter) (boundCounter map[string]metric.BoundInt64Counter) {
 	boundCounter = make(map[string]metric.BoundInt64Counter)
 
@@ -64,6 +69,7 @@ func newBoundCounterByMsgType(counterName string, appName string, meter metric.M
 	return boundCounter
 }
 
+// newBoundMeasureByMsgType creates a set of BoundInt64Measure by message type
 func newBoundMeasureByMsgType(measureName string, appName string, meter metric.Meter) (boundMeasure map[string]metric.BoundInt64Measure) {
 	boundMeasure = make(map[string]metric.BoundInt64Measure)
 
@@ -75,6 +81,7 @@ func newBoundMeasureByMsgType(measureName string, appName string, meter metric.M
 	return boundMeasure
 }
 
+// getOrCreatePluginMetrics returns an existing pluginMetrics for a plugin or creates a new one, if necessary
 func (ins *instrumenter) getOrCreatePluginMetrics(pluginName string) (pm pluginMetrics) {
 	if pm, ok := ins.pluginMetrics[pluginName]; !ok {
 		pm = newPluginMetrics(ins.appName, pluginName, ins.meter)
@@ -84,6 +91,7 @@ func (ins *instrumenter) getOrCreatePluginMetrics(pluginName string) (pm pluginM
 	return ins.pluginMetrics[pluginName]
 }
 
+// newPluginMetrics returns a new pluginMetrics instance for a plugin
 func newPluginMetrics(appName string, pluginName string, meter metric.Meter) (pm pluginMetrics) {
 	c := meter.NewInt64Counter("reactionCount", metric.WithKeys(key.New("name"), key.New("plugin")))
 	m := meter.NewInt64Measure("processingTimeMillis", metric.WithKeys(key.New("name"), key.New("plugin")))
@@ -96,6 +104,7 @@ func newPluginMetrics(appName string, pluginName string, meter metric.Meter) (pm
 
 type timed func()
 
+// measure returns the execution duration of a timed function
 func measure(operation timed) (d time.Duration) {
 	before := time.Now()
 

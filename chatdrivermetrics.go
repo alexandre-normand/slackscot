@@ -29,26 +29,26 @@ type chatDriverWithTelemetry struct {
 func NewchatDriverWithTelemetry(base chatDriver, name string, meter metric.Meter) chatDriverWithTelemetry {
 	return chatDriverWithTelemetry{
 		base:               base,
-		methodCounters:     newMethodCounters("Calls", name, meter),
-		errCounters:        newMethodCounters("Errors", name, meter),
-		methodTimeMeasures: newMethodTimeMeasures(name, meter),
+		methodCounters:     newchatDriverMethodCounters("Calls", name, meter),
+		errCounters:        newchatDriverMethodCounters("Errors", name, meter),
+		methodTimeMeasures: newchatDriverMethodTimeMeasures(name, meter),
 	}
 }
 
-func newMethodTimeMeasures(appName string, meter metric.Meter) (boundTimeMeasures map[string]metric.BoundInt64Measure) {
+func newchatDriverMethodTimeMeasures(appName string, meter metric.Meter) (boundTimeMeasures map[string]metric.BoundInt64Measure) {
 	boundTimeMeasures = make(map[string]metric.BoundInt64Measure)
 
-	nDeleteMessageMeasure := []rune("DeleteMessage" + "DurationMillis")
+	nDeleteMessageMeasure := []rune("chatDriver_DeleteMessage_ProcessingTimeMillis")
 	nDeleteMessageMeasure[0] = unicode.ToLower(nDeleteMessageMeasure[0])
 	mDeleteMessage := meter.NewInt64Measure(string(nDeleteMessageMeasure), metric.WithKeys(key.New("name")))
 	boundTimeMeasures["DeleteMessage"] = mDeleteMessage.Bind(meter.Labels(key.New("name").String(appName)))
 
-	nSendMessageMeasure := []rune("SendMessage" + "DurationMillis")
+	nSendMessageMeasure := []rune("chatDriver_SendMessage_ProcessingTimeMillis")
 	nSendMessageMeasure[0] = unicode.ToLower(nSendMessageMeasure[0])
 	mSendMessage := meter.NewInt64Measure(string(nSendMessageMeasure), metric.WithKeys(key.New("name")))
 	boundTimeMeasures["SendMessage"] = mSendMessage.Bind(meter.Labels(key.New("name").String(appName)))
 
-	nUpdateMessageMeasure := []rune("UpdateMessage" + "DurationMillis")
+	nUpdateMessageMeasure := []rune("chatDriver_UpdateMessage_ProcessingTimeMillis")
 	nUpdateMessageMeasure[0] = unicode.ToLower(nUpdateMessageMeasure[0])
 	mUpdateMessage := meter.NewInt64Measure(string(nUpdateMessageMeasure), metric.WithKeys(key.New("name")))
 	boundTimeMeasures["UpdateMessage"] = mUpdateMessage.Bind(meter.Labels(key.New("name").String(appName)))
@@ -56,20 +56,20 @@ func newMethodTimeMeasures(appName string, meter metric.Meter) (boundTimeMeasure
 	return boundTimeMeasures
 }
 
-func newMethodCounters(suffix string, appName string, meter metric.Meter) (boundCounters map[string]metric.BoundInt64Counter) {
+func newchatDriverMethodCounters(suffix string, appName string, meter metric.Meter) (boundCounters map[string]metric.BoundInt64Counter) {
 	boundCounters = make(map[string]metric.BoundInt64Counter)
 
-	nDeleteMessageCounter := []rune("DeleteMessage" + suffix)
+	nDeleteMessageCounter := []rune("chatDriver_DeleteMessage_" + suffix)
 	nDeleteMessageCounter[0] = unicode.ToLower(nDeleteMessageCounter[0])
 	cDeleteMessage := meter.NewInt64Counter(string(nDeleteMessageCounter), metric.WithKeys(key.New("name")))
 	boundCounters["DeleteMessage"] = cDeleteMessage.Bind(meter.Labels(key.New("name").String(appName)))
 
-	nSendMessageCounter := []rune("SendMessage" + suffix)
+	nSendMessageCounter := []rune("chatDriver_SendMessage_" + suffix)
 	nSendMessageCounter[0] = unicode.ToLower(nSendMessageCounter[0])
 	cSendMessage := meter.NewInt64Counter(string(nSendMessageCounter), metric.WithKeys(key.New("name")))
 	boundCounters["SendMessage"] = cSendMessage.Bind(meter.Labels(key.New("name").String(appName)))
 
-	nUpdateMessageCounter := []rune("UpdateMessage" + suffix)
+	nUpdateMessageCounter := []rune("chatDriver_UpdateMessage_" + suffix)
 	nUpdateMessageCounter[0] = unicode.ToLower(nUpdateMessageCounter[0])
 	cUpdateMessage := meter.NewInt64Counter(string(nUpdateMessageCounter), metric.WithKeys(key.New("name")))
 	boundCounters["UpdateMessage"] = cUpdateMessage.Bind(meter.Labels(key.New("name").String(appName)))

@@ -24,6 +24,7 @@
   - [Configuration Example](#configuration-example)
   - [Creating Your Own Plugins](#creating-your-own-plugins)
 - [Contributing](#contributing)
+  - [Open-telemetry integration](#open-telemetry-integration)
 - [Some Credits](#some-credits)
 
 <!-- /MarkdownTOC -->
@@ -292,6 +293,19 @@ It might be best to look at examples in this repo to guide you through it:
 4.   Check the `code climate` and `travis` PR builds. You might have to fix things and
      there's no shame if you do. I probably won't merge something that doesn't pass
      `CI` build but I'm willing to help to get it to pass 🖖.  
+
+## Open-telemetry integration
+
+`Slackscot` now supports integration with [opentelemetry](https://opentelemetry.io/). To aid with the addition
+of new metrics, you can find a [gowrap](https://github.com/hexdigest/gowrap) template [here](./opentelemetry.template). 
+To add a metrics to a new interface, you can do something like
+
+```bash
+gowrap gen -p . -i <interfaceName> -t opentelemetry.template -o <interfaceName>metrics.go
+```
+
+When updating the [template](./opentelemetry.template), you should consider running `go generate` in order to refresh
+the already generated files with the template changes. 
 
 # Some Credits
 `slackscot` uses [Norberto Lopes](https://github.com/nlopes)'s 
