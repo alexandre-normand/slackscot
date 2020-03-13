@@ -1,6 +1,7 @@
 package slackscot
 
 import (
+	"context"
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/alexandre-normand/slackscot/schedule"
@@ -9,6 +10,8 @@ import (
 	"github.com/nlopes/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
+	opentelemetry "go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/api/metric"
 	"io"
 	"log"
 	"os"
@@ -65,7 +68,11 @@ type Slackscot struct {
 	// Termination channel
 	terminationCh chan bool
 
+	meter metric.Meter
+
 	*partitionRouter
+
+	*instrumenter
 }
 
 // Plugin represents a plugin (its name, action definitions and slackscot injected services)
@@ -408,11 +415,6 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		return nil, fmt.Errorf("%s config should be a power of two but was [%d]", config.MessageProcessingPartitionCount, partitionCount)
 	}
 
-	s.partitionRouter, err = newPartitionRouter(partitionCount, s.config.GetInt(config.MessageProcessingBufferedMessageCount), s.log)
-	if err != nil {
-		return nil, err
-	}
-
 	s.slackOpts = make([]slack.Option, 0)
 	s.slackOpts = append(s.slackOpts, slack.OptionDebug(s.config.GetBool(config.DebugKey)))
 	s.slackOpts = append(s.slackOpts, slack.OptionLog(log.New(s.log.logger.Writer(), "slack: ", defaultLogFlag)))
@@ -420,8 +422,17 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.botMatcher = &s.selfIdentity
 	s.cmdMatcher = &s.selfIdentity
 
+	s.meter = opentelemetry.MeterProvider().Meter("github.com/alexandre-normand/slackscot")
+
 	for _, opt := range options {
 		opt(s)
+	}
+
+	s.instrumenter = newInstrumenter(name, s.meter)
+
+	s.partitionRouter, err = newPartitionRouter(partitionCount, s.config.GetInt(config.MessageProcessingBufferedMessageCount), s.log, s.instrumenter)
+	if err != nil {
+		return nil, err
 	}
 
 	return s, nil
@@ -479,12 +490,12 @@ func (s *Slackscot) Run() (err error) {
 	// in a production scenario is by its process getting killed which would result in a last message sent on the termination channel
 	if s.terminationCh != nil {
 		// Start the main processing and send the termination to the externally defined termination channel (so a test can block and wait for processing after sending all of its test messages)
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: NewUserInfoFinderWithTelemetry(sc, s.name, s.instrumenter.meter), emojiReactor: NewEmojiReactorWithTelemetry(sc, s.name, s.instrumenter.meter), fileUploader: NewFileUploaderWithTelemetry(NewFileUploader(sc), s.name, s.instrumenter.meter), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 	} else {
 		// This is production and the lifecycle is managed here so we create the termination channel and wait for the termination signal
 		s.terminationCh = make(chan bool)
 
-		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: sc, userInfoFinder: sc, emojiReactor: sc, fileUploader: NewFileUploader(sc), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
+		go s.runInternal(rtm.IncomingEvents, &runDependencies{chatDriver: NewchatDriverWithTelemetry(sc, s.name, s.instrumenter.meter), userInfoFinder: NewUserInfoFinderWithTelemetry(sc, s.name, s.instrumenter.meter), emojiReactor: NewEmojiReactorWithTelemetry(sc, s.name, s.instrumenter.meter), fileUploader: NewFileUploaderWithTelemetry(NewFileUploader(sc), s.name, s.instrumenter.meter), selfInfoFinder: rtm, realTimeMsgSender: rtm, slackClient: sc})
 
 		// Wait for termination
 		<-s.terminationCh
@@ -522,6 +533,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 	for msg := range events {
 		switch e := msg.Data.(type) {
 		case *slack.ConnectedEvent:
+			s.coreMetrics.slackLatencyMillis.Set(context.Background(), 0)
 			s.log.Printf("Infos: %v\n", e.Info)
 			s.log.Printf("Connection counter: %d\n", e.ConnectionCount)
 			err := s.cacheSelfIdentity(deps.selfInfoFinder, deps.userInfoFinder)
@@ -531,9 +543,11 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			}
 
 		case *slack.MessageEvent:
+			s.coreMetrics.msgsSeen.Add(context.Background(), 1)
 			s.routeMessageEvent(*e)
 
 		case *slack.LatencyReport:
+			s.coreMetrics.slackLatencyMillis.Set(context.Background(), e.Value.Milliseconds())
 			s.log.Printf("Current latency: %v\n", e.Value)
 
 		case *slack.RTMError:
@@ -662,12 +676,36 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 
 		if !isReply && msg.Type == "message" {
 			if msg.SubType == "message_deleted" {
-				s.processDeletedMessage(driver, msg)
+				d := measure(func() {
+					s.processDeletedMessage(driver, msg)
+				})
+
+				c := s.coreMetrics.msgsProcessed[deleteMsgType]
+				c.Add(context.Background(), 1)
+
+				m := s.coreMetrics.msgProcessingLatencyMillis[deleteMsgType]
+				m.Record(context.Background(), d.Milliseconds())
 			} else {
 				if msg.SubType == "message_changed" {
-					s.processUpdatedMessage(driver, msg)
+					d := measure(func() {
+						s.processUpdatedMessage(driver, msg)
+					})
+
+					c := s.coreMetrics.msgsProcessed[updateMsgType]
+					c.Add(context.Background(), 1)
+
+					m := s.coreMetrics.msgProcessingLatencyMillis[updateMsgType]
+					m.Record(context.Background(), d.Milliseconds())
 				} else if msg.SubType != "message_replied" {
-					s.processNewMessage(driver, msg)
+					d := measure(func() {
+						s.processNewMessage(driver, msg)
+					})
+
+					c := s.coreMetrics.msgsProcessed[newMsgType]
+					c.Add(context.Background(), 1)
+
+					m := s.coreMetrics.msgProcessingLatencyMillis[newMsgType]
+					m.Record(context.Background(), d.Milliseconds())
 				}
 			}
 		}
@@ -952,7 +990,7 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 			matchedNamespace, inMsg := s.newCmdInMsgWithNormalizedText(p, m)
 
 			if matchedNamespace {
-				outMsgs := tryPluginActions(p.Name, commandType, p.Commands, inMsg, replyStrategy)
+				outMsgs := s.tryPluginActions(p.Name, commandType, p.Commands, inMsg, replyStrategy)
 				responses = append(responses, outMsgs...)
 			}
 		}
@@ -965,7 +1003,7 @@ func (s *Slackscot) routeMessage(me slack.MessageEvent) (responses []OutgoingMes
 		for _, p := range s.plugins {
 			inMsg := s.newIncomingMsgWithNormalizedText(m)
 
-			outMsgs := tryPluginActions(p.Name, hearActionType, p.HearActions, inMsg, send)
+			outMsgs := s.tryPluginActions(p.Name, hearActionType, p.HearActions, inMsg, send)
 			responses = append(responses, outMsgs...)
 		}
 	}
@@ -1038,7 +1076,9 @@ func (a *Answer) useExistingThreadIfAny(m *IncomingMessage) {
 
 // tryPluginActions loops over all action definitions and invokes its action if the incoming message matches it's regular expression
 // Note that more than one action can be triggered during the processing of a single message
-func tryPluginActions(pluginName string, actionType string, actions []ActionDefinition, m IncomingMessage, rs responseStrategy) (outMsgs []OutgoingMessage) {
+func (s *Slackscot) tryPluginActions(pluginName string, actionType string, actions []ActionDefinition, m IncomingMessage, rs responseStrategy) (outMsgs []OutgoingMessage) {
+	before := time.Now()
+
 	outMsgs = make([]OutgoingMessage, 0)
 
 	for i, action := range actions {
@@ -1056,6 +1096,10 @@ func tryPluginActions(pluginName string, actionType string, actions []ActionDefi
 			}
 		}
 	}
+
+	pm := s.getOrCreatePluginMetrics(pluginName)
+	pm.processingTimeMillis.Record(context.Background(), time.Since(before).Milliseconds())
+	pm.reactionCount.Add(context.Background(), int64(len(outMsgs)))
 
 	return outMsgs
 }

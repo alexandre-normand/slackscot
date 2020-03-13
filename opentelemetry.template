@@ -1,0 +1,76 @@
+import (
+  "time"
+  "fmt"
+  "go.opentelemetry.io/otel/api/metric"
+)
+
+{{ $decorator := (or .Vars.DecoratorName (printf "%sWithTelemetry" .Interface.Name)) }}
+
+// {{$decorator}} implements {{.Interface.Type}} interface with all methods wrapped
+// with open telemetry metrics
+type {{$decorator}} struct {
+  base               {{.Interface.Type}}
+  methodCounters     map[string]metric.BoundInt64Counter
+  errCounters        map[string]metric.BoundInt64Counter
+  methodTimeMeasures map[string]metric.BoundInt64Measure
+}
+
+// New{{.Interface.Name}}WithTelemetry returns an instance of the {{.Interface.Type}} decorated with open telemetry timing and count metrics
+func New{{$decorator}}(base {{.Interface.Type}}, name string, meter metric.Meter) {{$decorator}} {
+  return {{$decorator}} {
+    base: base,
+    methodCounters: new{{.Interface.Name}}MethodCounters("Calls", name, meter),
+    errCounters: new{{.Interface.Name}}MethodCounters("Errors", name, meter),
+    methodTimeMeasures: new{{.Interface.Name}}MethodTimeMeasures(name, meter),
+  }
+}
+
+func new{{.Interface.Name}}MethodTimeMeasures(appName string, meter metric.Meter) (boundTimeMeasures map[string]metric.BoundInt64Measure) {
+  boundTimeMeasures = make(map[string]metric.BoundInt64Measure)
+
+  {{ $ifaceName := .Interface.Name }}
+  {{range $method := .Interface.Methods}}
+  n{{$method.Name}}Measure := []rune("{{printf "%s_%s_ProcessingTimeMillis" $ifaceName $method.Name}}")
+  n{{$method.Name}}Measure[0] = unicode.ToLower(n{{$method.Name}}Measure[0])
+  m{{$method.Name}} := meter.NewInt64Measure(string(n{{$method.Name}}Measure), metric.WithKeys(key.New("name")))
+  boundTimeMeasures["{{$method.Name}}"] = m{{$method.Name}}.Bind(meter.Labels(key.New("name").String(appName)))
+  {{end}}
+
+  return boundTimeMeasures
+}
+
+func new{{.Interface.Name}}MethodCounters(suffix string, appName string, meter metric.Meter) (boundCounters map[string]metric.BoundInt64Counter) {
+  boundCounters = make(map[string]metric.BoundInt64Counter)
+
+  {{ $ifaceName := .Interface.Name }}
+  {{range $method := .Interface.Methods}}   
+  n{{$method.Name}}Counter := []rune("{{printf "%s_%s_" $ifaceName $method.Name}}" + suffix)
+  n{{$method.Name}}Counter[0] = unicode.ToLower(n{{$method.Name}}Counter[0])
+  c{{$method.Name}} := meter.NewInt64Counter(string(n{{$method.Name}}Counter), metric.WithKeys(key.New("name")))
+  boundCounters["{{$method.Name}}"] = c{{$method.Name}}.Bind(meter.Labels(key.New("name").String(appName)))
+  {{end}}
+
+  return boundCounters
+}
+
+{{range $method := .Interface.Methods}}
+  // {{$method.Name}} implements {{$.Interface.Type}}
+  func (_d {{$decorator}}) {{$method.Declaration}} {
+      _since := time.Now()
+      defer func() {
+        {{- if $method.ReturnsError}}
+          if err != nil {
+            errCounter := _d.errCounters["{{$method.Name}}"]
+            errCounter.Add(context.Background(), 1)
+          }
+        {{end}}
+
+        methodCounter := _d.methodCounters["{{$method.Name}}"]
+        methodCounter.Add(context.Background(), 1)
+
+        methodTimeMeasure := _d.methodTimeMeasures["{{$method.Name}}"]
+        methodTimeMeasure.Record(context.Background(), time.Since(_since).Milliseconds())
+      }()
+    {{$method.Pass "_d.base."}}
+  }
+{{end}}

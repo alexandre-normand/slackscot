@@ -3,6 +3,7 @@ package slackscot
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel/api/metric"
 	"log"
 	"math"
 	"os"
@@ -50,7 +51,7 @@ func TestNewPartitioner(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			pr, err := newPartitionRouter(tc.partitionCount, 1, nil)
+			pr, err := newPartitionRouter(tc.partitionCount, 1, nil, newInstrumenter("test", metric.NoopMeter{}))
 
 			if tc.expectedError == "" {
 				assert.NoError(t, err)
@@ -72,7 +73,7 @@ func TestConsistentHashing(t *testing.T) {
 		name := fmt.Sprintf("With_%d_Partitions", partitionCount)
 
 		t.Run(name, func(t *testing.T) {
-			pr, _ := newPartitionRouter(partitionCount, 1, &sLogger{logger: log.New(os.Stdout, "", log.LstdFlags)})
+			pr, _ := newPartitionRouter(partitionCount, 1, &sLogger{logger: log.New(os.Stdout, "", log.LstdFlags)}, newInstrumenter("test", metric.NoopMeter{}))
 			partition := pr.partitionForMsgID(msgID)
 
 			for i := 0; i < 100; i++ {
@@ -99,7 +100,7 @@ func TestHashDistribution(t *testing.T) {
 		partitionHitCount := make([]int, partitionCount)
 
 		t.Run(name, func(t *testing.T) {
-			pr, _ := newPartitionRouter(partitionCount, 1, &sLogger{logger: log.New(os.Stdout, "", log.LstdFlags)})
+			pr, _ := newPartitionRouter(partitionCount, 1, &sLogger{logger: log.New(os.Stdout, "", log.LstdFlags)}, newInstrumenter("test", metric.NoopMeter{}))
 
 			for _, msgID := range msgIDs {
 				partition := pr.partitionForMsgID(msgID)
