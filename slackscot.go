@@ -533,6 +533,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 	for msg := range events {
 		switch e := msg.Data.(type) {
 		case *slack.ConnectedEvent:
+			s.coreMetrics.slackLatencyMillis.Set(context.Background(), 0)
 			s.log.Printf("Infos: %v\n", e.Info)
 			s.log.Printf("Connection counter: %d\n", e.ConnectionCount)
 			err := s.cacheSelfIdentity(deps.selfInfoFinder, deps.userInfoFinder)
