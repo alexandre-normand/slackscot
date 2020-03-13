@@ -75,7 +75,7 @@ func newBoundMeasureByMsgType(measureName string, appName string, meter metric.M
 	return boundMeasure
 }
 
-func (ins *instrumenter) getOfCreatePluginMetrics(pluginName string) (pm pluginMetrics) {
+func (ins *instrumenter) getOrCreatePluginMetrics(pluginName string) (pm pluginMetrics) {
 	if pm, ok := ins.pluginMetrics[pluginName]; !ok {
 		pm = newPluginMetrics(ins.appName, pluginName, ins.meter)
 		ins.pluginMetrics[pluginName] = pm

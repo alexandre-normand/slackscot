@@ -1097,7 +1097,7 @@ func (s *Slackscot) tryPluginActions(pluginName string, actionType string, actio
 		}
 	}
 
-	pm := s.getOfCreatePluginMetrics(pluginName)
+	pm := s.getOrCreatePluginMetrics(pluginName)
 	pm.processingTimeMillis.Record(context.Background(), time.Since(before).Milliseconds())
 	pm.reactionCount.Add(context.Background(), int64(len(outMsgs)))
 
