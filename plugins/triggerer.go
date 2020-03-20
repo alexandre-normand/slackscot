@@ -8,7 +8,7 @@ import (
 	"github.com/alexandre-normand/slackscot/actions"
 	"github.com/alexandre-normand/slackscot/plugin"
 	"github.com/alexandre-normand/slackscot/store"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"regexp"
 	"sort"
 	"strings"

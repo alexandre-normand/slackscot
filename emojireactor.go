@@ -1,7 +1,7 @@
 package slackscot
 
 import (
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 // EmojiReactor is implemented by any value that has the AddReaction method.

@@ -1,7 +1,7 @@
 package slackscot
 
 import (
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 // SlackFileUploader is implemented by any value that has the UploadFile method. slack.Client
@@ -9,7 +9,7 @@ import (
 // for plugins to be able to write cleaner tests more easily.
 type SlackFileUploader interface {
 	// UploadFile uploads a file to slack. For more info in this API, check
-	// https://godoc.org/github.com/nlopes/slack#Client.UploadFile
+	// https://godoc.org/github.com/slack-go/slack#Client.UploadFile
 	UploadFile(params slack.FileUploadParameters) (file *slack.File, err error)
 }
 
@@ -20,7 +20,7 @@ type SlackFileUploader interface {
 // be able to write cleaner tests more easily.
 type FileUploader interface {
 	// UploadFile uploads a file to slack. For more info in this API, check
-	// https://godoc.org/github.com/nlopes/slack#Client.UploadFile
+	// https://godoc.org/github.com/slack-go/slack#Client.UploadFile
 	UploadFile(params slack.FileUploadParameters, options ...UploadOption) (file *slack.File, err error)
 }
 

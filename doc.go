@@ -17,7 +17,7 @@ Plugins also have access to services injected on startup by slackscot such as:
  - EmojiReactor: To emoji react to messages
  - FileUploader: To upload files
  - RealTimeMessageSender: To send unmanaged real time messages outside the normal reaction flow (i.e. for sending many messages or sending via a scheduled action)
- - SlackClient: For advanced access to all the slack APIs via https://godoc.org/github.com/nlopes/slack#Client
+ - SlackClient: For advanced access to all the slack APIs via https://godoc.org/github.com/slack-go/slack#Client
 
 Example code (from https://github.com/alexandre-normand/youppi):
 

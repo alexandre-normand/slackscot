@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"go.opentelemetry.io/otel/api/key"
 	"go.opentelemetry.io/otel/api/metric"
 )

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/alexandre-normand/slackscot/config"
 	"github.com/hashicorp/golang-lru"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/spf13/viper"
 )
 
