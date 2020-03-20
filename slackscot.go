@@ -7,7 +7,7 @@ import (
 	"github.com/alexandre-normand/slackscot/schedule"
 	"github.com/hashicorp/golang-lru"
 	"github.com/marcsantiago/gocron"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	opentelemetry "go.opentelemetry.io/otel/api/global"
@@ -117,8 +117,8 @@ type Plugin struct {
 	FileUploader      FileUploader
 	RealTimeMsgSender RealTimeMessageSender
 
-	// The slack.Client is injected post-creation. It gives access to all the https://godoc.org/github.com/nlopes/slack#Client.
-	// Plugin writers might want to check out https://godoc.org/github.com/nlopes/slack/slacktest to create a slack test server in order
+	// The slack.Client is injected post-creation. It gives access to all the https://godoc.org/github.com/slack-go/slack#Client.
+	// Plugin writers might want to check out https://godoc.org/github.com/slack-go/slack/slacktest to create a slack test server in order
 	// to mock a slack server to test plugins using the SlackClient.
 	SlackClient *slack.Client
 }
@@ -317,7 +317,7 @@ func OptionLogfile(logfile *os.File) Option {
 }
 
 // OptionTestMode sets the instance in test mode which instructs it to react to a goodbye event to terminate
-// its execution. It is meant to be used for testing only and mostly in conjunction with github.com/nlopes/slack/slacktest.
+// its execution. It is meant to be used for testing only and mostly in conjunction with github.com/slack-go/slack/slacktest.
 // Very importantly, the termination message must be formed correctly so that the slackscot instance terminates
 // correctly for tests to actually terminate.
 //

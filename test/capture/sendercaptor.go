@@ -1,7 +1,7 @@
 package capture
 
 import (
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 // RealTimeSenderCaptor holds messages sent to it keyed

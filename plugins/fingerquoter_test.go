@@ -6,7 +6,7 @@ import (
 	"github.com/alexandre-normand/slackscot/plugins"
 	"github.com/alexandre-normand/slackscot/test/assertanswer"
 	"github.com/alexandre-normand/slackscot/test/assertplugin"
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"log"
