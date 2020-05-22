@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"cloud.google.com/go/datastore"
-	opentelemetry "go.opentelemetry.io/otel/api/global"
+	"go.opentelemetry.io/otel/api/metric"
 	"google.golang.org/api/option"
 )
 
@@ -50,12 +50,10 @@ func New(name string, gcloudProjectID string, gcloudClientOpts ...option.ClientO
 // Note that in order to support a deployment where credentials can get updated, the gcloudClientOpts should use
 // something like option.WithCredentialsFile with the credentials file being updated on disk so that when reconnecting
 // on a failure, the updated credentials are visible through the same gcloud client options
-func NewWithTelemetry(appName string, kindName string, gcloudProjectID string, gcloudClientOpts ...option.ClientOption) (dsdb *DatastoreDB, err error) {
+func NewWithTelemetry(appName string, meter metric.Meter, kindName string, gcloudProjectID string, gcloudClientOpts ...option.ClientOption) (dsdb *DatastoreDB, err error) {
 	ds := new(gcdatastore)
 	ds.gcloudProjectID = gcloudProjectID
 	ds.gcloudClientOpts = gcloudClientOpts
-
-	meter := opentelemetry.MeterProvider().Meter("github.com/alexandre-normand/slackscot")
 
 	return newWithDatastorer(kindName, NewdatastorerWithTelemetry(ds, appName, meter))
 }
