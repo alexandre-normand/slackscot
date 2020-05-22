@@ -1,8 +1,10 @@
 package datastoredb
 
 import (
-	"cloud.google.com/go/datastore"
 	"context"
+
+	"cloud.google.com/go/datastore"
+	opentelemetry "go.opentelemetry.io/otel/api/global"
 	"google.golang.org/api/option"
 )
 
@@ -37,6 +39,25 @@ func New(name string, gcloudProjectID string, gcloudClientOpts ...option.ClientO
 	ds.gcloudClientOpts = gcloudClientOpts
 
 	return newWithDatastorer(name, ds)
+}
+
+// NewWithTelemetry returns a new instance of DatastoreDB similar to New but with added opentelemetry
+// instrumentation. Note that even if no metrics exporter is configured, it is safe to use telemetry
+// and should result with NOOP operations with a small overhead.
+//
+// For the given name (which maps to the datastore entity "Kind" and can
+// be thought of as the namespace). This function also requires a gcloudProjectID as well as at least one option to provide gcloud client credentials.
+// Note that in order to support a deployment where credentials can get updated, the gcloudClientOpts should use
+// something like option.WithCredentialsFile with the credentials file being updated on disk so that when reconnecting
+// on a failure, the updated credentials are visible through the same gcloud client options
+func NewWithTelemetry(appName string, kindName string, gcloudProjectID string, gcloudClientOpts ...option.ClientOption) (dsdb *DatastoreDB, err error) {
+	ds := new(gcdatastore)
+	ds.gcloudProjectID = gcloudProjectID
+	ds.gcloudClientOpts = gcloudClientOpts
+
+	meter := opentelemetry.MeterProvider().Meter("github.com/alexandre-normand/slackscot")
+
+	return newWithDatastorer(kindName, NewdatastorerWithTelemetry(ds, appName, meter))
 }
 
 // newWithDatastorer returns a new instance of DatastoreDB using the provided datastorer
