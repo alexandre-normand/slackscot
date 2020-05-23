@@ -1,37 +1,34 @@
 name: Go
 on: [push, pull_request]
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
 
-    - name: Set up Go 1.13
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.13
-      id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v1
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v1
+      - name: Get dependencies
+        run: go get -v -t -d ./...
 
-    - name: Get dependencies
-      run: |
-        go get -v -t -d ./...
-
-    - name: Build
-      run: go build -v .
+      - name: Build
+        run: go build -v .
     
-    - name: Test
-      run: go test -coverprofile c.out ./... 
+      - name: Test
+        run: go test -coverprofile c.out ./... 
     
-    - name: Slow Tests
-      run: go test ./plugins/ -slow
+      - name: Slow Tests
+        run: go test ./plugins/ -slow
     
-    - name: Code Coverage 
-      uses: aktions/codeclimate-test-reporter@v1
-      if: github.ref == 'refs/heads/master'
-      with:
-        codeclimate-test-reporter-id: ${{ secrets.CC_TEST_REPORTER_ID }}
-        command: after-build --prefix github.com/alexandre-normand/slackscot/
+      - name: Code Coverage 
+        uses: aktions/codeclimate-test-reporter@v1
+        if: github.ref == 'refs/heads/master'
+        with:
+          codeclimate-test-reporter-id: ${{ secrets.CC_TEST_REPORTER_ID }}
+          command: after-build --prefix github.com/alexandre-normand/slackscot/
