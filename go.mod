@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v0.0.0-20190203031304-2f17a3356c66
-	go.opentelemetry.io/otel v0.2.3
+	go.opentelemetry.io/otel v0.6.0
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478 // indirect
 	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
 	google.golang.org/api v0.20.0

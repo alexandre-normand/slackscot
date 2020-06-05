@@ -12,47 +12,49 @@ import (
 	"unicode"
 
 	"github.com/slack-go/slack"
-	"go.opentelemetry.io/otel/api/key"
+	"go.opentelemetry.io/otel/api/kv"
 	"go.opentelemetry.io/otel/api/metric"
 )
 
 // FileUploaderWithTelemetry implements FileUploader interface with all methods wrapped
 // with open telemetry metrics
 type FileUploaderWithTelemetry struct {
-	base               FileUploader
-	methodCounters     map[string]metric.BoundInt64Counter
-	errCounters        map[string]metric.BoundInt64Counter
-	methodTimeMeasures map[string]metric.BoundInt64Measure
+	base                     FileUploader
+	methodCounters           map[string]metric.BoundInt64Counter
+	errCounters              map[string]metric.BoundInt64Counter
+	methodTimeValueRecorders map[string]metric.BoundInt64ValueRecorder
 }
 
 // NewFileUploaderWithTelemetry returns an instance of the FileUploader decorated with open telemetry timing and count metrics
 func NewFileUploaderWithTelemetry(base FileUploader, name string, meter metric.Meter) FileUploaderWithTelemetry {
 	return FileUploaderWithTelemetry{
-		base:               base,
-		methodCounters:     newFileUploaderMethodCounters("Calls", name, meter),
-		errCounters:        newFileUploaderMethodCounters("Errors", name, meter),
-		methodTimeMeasures: newFileUploaderMethodTimeMeasures(name, meter),
+		base:                     base,
+		methodCounters:           newFileUploaderMethodCounters("Calls", name, meter),
+		errCounters:              newFileUploaderMethodCounters("Errors", name, meter),
+		methodTimeValueRecorders: newFileUploaderMethodTimeValueRecorders(name, meter),
 	}
 }
 
-func newFileUploaderMethodTimeMeasures(appName string, meter metric.Meter) (boundTimeMeasures map[string]metric.BoundInt64Measure) {
-	boundTimeMeasures = make(map[string]metric.BoundInt64Measure)
+func newFileUploaderMethodTimeValueRecorders(appName string, meter metric.Meter) (boundTimeValueRecorders map[string]metric.BoundInt64ValueRecorder) {
+	boundTimeValueRecorders = make(map[string]metric.BoundInt64ValueRecorder)
+	mt := metric.Must(meter)
 
-	nUploadFileMeasure := []rune("FileUploader_UploadFile_ProcessingTimeMillis")
-	nUploadFileMeasure[0] = unicode.ToLower(nUploadFileMeasure[0])
-	mUploadFile := meter.NewInt64Measure(string(nUploadFileMeasure), metric.WithKeys(key.New("name")))
-	boundTimeMeasures["UploadFile"] = mUploadFile.Bind(meter.Labels(key.New("name").String(appName)))
+	nUploadFileValRecorder := []rune("FileUploader_UploadFile_ProcessingTimeMillis")
+	nUploadFileValRecorder[0] = unicode.ToLower(nUploadFileValRecorder[0])
+	mUploadFile := mt.NewInt64ValueRecorder(string(nUploadFileValRecorder))
+	boundTimeValueRecorders["UploadFile"] = mUploadFile.Bind(kv.Key("name").String(appName))
 
-	return boundTimeMeasures
+	return boundTimeValueRecorders
 }
 
 func newFileUploaderMethodCounters(suffix string, appName string, meter metric.Meter) (boundCounters map[string]metric.BoundInt64Counter) {
 	boundCounters = make(map[string]metric.BoundInt64Counter)
+	mt := metric.Must(meter)
 
 	nUploadFileCounter := []rune("FileUploader_UploadFile_" + suffix)
 	nUploadFileCounter[0] = unicode.ToLower(nUploadFileCounter[0])
-	cUploadFile := meter.NewInt64Counter(string(nUploadFileCounter), metric.WithKeys(key.New("name")))
-	boundCounters["UploadFile"] = cUploadFile.Bind(meter.Labels(key.New("name").String(appName)))
+	cUploadFile := mt.NewInt64Counter(string(nUploadFileCounter))
+	boundCounters["UploadFile"] = cUploadFile.Bind(kv.Key("name").String(appName))
 
 	return boundCounters
 }
@@ -69,7 +71,7 @@ func (_d FileUploaderWithTelemetry) UploadFile(params slack.FileUploadParameters
 		methodCounter := _d.methodCounters["UploadFile"]
 		methodCounter.Add(context.Background(), 1)
 
-		methodTimeMeasure := _d.methodTimeMeasures["UploadFile"]
+		methodTimeMeasure := _d.methodTimeValueRecorders["UploadFile"]
 		methodTimeMeasure.Record(context.Background(), time.Since(_since).Milliseconds())
 	}()
 	return _d.base.UploadFile(params, options...)

@@ -68,7 +68,8 @@ type Slackscot struct {
 	// Termination channel
 	terminationCh chan bool
 
-	meter metric.Meter
+	meter              metric.Meter
+	slackLatencyMillis int64
 
 	*partitionRouter
 
@@ -428,7 +429,10 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 		opt(s)
 	}
 
-	s.instrumenter = newInstrumenter(name, s.meter)
+	s.instrumenter, err = newInstrumenter(name, s.meter, s.reportLatency)
+	if err != nil {
+		return nil, err
+	}
 
 	s.partitionRouter, err = newPartitionRouter(partitionCount, s.config.GetInt(config.MessageProcessingBufferedMessageCount), s.log, s.instrumenter)
 	if err != nil {
@@ -441,6 +445,10 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 // defaultAnswer for a message directed to slackscot that isn't matching any known plugin command
 func defaultAction(m *IncomingMessage) *Answer {
 	return &Answer{Text: fmt.Sprintf("I don't understand. Ask me for \"%s\" to get a list of things I do", helpPluginName)}
+}
+
+func (s *Slackscot) reportLatency(ctx context.Context, result metric.Int64ObserverResult) {
+	result.Observe(s.slackLatencyMillis)
 }
 
 // Close closes all closers of this slackscot. The first error that occurs
@@ -533,7 +541,6 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 	for msg := range events {
 		switch e := msg.Data.(type) {
 		case *slack.ConnectedEvent:
-			s.coreMetrics.slackLatencyMillis.Set(context.Background(), 0)
 			s.log.Printf("Infos: %v\n", e.Info)
 			s.log.Printf("Connection counter: %d\n", e.ConnectionCount)
 			err := s.cacheSelfIdentity(deps.selfInfoFinder, deps.userInfoFinder)
@@ -547,7 +554,7 @@ func (s *Slackscot) runInternal(events <-chan slack.RTMEvent, deps *runDependenc
 			s.routeMessageEvent(*e)
 
 		case *slack.LatencyReport:
-			s.coreMetrics.slackLatencyMillis.Set(context.Background(), e.Value.Milliseconds())
+			s.slackLatencyMillis = e.Value.Milliseconds()
 			s.log.Printf("Current latency: %v\n", e.Value)
 
 		case *slack.RTMError:
@@ -1097,9 +1104,15 @@ func (s *Slackscot) tryPluginActions(pluginName string, actionType string, actio
 		}
 	}
 
-	pm := s.getOrCreatePluginMetrics(pluginName)
-	pm.processingTimeMillis.Record(context.Background(), time.Since(before).Milliseconds())
-	pm.reactionCount.Add(context.Background(), int64(len(outMsgs)))
+	pm, err := s.getOrCreatePluginMetrics(pluginName)
+	if err != nil {
+		s.log.Printf("Error creating plugin metrics for plugin [%s], skipping instrumentation measurements: %s", pluginName, err.Error())
+	} else {
+		ctx := context.Background()
+
+		pm.processingTimeMillis.Record(ctx, time.Since(before).Milliseconds())
+		pm.reactionCount.Add(ctx, int64(len(outMsgs)))
+	}
 
 	return outMsgs
 }
