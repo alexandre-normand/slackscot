@@ -87,7 +87,7 @@ func TestConsistentHashing(t *testing.T) {
 }
 
 func TestHashDistribution(t *testing.T) {
-	// Generate message IDs that are all different to validate the uniform distribution accross partitions
+	// Generate message IDs that are all different to validate the uniform distribution across partitions
 	msgIDs := make([]SlackMessageID, 0)
 	for i := 0; i < 500000; i++ {
 		msgTimestamp := fmt.Sprintf("19292929%d.214", i*1000)
