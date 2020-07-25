@@ -236,7 +236,7 @@ type runDependencies struct {
 	slackClient       *slack.Client
 }
 
-// CommandMatcher is the interface that wraps methods required for defining how commands 
+// CommandMatcher is the interface that wraps methods required for defining how commands
 // are matched and how the corresponding slack user interface is generated
 type CommandMatcher interface {
 	// Return True if the message is a command
