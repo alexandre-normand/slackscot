@@ -24,7 +24,7 @@ func TestNewWithDefault(t *testing.T) {
 func TestLayerConfigWithDefaults(t *testing.T) {
 	v := viper.New()
 
-	for key, _ := range config.NewViperWithDefaults().AllSettings() {
+	for key := range config.NewViperWithDefaults().AllSettings() {
 		assert.Nil(t, v.Get(key))
 	}
 

@@ -113,7 +113,7 @@ func newBoundValueRecorderByMsgType(ValueRecorderName string, appName string, me
 
 // getOrCreatePluginMetrics returns an existing pluginMetrics for a plugin or creates a new one, if necessary
 func (ins *instrumenter) getOrCreatePluginMetrics(pluginName string) (pm pluginMetrics, err error) {
-	if pm, ok := ins.pluginMetrics[pluginName]; !ok {
+	if _, ok := ins.pluginMetrics[pluginName]; !ok {
 		pm, err = newPluginMetrics(ins.appName, pluginName, ins.meter)
 		if err != nil {
 			return pm, err

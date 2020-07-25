@@ -236,7 +236,8 @@ type runDependencies struct {
 	slackClient       *slack.Client
 }
 
-// Used for matching commands - as in when to use Command vs HearAction
+// CommandMatcher is the interface that wraps methods required for defining how commands 
+// are matched and how the corresponding slack user interface is generated
 type CommandMatcher interface {
 	// Return True if the message is a command
 	IsCmd(msg slack.Msg) bool
@@ -247,9 +248,10 @@ type CommandMatcher interface {
 	fmt.Stringer
 }
 
-//SelfMatcher is used for determining if a message is from the bot
+// SelfMatcher is the interface defining how slackscot determines that a message
+// originates from itself
 type SelfMatcher interface {
-	//IsBot Return true if the message is from the bot
+	// IsBot returns true if the message is from the bot
 	IsBot(msg slack.Msg) bool
 	fmt.Stringer
 }
@@ -726,9 +728,9 @@ func (s *Slackscot) processMessages(driver chatDriver, queue chan slack.MessageE
 func getOriginalMessageID(m slack.MessageEvent) (originalID SlackMessageID) {
 	if m.SubMessage != nil {
 		return SlackMessageID{channelID: m.Channel, timestamp: m.SubMessage.Timestamp}
-	} else {
-		return SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
 	}
+
+	return SlackMessageID{channelID: m.Channel, timestamp: m.Timestamp}
 }
 
 // getAgeOriginalMsg returns the age of an updated message as defined by the time elapsed between the message
