@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	"github.com/slack-go/slack"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // FileUploaderWithTelemetry implements FileUploader interface with all methods wrapped
@@ -42,7 +42,7 @@ func newFileUploaderMethodTimeValueRecorders(appName string, meter metric.Meter)
 	nUploadFileValRecorder := []rune("FileUploader_UploadFile_ProcessingTimeMillis")
 	nUploadFileValRecorder[0] = unicode.ToLower(nUploadFileValRecorder[0])
 	mUploadFile := mt.NewInt64ValueRecorder(string(nUploadFileValRecorder))
-	boundTimeValueRecorders["UploadFile"] = mUploadFile.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["UploadFile"] = mUploadFile.Bind(label.String("name", appName))
 
 	return boundTimeValueRecorders
 }
@@ -54,7 +54,7 @@ func newFileUploaderMethodCounters(suffix string, appName string, meter metric.M
 	nUploadFileCounter := []rune("FileUploader_UploadFile_" + suffix)
 	nUploadFileCounter[0] = unicode.ToLower(nUploadFileCounter[0])
 	cUploadFile := mt.NewInt64Counter(string(nUploadFileCounter))
-	boundCounters["UploadFile"] = cUploadFile.Bind(kv.Key("name").String(appName))
+	boundCounters["UploadFile"] = cUploadFile.Bind(label.String("name", appName))
 
 	return boundCounters
 }

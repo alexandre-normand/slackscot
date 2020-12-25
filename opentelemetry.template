@@ -1,8 +1,8 @@
 import (
   "time"
   "fmt"
-  "go.opentelemetry.io/otel/api/metric"
-  "go.opentelemetry.io/otel/api/kv"
+  "go.opentelemetry.io/otel/metric"
+  "go.opentelemetry.io/otel/label"
 )
 
 {{ $decorator := (or .Vars.DecoratorName (printf "%sWithTelemetry" .Interface.Name)) }}
@@ -35,7 +35,7 @@ func new{{.Interface.Name}}MethodTimeValueRecorders(appName string, meter metric
   n{{$method.Name}}ValRecorder := []rune("{{printf "%s_%s_ProcessingTimeMillis" $ifaceName $method.Name}}")
   n{{$method.Name}}ValRecorder[0] = unicode.ToLower(n{{$method.Name}}ValRecorder[0])
   m{{$method.Name}} := mt.NewInt64ValueRecorder(string(n{{$method.Name}}ValRecorder))
-  boundTimeValueRecorders["{{$method.Name}}"] = m{{$method.Name}}.Bind(kv.Key("name").String(appName))
+  boundTimeValueRecorders["{{$method.Name}}"] = m{{$method.Name}}.Bind(label.String("name", appName))
   {{end}}
 
   return boundTimeValueRecorders
@@ -50,7 +50,7 @@ func new{{.Interface.Name}}MethodCounters(suffix string, appName string, meter m
   n{{$method.Name}}Counter := []rune("{{printf "%s_%s_" $ifaceName $method.Name}}" + suffix)
   n{{$method.Name}}Counter[0] = unicode.ToLower(n{{$method.Name}}Counter[0])
   c{{$method.Name}} := mt.NewInt64Counter(string(n{{$method.Name}}Counter))
-  boundCounters["{{$method.Name}}"] = c{{$method.Name}}.Bind(kv.Key("name").String(appName))
+  boundCounters["{{$method.Name}}"] = c{{$method.Name}}.Bind(label.String("name", appName))
   {{end}}
 
   return boundCounters

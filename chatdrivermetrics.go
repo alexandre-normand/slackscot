@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	"github.com/slack-go/slack"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // chatDriverWithTelemetry implements chatDriver interface with all methods wrapped
@@ -42,17 +42,17 @@ func newchatDriverMethodTimeValueRecorders(appName string, meter metric.Meter) (
 	nDeleteMessageValRecorder := []rune("chatDriver_DeleteMessage_ProcessingTimeMillis")
 	nDeleteMessageValRecorder[0] = unicode.ToLower(nDeleteMessageValRecorder[0])
 	mDeleteMessage := mt.NewInt64ValueRecorder(string(nDeleteMessageValRecorder))
-	boundTimeValueRecorders["DeleteMessage"] = mDeleteMessage.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["DeleteMessage"] = mDeleteMessage.Bind(label.String("name", appName))
 
 	nSendMessageValRecorder := []rune("chatDriver_SendMessage_ProcessingTimeMillis")
 	nSendMessageValRecorder[0] = unicode.ToLower(nSendMessageValRecorder[0])
 	mSendMessage := mt.NewInt64ValueRecorder(string(nSendMessageValRecorder))
-	boundTimeValueRecorders["SendMessage"] = mSendMessage.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["SendMessage"] = mSendMessage.Bind(label.String("name", appName))
 
 	nUpdateMessageValRecorder := []rune("chatDriver_UpdateMessage_ProcessingTimeMillis")
 	nUpdateMessageValRecorder[0] = unicode.ToLower(nUpdateMessageValRecorder[0])
 	mUpdateMessage := mt.NewInt64ValueRecorder(string(nUpdateMessageValRecorder))
-	boundTimeValueRecorders["UpdateMessage"] = mUpdateMessage.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["UpdateMessage"] = mUpdateMessage.Bind(label.String("name", appName))
 
 	return boundTimeValueRecorders
 }
@@ -64,17 +64,17 @@ func newchatDriverMethodCounters(suffix string, appName string, meter metric.Met
 	nDeleteMessageCounter := []rune("chatDriver_DeleteMessage_" + suffix)
 	nDeleteMessageCounter[0] = unicode.ToLower(nDeleteMessageCounter[0])
 	cDeleteMessage := mt.NewInt64Counter(string(nDeleteMessageCounter))
-	boundCounters["DeleteMessage"] = cDeleteMessage.Bind(kv.Key("name").String(appName))
+	boundCounters["DeleteMessage"] = cDeleteMessage.Bind(label.String("name", appName))
 
 	nSendMessageCounter := []rune("chatDriver_SendMessage_" + suffix)
 	nSendMessageCounter[0] = unicode.ToLower(nSendMessageCounter[0])
 	cSendMessage := mt.NewInt64Counter(string(nSendMessageCounter))
-	boundCounters["SendMessage"] = cSendMessage.Bind(kv.Key("name").String(appName))
+	boundCounters["SendMessage"] = cSendMessage.Bind(label.String("name", appName))
 
 	nUpdateMessageCounter := []rune("chatDriver_UpdateMessage_" + suffix)
 	nUpdateMessageCounter[0] = unicode.ToLower(nUpdateMessageCounter[0])
 	cUpdateMessage := mt.NewInt64Counter(string(nUpdateMessageCounter))
-	boundCounters["UpdateMessage"] = cUpdateMessage.Bind(kv.Key("name").String(appName))
+	boundCounters["UpdateMessage"] = cUpdateMessage.Bind(label.String("name", appName))
 
 	return boundCounters
 }

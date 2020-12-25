@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	"cloud.google.com/go/datastore"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // datastorerWithTelemetry implements datastorer interface with all methods wrapped
@@ -42,32 +42,32 @@ func newdatastorerMethodTimeValueRecorders(appName string, meter metric.Meter) (
 	nCloseValRecorder := []rune("datastorer_Close_ProcessingTimeMillis")
 	nCloseValRecorder[0] = unicode.ToLower(nCloseValRecorder[0])
 	mClose := mt.NewInt64ValueRecorder(string(nCloseValRecorder))
-	boundTimeValueRecorders["Close"] = mClose.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["Close"] = mClose.Bind(label.String("name", appName))
 
 	nDeleteValRecorder := []rune("datastorer_Delete_ProcessingTimeMillis")
 	nDeleteValRecorder[0] = unicode.ToLower(nDeleteValRecorder[0])
 	mDelete := mt.NewInt64ValueRecorder(string(nDeleteValRecorder))
-	boundTimeValueRecorders["Delete"] = mDelete.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["Delete"] = mDelete.Bind(label.String("name", appName))
 
 	nGetValRecorder := []rune("datastorer_Get_ProcessingTimeMillis")
 	nGetValRecorder[0] = unicode.ToLower(nGetValRecorder[0])
 	mGet := mt.NewInt64ValueRecorder(string(nGetValRecorder))
-	boundTimeValueRecorders["Get"] = mGet.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["Get"] = mGet.Bind(label.String("name", appName))
 
 	nGetAllValRecorder := []rune("datastorer_GetAll_ProcessingTimeMillis")
 	nGetAllValRecorder[0] = unicode.ToLower(nGetAllValRecorder[0])
 	mGetAll := mt.NewInt64ValueRecorder(string(nGetAllValRecorder))
-	boundTimeValueRecorders["GetAll"] = mGetAll.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["GetAll"] = mGetAll.Bind(label.String("name", appName))
 
 	nPutValRecorder := []rune("datastorer_Put_ProcessingTimeMillis")
 	nPutValRecorder[0] = unicode.ToLower(nPutValRecorder[0])
 	mPut := mt.NewInt64ValueRecorder(string(nPutValRecorder))
-	boundTimeValueRecorders["Put"] = mPut.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["Put"] = mPut.Bind(label.String("name", appName))
 
 	nconnectValRecorder := []rune("datastorer_connect_ProcessingTimeMillis")
 	nconnectValRecorder[0] = unicode.ToLower(nconnectValRecorder[0])
 	mconnect := mt.NewInt64ValueRecorder(string(nconnectValRecorder))
-	boundTimeValueRecorders["connect"] = mconnect.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["connect"] = mconnect.Bind(label.String("name", appName))
 
 	return boundTimeValueRecorders
 }
@@ -79,32 +79,32 @@ func newdatastorerMethodCounters(suffix string, appName string, meter metric.Met
 	nCloseCounter := []rune("datastorer_Close_" + suffix)
 	nCloseCounter[0] = unicode.ToLower(nCloseCounter[0])
 	cClose := mt.NewInt64Counter(string(nCloseCounter))
-	boundCounters["Close"] = cClose.Bind(kv.Key("name").String(appName))
+	boundCounters["Close"] = cClose.Bind(label.String("name", appName))
 
 	nDeleteCounter := []rune("datastorer_Delete_" + suffix)
 	nDeleteCounter[0] = unicode.ToLower(nDeleteCounter[0])
 	cDelete := mt.NewInt64Counter(string(nDeleteCounter))
-	boundCounters["Delete"] = cDelete.Bind(kv.Key("name").String(appName))
+	boundCounters["Delete"] = cDelete.Bind(label.String("name", appName))
 
 	nGetCounter := []rune("datastorer_Get_" + suffix)
 	nGetCounter[0] = unicode.ToLower(nGetCounter[0])
 	cGet := mt.NewInt64Counter(string(nGetCounter))
-	boundCounters["Get"] = cGet.Bind(kv.Key("name").String(appName))
+	boundCounters["Get"] = cGet.Bind(label.String("name", appName))
 
 	nGetAllCounter := []rune("datastorer_GetAll_" + suffix)
 	nGetAllCounter[0] = unicode.ToLower(nGetAllCounter[0])
 	cGetAll := mt.NewInt64Counter(string(nGetAllCounter))
-	boundCounters["GetAll"] = cGetAll.Bind(kv.Key("name").String(appName))
+	boundCounters["GetAll"] = cGetAll.Bind(label.String("name", appName))
 
 	nPutCounter := []rune("datastorer_Put_" + suffix)
 	nPutCounter[0] = unicode.ToLower(nPutCounter[0])
 	cPut := mt.NewInt64Counter(string(nPutCounter))
-	boundCounters["Put"] = cPut.Bind(kv.Key("name").String(appName))
+	boundCounters["Put"] = cPut.Bind(label.String("name", appName))
 
 	nconnectCounter := []rune("datastorer_connect_" + suffix)
 	nconnectCounter[0] = unicode.ToLower(nconnectCounter[0])
 	cconnect := mt.NewInt64Counter(string(nconnectCounter))
-	boundCounters["connect"] = cconnect.Bind(kv.Key("name").String(appName))
+	boundCounters["connect"] = cconnect.Bind(label.String("name", appName))
 
 	return boundCounters
 }
