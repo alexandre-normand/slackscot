@@ -1,8 +1,8 @@
 package slackscot
 
 import (
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/metric"
 	"time"
 )
 
@@ -36,10 +36,10 @@ type pluginMetrics struct {
 }
 
 // newInstrumenter creates a new core instrumenter
-func newInstrumenter(appName string, meter metric.Meter, latencyCallback metric.Int64ObserverCallback) (ins *instrumenter, err error) {
+func newInstrumenter(appName string, meter metric.Meter, latencyCallback metric.Int64ObserverFunc) (ins *instrumenter, err error) {
 	ins = new(instrumenter)
 
-	defaultLabels := []kv.KeyValue{kv.Key("name").String(appName)}
+	defaultLabels := []label.KeyValue{label.String("name", appName)}
 
 	msgSeen, err := meter.NewInt64Counter("msgSeen")
 	if err != nil {
@@ -88,9 +88,9 @@ func newBoundCounterByMsgType(counterName string, appName string, meter metric.M
 		return nil, err
 	}
 
-	boundCounter[newMsgType] = c.Bind(kv.Key("name").String(appName), kv.Key("msgType").String(newMsgType))
-	boundCounter[updateMsgType] = c.Bind(kv.Key("name").String(appName), kv.Key("msgType").String(updateMsgType))
-	boundCounter[deleteMsgType] = c.Bind(kv.Key("name").String(appName), kv.Key("msgType").String(deleteMsgType))
+	boundCounter[newMsgType] = c.Bind(label.String("name", appName), label.String("msgType", newMsgType))
+	boundCounter[updateMsgType] = c.Bind(label.String("name", appName), label.String("msgType", updateMsgType))
+	boundCounter[deleteMsgType] = c.Bind(label.String("name", appName), label.String("msgType", deleteMsgType))
 
 	return boundCounter, nil
 }
@@ -104,9 +104,9 @@ func newBoundValueRecorderByMsgType(ValueRecorderName string, appName string, me
 		return nil, err
 	}
 
-	boundValueRecorder[newMsgType] = m.Bind(kv.Key("name").String(appName), kv.Key("msgType").String(newMsgType))
-	boundValueRecorder[updateMsgType] = m.Bind(kv.Key("name").String(appName), kv.Key("msgType").String(updateMsgType))
-	boundValueRecorder[deleteMsgType] = m.Bind(kv.Key("name").String(appName), kv.Key("msgType").String(deleteMsgType))
+	boundValueRecorder[newMsgType] = m.Bind(label.String("name", appName), label.String("msgType", newMsgType))
+	boundValueRecorder[updateMsgType] = m.Bind(label.String("name", appName), label.String("msgType", updateMsgType))
+	boundValueRecorder[deleteMsgType] = m.Bind(label.String("name", appName), label.String("msgType", deleteMsgType))
 
 	return boundValueRecorder, nil
 }
@@ -135,8 +135,8 @@ func newPluginMetrics(appName string, pluginName string, meter metric.Meter) (pm
 		return pm, err
 	}
 
-	pm.reactionCount = c.Bind(kv.Key("name").String(appName), kv.Key("plugin").String(pluginName))
-	pm.processingTimeMillis = m.Bind(kv.Key("name").String(appName), kv.Key("plugin").String(pluginName))
+	pm.reactionCount = c.Bind(label.String("name", appName), label.String("plugin", pluginName))
+	pm.processingTimeMillis = m.Bind(label.String("name", appName), label.String("plugin", pluginName))
 
 	return pm, nil
 }

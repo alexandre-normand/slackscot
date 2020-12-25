@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	"github.com/slack-go/slack"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // UserInfoFinderWithTelemetry implements UserInfoFinder interface with all methods wrapped
@@ -42,7 +42,7 @@ func newUserInfoFinderMethodTimeValueRecorders(appName string, meter metric.Mete
 	nGetUserInfoValRecorder := []rune("UserInfoFinder_GetUserInfo_ProcessingTimeMillis")
 	nGetUserInfoValRecorder[0] = unicode.ToLower(nGetUserInfoValRecorder[0])
 	mGetUserInfo := mt.NewInt64ValueRecorder(string(nGetUserInfoValRecorder))
-	boundTimeValueRecorders["GetUserInfo"] = mGetUserInfo.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["GetUserInfo"] = mGetUserInfo.Bind(label.String("name", appName))
 
 	return boundTimeValueRecorders
 }
@@ -54,7 +54,7 @@ func newUserInfoFinderMethodCounters(suffix string, appName string, meter metric
 	nGetUserInfoCounter := []rune("UserInfoFinder_GetUserInfo_" + suffix)
 	nGetUserInfoCounter[0] = unicode.ToLower(nGetUserInfoCounter[0])
 	cGetUserInfo := mt.NewInt64Counter(string(nGetUserInfoCounter))
-	boundCounters["GetUserInfo"] = cGetUserInfo.Bind(kv.Key("name").String(appName))
+	boundCounters["GetUserInfo"] = cGetUserInfo.Bind(label.String("name", appName))
 
 	return boundCounters
 }

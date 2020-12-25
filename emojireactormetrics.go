@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	"github.com/slack-go/slack"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel/label"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // EmojiReactorWithTelemetry implements EmojiReactor interface with all methods wrapped
@@ -42,7 +42,7 @@ func newEmojiReactorMethodTimeValueRecorders(appName string, meter metric.Meter)
 	nAddReactionValRecorder := []rune("EmojiReactor_AddReaction_ProcessingTimeMillis")
 	nAddReactionValRecorder[0] = unicode.ToLower(nAddReactionValRecorder[0])
 	mAddReaction := mt.NewInt64ValueRecorder(string(nAddReactionValRecorder))
-	boundTimeValueRecorders["AddReaction"] = mAddReaction.Bind(kv.Key("name").String(appName))
+	boundTimeValueRecorders["AddReaction"] = mAddReaction.Bind(label.String("name", appName))
 
 	return boundTimeValueRecorders
 }
@@ -54,7 +54,7 @@ func newEmojiReactorMethodCounters(suffix string, appName string, meter metric.M
 	nAddReactionCounter := []rune("EmojiReactor_AddReaction_" + suffix)
 	nAddReactionCounter[0] = unicode.ToLower(nAddReactionCounter[0])
 	cAddReaction := mt.NewInt64Counter(string(nAddReactionCounter))
-	boundCounters["AddReaction"] = cAddReaction.Bind(kv.Key("name").String(appName))
+	boundCounters["AddReaction"] = cAddReaction.Bind(label.String("name", appName))
 
 	return boundCounters
 }

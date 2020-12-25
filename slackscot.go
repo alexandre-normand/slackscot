@@ -10,8 +10,8 @@ import (
 	"github.com/slack-go/slack"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
-	opentelemetry "go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/metric"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"io"
 	"log"
 	"os"
@@ -425,7 +425,7 @@ func New(name string, v *viper.Viper, options ...Option) (s *Slackscot, err erro
 	s.botMatcher = &s.selfIdentity
 	s.cmdMatcher = &s.selfIdentity
 
-	s.meter = opentelemetry.MeterProvider().Meter("github.com/alexandre-normand/slackscot")
+	s.meter = otel.GetMeterProvider().Meter("github.com/alexandre-normand/slackscot")
 
 	for _, opt := range options {
 		opt(s)
