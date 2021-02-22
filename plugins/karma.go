@@ -26,7 +26,7 @@ const (
 	defaultItemCount = 5
 )
 
-var karmaRegex = regexp.MustCompile("(?:\\A|\\W)(?:(<(@[\\w']+)>\\s?))(\\+{2,6}|\\-{2,6}).*")
+var karmaRegex = regexp.MustCompile("(?:(<(@[\\w']+)>\\s?))(\\+{2,6}|\\-{2,6})")
 
 // Ranker represents attributes and behavior to process a ranking list
 type ranker struct {
@@ -197,7 +197,7 @@ func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answe
 			if increment == 1 {
 				answerText += fmt.Sprintf("`%s` just gained karma (`%s`: %d)", renderedThing, renderedThing, karma)
 			} else {
-				answerText = fmt.Sprintf("`%s` just gained %d karma points (`%s`: %d)", renderedThing, increment, renderedThing, karma)
+				answerText += fmt.Sprintf("`%s` just gained %d karma points (`%s`: %d)", renderedThing, increment, renderedThing, karma)
 			}
 
 		} else {
