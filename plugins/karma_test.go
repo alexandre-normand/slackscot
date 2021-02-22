@@ -21,7 +21,11 @@ type userInfoFinder struct {
 }
 
 func (u userInfoFinder) GetUserInfo(userID string) (user *slack.User, err error) {
-	return &slack.User{ID: userID, RealName: "Bernard Tremblay"}, nil
+	users := make(map[string]string)
+	users["U21355"] = "Bernard Tremblay"
+	users["U21356"] = "Great Scott"
+
+	return &slack.User{ID: userID, RealName: users[userID]}, nil
 }
 
 func TestKarmaMatchesAndAnswers(t *testing.T) {
@@ -43,6 +47,7 @@ func TestKarmaMatchesAndAnswers(t *testing.T) {
 		{"<@U21355>+++++", "Cgeneral", "`Bernard Tremblay` just gained 4 karma points (`Bernard Tremblay`: 16)"},
 		{"<@U21355>++++++", "Cgeneral", "`Bernard Tremblay` just gained 5 karma points (`Bernard Tremblay`: 21)"},
 		{"<@U21355>+++++++", "Cgeneral", "`Bernard Tremblay` just gained 5 karma points (`Bernard Tremblay`: 26)"},
+		{"<@U21355>++ <@U21356>++", "Cgeneral", "`Bernard Tremblay` just gained karma (`Bernard Tremblay`: 27)\n`Great Scott` just gained karma (`Great Scott`: 1)"},
 		{"+----------+", "Cgeneral", ""},
 		{"---", "Cgeneral", ""},
 		{"+++", "Cgeneral", ""},
