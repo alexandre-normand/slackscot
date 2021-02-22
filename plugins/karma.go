@@ -159,58 +159,68 @@ func matchKarmaReset(m *slackscot.IncomingMessage) bool {
 // recordKarma records a karma increase or decrease and answers with a message including
 // the recorded word with its associated karma value
 func (k *Karma) recordKarma(message *slackscot.IncomingMessage) *slackscot.Answer {
-	match := karmaRegex.FindAllStringSubmatch(message.Text, -1)[0]
-
-	thing := match[2]
-	// Prevent a user from attributing karma to self
-	if strings.TrimPrefix(thing, "@") == message.User {
-		return &slackscot.Answer{Text: "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:", Options: []slackscot.AnswerOption{slackscot.AnswerEphemeral(message.User)}}
-	}
-
-	rawValue, err := k.karmaStorer.GetSiloString(message.Channel, thing)
-	if err != nil {
-		rawValue = "0"
-	}
-	karma, err := strconv.Atoi(rawValue)
-	if err != nil {
-		k.Logger.Printf("[%s] Error parsing current karma value [%s], something's wrong and resetting to 0: %v", KarmaPluginName, rawValue, err)
-		karma = 0
-	}
-
-	log.Printf("thing is [%s]\n", thing)
+	matches := karmaRegex.FindAllStringSubmatch(message.Text, -1)
 	answerText := ""
-	renderedThing := k.renderThing(thing)
-
-	instruction := match[3]
-	if strings.HasPrefix(instruction, "+") {
-		incrementSymbols := strings.TrimPrefix(instruction, "+")
-		increment := len(incrementSymbols)
-		karma = karma + increment
-
-		if increment == 1 {
-			answerText = fmt.Sprintf("`%s` just gained karma (`%s`: %d)", renderedThing, renderedThing, karma)
-		} else {
-			answerText = fmt.Sprintf("`%s` just gained %d karma points (`%s`: %d)", renderedThing, increment, renderedThing, karma)
+	
+	for idx, match := range matches {
+		
+		// only add newlines if more than one match
+		if idx > 0 {
+			answerText += "\n"
+		}
+		
+		thing := match[2]
+		// Prevent a user from attributing karma to self
+		if strings.TrimPrefix(thing, "@") == message.User {
+			return &slackscot.Answer{Text: "*Attributing yourself karma is frown upon* :face_with_raised_eyebrow:", Options: []slackscot.AnswerOption{slackscot.AnswerEphemeral(message.User)}}
 		}
 
-	} else {
-		decrementSymbols := strings.TrimPrefix(instruction, "-")
-		decrement := len(decrementSymbols)
-		karma = karma - decrement
+		rawValue, err := k.karmaStorer.GetSiloString(message.Channel, thing)
+		if err != nil {
+			rawValue = "0"
+		}
+		karma, err := strconv.Atoi(rawValue)
+		if err != nil {
+			k.Logger.Printf("[%s] Error parsing current karma value [%s], something's wrong and resetting to 0: %v", KarmaPluginName, rawValue, err)
+			karma = 0
+		}
 
-		if decrement == 1 {
-			answerText = fmt.Sprintf("`%s` just lost karma (`%s`: %d)", renderedThing, renderedThing, karma)
+		log.Printf("thing is [%s]\n", thing)
+		renderedThing := k.renderThing(thing)
+
+		instruction := match[3]
+		if strings.HasPrefix(instruction, "+") {
+			incrementSymbols := strings.TrimPrefix(instruction, "+")
+			increment := len(incrementSymbols)
+			karma = karma + increment
+
+			if increment == 1 {
+				answerText += fmt.Sprintf("`%s` just gained karma (`%s`: %d)", renderedThing, renderedThing, karma)
+			} else {
+				answerText = fmt.Sprintf("`%s` just gained %d karma points (`%s`: %d)", renderedThing, increment, renderedThing, karma)
+			}
+
 		} else {
-			answerText = fmt.Sprintf("`%s` just lost %d karma points (`%s`: %d)", renderedThing, decrement, renderedThing, karma)
+			decrementSymbols := strings.TrimPrefix(instruction, "-")
+			decrement := len(decrementSymbols)
+			karma = karma - decrement
+
+			if decrement == 1 {
+				answerText += fmt.Sprintf("`%s` just lost karma (`%s`: %d)", renderedThing, renderedThing, karma)
+			} else {
+				answerText += fmt.Sprintf("`%s` just lost %d karma points (`%s`: %d)", renderedThing, decrement, renderedThing, karma)
+			}
+		}
+
+		// Store new value
+		err = k.karmaStorer.PutSiloString(message.Channel, thing, strconv.Itoa(karma))
+		if err != nil {
+			k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
+			return nil
 		}
 	}
 
-	// Store new value
-	err = k.karmaStorer.PutSiloString(message.Channel, thing, strconv.Itoa(karma))
-	if err != nil {
-		k.Logger.Printf("[%s] Error persisting karma: %v", KarmaPluginName, err)
-		return nil
-	}
+
 
 	return &slackscot.Answer{Text: answerText}
 }
