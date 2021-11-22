@@ -4,7 +4,7 @@ require (
 	cloud.google.com/go v0.38.0
 	github.com/alexandre-normand/figlet4go v1.0.0
 	github.com/fatih/color v1.7.0 // indirect
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/marcsantiago/gocron v0.0.0-20181105173523-9617b75671b1
