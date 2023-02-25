@@ -27,7 +27,7 @@ require (
 	go.opentelemetry.io/otel v0.17.0
 	go.opentelemetry.io/otel/metric v0.17.0
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478 // indirect
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	google.golang.org/api v0.20.0
 	google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
